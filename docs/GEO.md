@@ -82,11 +82,32 @@ voorbereid). Voor productie:
 
 ## Supabase
 
-Draai `supabase/migrations/0001_geo_tables.sql` in de Supabase SQL-editor (of via
-de Supabase CLI). Het maakt `geo_leads`, `geo_scan_requests` en
-`geo_scan_reports`, met RLS aan en geen publieke policies — de app schrijft met
-de service-role key (server-side), die RLS omzeilt. Zet daarna `SUPABASE_URL` +
-`SUPABASE_SERVICE_ROLE_KEY`.
+De tabellen `geo_leads`, `geo_scan_requests` en `geo_scan_reports` (RLS aan, geen
+publieke policies — de app schrijft met de service-role key, die RLS omzeilt).
+Schema-bron: `lib/geo/supabase/schema.ts` (gespiegeld naar
+`supabase/migrations/0001_geo_tables.sql`).
+
+Drie manieren om het schema aan te maken — kies wat past:
+
+**1. Migratie-route (geen Supabase-login nodig).** Voor het geval de creds al in
+Vercel staan (via de integratie) maar niemand in het Supabase-dashboard kan:
+
+1. Zet in het Vercel-project een env-var **`MIGRATE_SECRET`** = een willekeurige
+   string. Deploy.
+2. Open eenmalig in je browser:
+   `https://geo.nxtli.com/api/geo/migrate?secret=JOUW_SECRET`
+   (of `POST` met header `x-migrate-secret`). De route draait het schema via de
+   Postgres-connection string die de Vercel↔Supabase-integratie al heeft gezet
+   (`POSTGRES_URL_NON_POOLING` / `POSTGRES_URL` / …) en geeft de aangemaakte
+   tabellen terug.
+3. **Verwijder `MIGRATE_SECRET`** weer — zonder die var geeft de route 404
+   (uitgeschakeld). De route draait alleen vaste, idempotente DDL; geen
+   user-SQL.
+
+**2. Supabase SQL-editor.** Plak `supabase/migrations/0001_geo_tables.sql` →
+Run. Idempotent, veilig om opnieuw te draaien.
+
+**3. Supabase CLI.** `supabase db push` met het project gelinkt.
 
 ## De gedeelde Claude-skill `geo-page-checker` koppelen
 

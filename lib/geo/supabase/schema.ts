@@ -1,0 +1,80 @@
+/**
+ * Canonical GEO database schema (single source of truth).
+ *
+ * Mirrored to supabase/migrations/0001_geo_tables.sql for the SQL-editor path.
+ * The /api/geo/migrate route applies this against the Postgres connection that
+ * the Vercel↔Supabase integration injects. Idempotent — safe to run repeatedly.
+ */
+export const GEO_SCHEMA_SQL = `
+create extension if not exists "pgcrypto";
+
+create table if not exists public.geo_leads (
+  id               uuid primary key default gen_random_uuid(),
+  created_at       timestamptz not null default now(),
+  name             text not null,
+  email            text not null,
+  company_name     text not null,
+  homepage_url     text not null,
+  offer_description text not null,
+  target_audience  text not null,
+  desired_queries  text not null,
+  competitors      text,
+  consent          boolean not null default false,
+  source           text not null default 'geo.nxtli.com'
+);
+create index if not exists geo_leads_email_idx on public.geo_leads (email);
+create index if not exists geo_leads_created_at_idx on public.geo_leads (created_at desc);
+
+create table if not exists public.geo_scan_requests (
+  id               uuid primary key default gen_random_uuid(),
+  created_at       timestamptz not null default now(),
+  lead_id          uuid references public.geo_leads (id) on delete set null,
+  status           text not null default 'pending',
+  homepage_url     text not null,
+  raw_input        jsonb not null,
+  analysis_result  jsonb,
+  report_url       text,
+  pdf_url          text,
+  email_sent_at    timestamptz,
+  error_message    text
+);
+create index if not exists geo_scan_requests_lead_idx on public.geo_scan_requests (lead_id);
+create index if not exists geo_scan_requests_status_idx on public.geo_scan_requests (status);
+
+create table if not exists public.geo_scan_reports (
+  id               uuid primary key default gen_random_uuid(),
+  created_at       timestamptz not null default now(),
+  scan_request_id  uuid references public.geo_scan_requests (id) on delete cascade,
+  lead_id          uuid references public.geo_leads (id) on delete set null,
+  visibility_score integer,
+  summary          text,
+  strengths        jsonb not null default '[]'::jsonb,
+  weaknesses       jsonb not null default '[]'::jsonb,
+  recommendations  jsonb not null default '[]'::jsonb,
+  content_gaps     jsonb not null default '[]'::jsonb,
+  priority_actions jsonb not null default '[]'::jsonb,
+  report_html      text,
+  pdf_url          text
+);
+create index if not exists geo_scan_reports_scan_idx on public.geo_scan_reports (scan_request_id);
+
+alter table public.geo_leads          enable row level security;
+alter table public.geo_scan_requests  enable row level security;
+alter table public.geo_scan_reports   enable row level security;
+`;
+
+/** Connection-string env vars set by the Vercel↔Supabase integration, in order. */
+export const PG_CONNECTION_ENV_VARS = [
+  "POSTGRES_URL_NON_POOLING",
+  "POSTGRES_URL",
+  "SUPABASE_DB_URL",
+  "DATABASE_URL",
+] as const;
+
+export function resolvePgConnectionString(): string | null {
+  for (const key of PG_CONNECTION_ENV_VARS) {
+    const v = process.env[key];
+    if (v && v.trim()) return v.trim();
+  }
+  return null;
+}

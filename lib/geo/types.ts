@@ -99,6 +99,24 @@ export interface RecommendedFaq {
   why: string;
 }
 
+/** A per-category score that makes up the total (sums to 100). */
+export interface CategoryScore {
+  key: string;
+  label: string;
+  score: number;
+  max: number;
+  summary: string;
+}
+
+export type TechnicalStatus = "goed" | "aandacht" | "blokker" | "onbekend";
+
+/** A single technical-check item, reported separately from the content score. */
+export interface TechnicalCheck {
+  label: string;
+  status: TechnicalStatus;
+  detail: string;
+}
+
 /**
  * Input handed to the AI analysis layer.
  * `page_content` / `metadata` are optional — populated only if homepage
@@ -132,7 +150,9 @@ export interface GeoPageMetadata {
  * analysis provider (Claude, mock, or the existing NXTLI skill) must return.
  */
 export interface GeoAnalysisResult {
-  visibility_score: number; // 0-100
+  visibility_score: number; // 0-100, sum of category_scores
+  category_scores: CategoryScore[];
+  technical_checks: TechnicalCheck[];
   short_summary: string;
   what_ai_understands: string;
   likely_ai_positioning: string;
@@ -155,6 +175,7 @@ export interface GeoScanResponse {
   /** Short preview Brian shows in the chat. */
   preview?: {
     visibility_score: number;
+    category_scores: CategoryScore[];
     short_summary: string;
     strengths: string[];
     quick_wins: string[];

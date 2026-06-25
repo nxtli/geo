@@ -49,6 +49,7 @@ export function buildPreview(
 ): NonNullable<GeoScanResponse["preview"]> {
   return {
     visibility_score: analysis.visibility_score,
+    category_scores: analysis.category_scores,
     short_summary: analysis.short_summary,
     strengths: analysis.strengths.slice(0, 3),
     quick_wins: analysis.quick_wins.slice(0, 3),

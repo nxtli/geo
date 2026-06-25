@@ -1,5 +1,10 @@
-import type { GeoAnalysisInput, GeoAnalysisResult } from "../../types";
+import type {
+  GeoAnalysisInput,
+  GeoAnalysisResult,
+  TechnicalCheck,
+} from "../../types";
 import type { GeoAnalysisOutcome, GeoAnalysisProvider } from "../provider";
+import { GEO_CATEGORIES } from "../rubric";
 
 /**
  * Deterministic fallback provider. Always configured, never calls the network.
@@ -27,8 +32,69 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
     if (input.metadata?.description) score += 6;
     score = Math.max(28, Math.min(82, score));
 
+    // Break the total down across the rubric so the breakdown sums to the total.
+    const frac = score / 100;
+    const category_scores = GEO_CATEGORIES.map((c) => ({
+      key: c.key,
+      label: c.label,
+      max: c.max,
+      score: Math.round(c.max * frac),
+      summary: "Voorlopige inschatting op basis van je antwoorden (mock).",
+    }));
+    const total = category_scores.reduce((s, c) => s + c.score, 0);
+
+    const technical_checks: TechnicalCheck[] = [
+      {
+        label: "AI-crawler-toegang (robots.txt)",
+        status: input.robots_txt == null ? "onbekend" : "goed",
+        detail:
+          input.robots_txt == null
+            ? "robots.txt niet opgehaald — toegang niet geverifieerd."
+            : "Geen blokkade voor AI-search-bots aangetroffen.",
+      },
+      {
+        label: "Indexeerbaarheid (noindex/nofollow)",
+        status: fetched ? "goed" : "onbekend",
+        detail: fetched ? "Geen noindex aangetroffen." : "Niet gecontroleerd.",
+      },
+      {
+        label: "Content-rendering (zonder JavaScript leesbaar)",
+        status: fetched ? "goed" : "aandacht",
+        detail: fetched
+          ? "Tekst staat in de HTML."
+          : "Pagina kon niet automatisch worden opgehaald.",
+      },
+      {
+        label: "Structured data (schema / JSON-LD)",
+        status: "onbekend",
+        detail: "Niet te verifiëren zonder browser.",
+      },
+      {
+        label: "Semantische HTML (koppenstructuur)",
+        status: "onbekend",
+        detail: "Niet automatisch beoordeeld in deze voorlopige scan.",
+      },
+      {
+        label: "llms.txt",
+        status:
+          input.llms_txt_present === true
+            ? "goed"
+            : input.llms_txt_present === false
+              ? "aandacht"
+              : "onbekend",
+        detail:
+          input.llms_txt_present === true
+            ? "Aanwezig."
+            : input.llms_txt_present === false
+              ? "Niet gevonden."
+              : "Niet gecontroleerd.",
+      },
+    ];
+
     const result: GeoAnalysisResult = {
-      visibility_score: score,
+      visibility_score: total,
+      category_scores,
+      technical_checks,
       short_summary: fetched
         ? `${company} is herkenbaar online aanwezig, maar de homepage maakt voor AI-systemen nog niet scherp genoeg duidelijk wat je precies aanbiedt en voor wie. Met een paar gerichte aanpassingen word je makkelijker samengevat en aanbevolen.`
         : `Op basis van je antwoorden heeft ${company} een duidelijk aanbod, maar we konden de homepage niet automatisch ophalen. De grootste kans ligt in het concreter en gestructureerder maken van je content zodat AI-systemen je expertise herkennen.`,

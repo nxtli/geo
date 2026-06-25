@@ -1,4 +1,11 @@
 import type { GeoAnalysisInput } from "../types";
+import { GEO_CATEGORIES, GEO_TECHNICAL_CHECKS } from "./rubric";
+
+const CATEGORY_LIST = GEO_CATEGORIES.map(
+  (c) => `  - key "${c.key}", label "${c.label}", max ${c.max}`,
+).join("\n");
+
+const TECH_LIST = GEO_TECHNICAL_CHECKS.map((t) => `  - ${t}`).join("\n");
 
 /**
  * GEO analysis prompt — embeds the NXTLI `geo-page-checker` methodology
@@ -33,7 +40,13 @@ Principes:
 - Prioriteer verbeterpunten op impact (blokkers eerst), niet op volgorde van de checklist.
 
 Schrijf in helder, menselijk Nederlands (B1): direct, scherp, bruikbaar, geen jargon zonder uitleg, geen AI-hype. Geef uitsluitend een resultaat terug dat exact voldoet aan het opgegeven JSON-schema. Vul de velden zo:
-- visibility_score: 0-100 volgens de weging hierboven.
+- visibility_score: 0-100, exact gelijk aan de som van category_scores.
+- category_scores: geef voor ELKE categorie een score (0..max) met precies deze key, label en max:
+${CATEGORY_LIST}
+  De som van deze scores ís de visibility_score. Voeg per categorie een korte "summary" toe die de toegekende score onderbouwt met wat je op de pagina zag.
+- technical_checks: geef per item een status ("goed" | "aandacht" | "blokker" | "onbekend") en een korte "detail", voor precies deze items:
+${TECH_LIST}
+  Snelheid wordt niet gemeten — laat die weg. Kun je iets niet verifiëren (bijv. schema zonder browser), gebruik status "onbekend" en trek er geen punten voor af.
 - what_ai_understands / likely_ai_positioning: wat een AI nu van de pagina begrijpt en hoe het je positioneert.
 - strengths/weaknesses: per rubriekcategorie, concreet.
 - missing_signals: ontbrekende vertrouwens-/bewijs-/entiteitssignalen.

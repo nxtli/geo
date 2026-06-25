@@ -77,6 +77,43 @@ export function renderReportHtml(params: {
   <h2>Samenvatting</h2>
   <p>${esc(analysis.short_summary)}</p>
 
+  <h2>Hoe de score is opgebouwd</h2>
+  ${
+    analysis.category_scores.length
+      ? `<table>
+          ${analysis.category_scores
+            .map(
+              (c) => `<tr>
+                <td style="width:38%"><strong>${esc(c.label)}</strong><br/><span class="muted">${esc(c.summary)}</span></td>
+                <td style="width:42%">
+                  <div class="bar"><i style="width:${pct(c.score, c.max)}%"></i></div>
+                </td>
+                <td style="text-align:right;white-space:nowrap"><strong>${c.score}</strong><span class="muted">/${c.max}</span></td>
+              </tr>`,
+            )
+            .join("")}
+          <tr><td><strong>Totaal</strong></td><td></td><td style="text-align:right"><strong>${score}/100</strong></td></tr>
+        </table>`
+      : `<p class="muted">Geen onderverdeling beschikbaar.</p>`
+  }
+
+  <h2>Technische check</h2>
+  ${
+    analysis.technical_checks.length
+      ? `<table>
+          ${analysis.technical_checks
+            .map(
+              (t) => `<tr>
+                <td style="width:34%"><strong>${esc(t.label)}</strong></td>
+                <td>${techBadge(t.status)} <span class="muted">${esc(t.detail)}</span></td>
+              </tr>`,
+            )
+            .join("")}
+        </table>
+        <p class="muted" style="font-size:13px">Snelheid (Core Web Vitals) is in deze scan niet gemeten.</p>`
+      : `<p class="muted">Geen technische check beschikbaar.</p>`
+  }
+
   <h2>Wat AI waarschijnlijk begrijpt van deze website</h2>
   <div class="card">${esc(analysis.what_ai_understands)}</div>
   ${
@@ -148,6 +185,22 @@ export function renderReportHtml(params: {
 </div>
 </body>
 </html>`;
+}
+
+function pct(score: number, max: number): number {
+  if (!max) return 0;
+  return Math.max(0, Math.min(100, Math.round((score / max) * 100)));
+}
+
+function techBadge(status: string): string {
+  const map: Record<string, { bg: string; label: string }> = {
+    goed: { bg: "#16a34a", label: "Goed" },
+    aandacht: { bg: "#d97706", label: "Aandacht" },
+    blokker: { bg: "#dc2626", label: "Blokker" },
+    onbekend: { bg: "#94a3b8", label: "Onbekend" },
+  };
+  const s = map[status] ?? map.onbekend;
+  return `<span class="badge" style="background:${s.bg};font-size:11px">${s.label}</span>`;
 }
 
 function list(items: string[]): string {

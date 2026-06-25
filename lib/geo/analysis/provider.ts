@@ -40,10 +40,26 @@ const faqSchema = z.object({
  * GeoAnalysisResult. Coerces loose shapes (string vs array) so a provider
  * can be a little sloppy without breaking the pipeline.
  */
+const categoryScoreSchema = z.object({
+  key: z.string().default(""),
+  label: z.string(),
+  score: z.coerce.number().transform((n) => Math.max(0, Math.round(n))),
+  max: z.coerce.number().transform((n) => Math.max(1, Math.round(n))),
+  summary: z.string().default(""),
+});
+
+const technicalCheckSchema = z.object({
+  label: z.string(),
+  status: z.enum(["goed", "aandacht", "blokker", "onbekend"]).catch("onbekend"),
+  detail: z.string().default(""),
+});
+
 export const geoAnalysisResultSchema = z.object({
   visibility_score: z.coerce
     .number()
     .transform((n) => Math.max(0, Math.min(100, Math.round(n)))),
+  category_scores: z.array(categoryScoreSchema).default([]),
+  technical_checks: z.array(technicalCheckSchema).default([]),
   short_summary: z.string(),
   what_ai_understands: z.string().default(""),
   likely_ai_positioning: z.string().default(""),
@@ -59,7 +75,15 @@ export const geoAnalysisResultSchema = z.object({
 });
 
 export function parseAnalysisResult(value: unknown): GeoAnalysisResult {
-  return geoAnalysisResultSchema.parse(value) as GeoAnalysisResult;
+  const parsed = geoAnalysisResultSchema.parse(value) as GeoAnalysisResult;
+  // Guarantee the total equals the sum of the breakdown (clamped to each max),
+  // so "hoe de score is opgebouwd" always adds up to the headline number.
+  if (parsed.category_scores.length > 0) {
+    for (const c of parsed.category_scores) c.score = Math.min(c.score, c.max);
+    const sum = parsed.category_scores.reduce((s, c) => s + c.score, 0);
+    parsed.visibility_score = Math.max(0, Math.min(100, sum));
+  }
+  return parsed;
 }
 
 /**
@@ -73,6 +97,34 @@ export const geoAnalysisJsonSchema = {
   additionalProperties: false,
   properties: {
     visibility_score: { type: "integer" },
+    category_scores: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          key: { type: "string" },
+          label: { type: "string" },
+          score: { type: "integer" },
+          max: { type: "integer" },
+          summary: { type: "string" },
+        },
+        required: ["key", "label", "score", "max", "summary"],
+      },
+    },
+    technical_checks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          label: { type: "string" },
+          status: { type: "string", enum: ["goed", "aandacht", "blokker", "onbekend"] },
+          detail: { type: "string" },
+        },
+        required: ["label", "status", "detail"],
+      },
+    },
     short_summary: { type: "string" },
     what_ai_understands: { type: "string" },
     likely_ai_positioning: { type: "string" },
@@ -114,6 +166,8 @@ export const geoAnalysisJsonSchema = {
   },
   required: [
     "visibility_score",
+    "category_scores",
+    "technical_checks",
     "short_summary",
     "what_ai_understands",
     "likely_ai_positioning",

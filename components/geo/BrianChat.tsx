@@ -499,6 +499,29 @@ function ResultCard({ result }: { result: GeoScanResponse }) {
         </div>
       </div>
       <p className="text-sm leading-relaxed text-muted">{p.short_summary}</p>
+      {p.category_scores?.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-semibold text-ink">Opbouw van de score</div>
+          <ul className="space-y-1.5">
+            {p.category_scores.map((c) => (
+              <li key={c.key || c.label} className="flex items-center gap-2 text-xs">
+                <span className="w-40 shrink-0 truncate text-muted" title={c.label}>
+                  {c.label}
+                </span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-elevated">
+                  <span
+                    className="block h-full rounded-full bg-gradient-to-r from-brand to-accent"
+                    style={{ width: `${Math.round((c.score / Math.max(1, c.max)) * 100)}%` }}
+                  />
+                </span>
+                <span className="w-10 shrink-0 text-right font-medium text-ink">
+                  {c.score}/{c.max}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {p.quick_wins.length > 0 && (
         <div>
           <div className="mb-1.5 text-xs font-semibold text-ink">Quick wins</div>

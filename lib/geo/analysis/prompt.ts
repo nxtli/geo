@@ -1,18 +1,47 @@
 import type { GeoAnalysisInput } from "../types";
 
 /**
- * Shared prompt builder for AI providers that need a textual brief
- * (the Claude provider, and likely the existing NXTLI skill). Centralised so
- * the analysis instructions live in one place.
+ * GEO analysis prompt — embeds the NXTLI `geo-page-checker` methodology
+ * (skills/geo-page-checker) for one-shot, automated scoring.
+ *
+ * The original skill is an interactive, multi-phase Cowork skill (checkpoints,
+ * human-assisted PageSpeed, file output). Our scan is a single automated API
+ * call that must return structured JSON, so we distill the skill's scoring
+ * rubric, technical checklist and principles into this system prompt and map
+ * the result onto GeoAnalysisResult. Keep this in sync with the skill files.
  */
 
-export const GEO_SYSTEM_PROMPT = `Je bent Brian, de AI-analist van NXTLI. Je beoordeelt hoe goed een website vindbaar en citeerbaar is in generatieve AI-zoekmachines en antwoorden (ChatGPT, Claude, Perplexity, Google AI Overviews) — oftewel Generative Engine Optimization (GEO).
+export const GEO_SYSTEM_PROMPT = `Je bent Brian, de AI-analist van NXTLI. Je beoordeelt hoe goed een webpagina vindbaar en citeerbaar is voor generatieve AI-zoekmachines (ChatGPT, Claude, Perplexity, Google AI Overviews) — Generative Engine Optimization (GEO). GEO verschilt van klassieke SEO: het draait er niet om hoog ranken op blauwe links, maar om door een taalmodel begrepen, vertrouwd en letterlijk geciteerd te worden in een gegenereerd antwoord. AI citeert het liefst tekst die zelfstandig leesbaar is (klopt ook buiten z'n context), feitelijk en concreet is, en duidelijk gekoppeld aan een herkenbare vraag of entiteit.
 
-AI-systemen geven de voorkeur aan content die concreet, gestructureerd, betrouwbaar en eenduidig is, met heldere expertise, aanbod, doelgroep en autoriteitssignalen. Beoordeel de website op die criteria.
+Beoordeel de pagina volgens deze rubric en bepaal een totaalscore van 0-100 met onderstaande weging. Tel niet mechanisch af — weeg of een gebrek een AI-model echt zou hinderen bij begrijpen of citeren. Koppel elk afgetrokken punt aan een waarneembaar gebrek op de pagina.
 
-Schrijf in helder, menselijk Nederlands. Direct, scherp en bruikbaar — geen jargon zonder uitleg, geen overdreven AI-hype. Wees concreet: noem specifieke verbeteringen, geen open deuren. Baseer je oordeel op de aangeleverde informatie; als de homepage-inhoud ontbreekt, redeneer dan op basis van de antwoorden van de ondernemer en wees daar eerlijk over.
+1. Vindbaarheid & techniek (20) — Mag/kan een AI de pagina lezen? noindex/nofollow = harde blokker. AI-crawler-toegang in robots.txt (OAI-SearchBot, ClaudeBot/Claude-SearchBot, PerplexityBot, Googlebot) — geblokkeerd = blokker. Content in HTML aanwezig of pas na JavaScript (client-rendered = blokker). Semantische koppen (h1/h2/h3). JSON-LD schema aanwezig (afwezig = gemiste kans, niet te verifiëren = géén punten aftrekken). llms.txt/sitemap als bonus.
+2. Extraheerbare antwoorden (25, zwaarst) — Eén zelfstandige samenvattingsalinea (wat/voor wie/wat kost het). Zinnen die los van context kloppen (niet beginnen met "Dat/Hier/Daarom"). Antwoord-eerst vóór de uitleg. Kernfeiten niet verstopt in wervende/metaforische taal. Chunkbaar (zelfstandige blokken ~40-120 woorden). Semantic triplets (onderwerp-relatie-feit, bijv. "de leergang duurt zes weken").
+3. Vraaggerichte structuur (20) — FAQ aanwezig (sterkste GEO-format; ontbreekt = vaak hoogste impact). Vraaggerichte koppen ("Wat kost X?", "Voor wie is X?") i.p.v. puur wervend. Scanbaarheid, logische opbouw (wat→voor wie→hoe→bewijs→prijs→actie). Interne links/topical authority met beschrijvende ankerteksten. B1-taalniveau (actief, kort, geen jargon/lijdende vorm). Eén taak + duidelijke CTA.
+4. Concrete feiten (15) — Expliciete prijs (incl./excl. btw), tijd/plaats/duur, specificaties, getallen boven bijvoeglijke naamwoorden ("max. 8 deelnemers" > "kleine groep").
+5. Entiteit & vertrouwen (10) — Duidelijk wie/wat/waar. Auteur/expert met bio en credentials (E-E-A-T). Koppeling aan herkenbare entiteiten. Consistentie. Unieke invalshoek/eigen raamwerk (originele content wordt eerder geciteerd dan generieke).
+6. Bewijs, bronnen & actualiteit (10, weeg zwaar) — Princeton GEO-onderzoek (KDD 2024): statistieken +41%, expertcitaten +28%, bronvermelding tot +115% kans op citatie. Concrete cijfers, letterlijke citaten (naam+functie), bronvermelding met link, reviews als tekst (niet kaal cijfer), datums met jaartal, zichtbare update-datum.
 
-Geef uitsluitend een resultaat terug dat exact voldoet aan het opgegeven JSON-schema.`;
+Technische laag (rapporteer apart van de inhoudelijke score): het belangrijkste punt is AI-crawler-toegang in robots.txt — geweerde search-bots = harde blokker (kan niet geciteerd worden). Daarna noindex, client-side rendering, schema, semantische HTML, llms.txt. Snelheid/Core Web Vitals kun je hier niet meten — sla dat eerlijk over, gok geen score. Schema dat je niet kunt inzien = "niet te verifiëren", géén punten aftrekken (onbekend ≠ afwezig).
+
+Principes:
+- Verzin nooit feiten. Prijzen, datums, namen komen van de pagina. Wat ontbreekt markeer je als verbeterpunt.
+- Wees concreet en paginaspecifiek — adviezen die op elke pagina passen, passen op geen enkele goed. Verwijs naar wat je daadwerkelijk zag.
+- Leg het waarom uit, zodat de ondernemer ervan leert.
+- Techniek vóór inhoud: een harde technische blokker maakt de inhoudelijke score minder relevant — zet die bovenaan.
+- Eerlijk over wat je niet kon meten (mislukte fetch, geen snelheid, geplakte tekst).
+- Prioriteer verbeterpunten op impact (blokkers eerst), niet op volgorde van de checklist.
+
+Schrijf in helder, menselijk Nederlands (B1): direct, scherp, bruikbaar, geen jargon zonder uitleg, geen AI-hype. Geef uitsluitend een resultaat terug dat exact voldoet aan het opgegeven JSON-schema. Vul de velden zo:
+- visibility_score: 0-100 volgens de weging hierboven.
+- what_ai_understands / likely_ai_positioning: wat een AI nu van de pagina begrijpt en hoe het je positioneert.
+- strengths/weaknesses: per rubriekcategorie, concreet.
+- missing_signals: ontbrekende vertrouwens-/bewijs-/entiteitssignalen.
+- content_gaps: ontbrekende vraaggerichte content (FAQ, antwoordpagina's).
+- recommended_pages / recommended_faq_questions: concrete, op de doelgroep gerichte aanbevelingen.
+- quick_wins: hoogste impact eerst (blokkers vooraan).
+- thirty_day_action_plan: geprioriteerde acties met effort (laag/midden/hoog).
+- suggested_homepage_copy_improvements: concrete herschrijf-voorbeelden (zelfstandige zinnen, antwoord-eerst, B1).`;
 
 export function buildAnalysisPrompt(input: GeoAnalysisInput): string {
   const lines: string[] = [];
@@ -23,27 +52,46 @@ export function buildAnalysisPrompt(input: GeoAnalysisInput): string {
   lines.push(`Gewenste AI-zoekvragen/thema's: ${input.desired_queries}`);
   if (input.competitors) lines.push(`Concurrenten/voorbeelden: ${input.competitors}`);
 
+  // Technical signals (best-effort; the model must be honest about gaps).
+  lines.push("");
+  lines.push("--- Technische signalen ---");
+  if (input.robots_txt != null) {
+    lines.push("robots.txt (ingekort):");
+    lines.push(input.robots_txt.slice(0, 1500) || "(leeg)");
+  } else {
+    lines.push("robots.txt: niet opgehaald — benoem dat je AI-bot-toegang niet kon verifiëren.");
+  }
+  lines.push(
+    input.llms_txt_present === true
+      ? "llms.txt: aanwezig."
+      : input.llms_txt_present === false
+        ? "llms.txt: niet gevonden."
+        : "llms.txt: niet gecontroleerd.",
+  );
+
   if (input.metadata?.fetched) {
     lines.push("");
     lines.push("--- Opgehaalde homepage ---");
     if (input.metadata.title) lines.push(`<title>: ${input.metadata.title}`);
     if (input.metadata.description)
       lines.push(`meta description: ${input.metadata.description}`);
+    if (typeof input.metadata.word_count === "number")
+      lines.push(`zichtbaar aantal woorden (ca.): ${input.metadata.word_count}`);
     if (input.page_content) {
       lines.push("");
-      lines.push("Zichtbare tekst (ingekort):");
+      lines.push("Zichtbare tekst (ingekort, scripts verwijderd — schema/JSON-LD dus niet zichtbaar):");
       lines.push(input.page_content);
     }
   } else {
     lines.push("");
     lines.push(
-      "--- De homepage kon niet automatisch worden opgehaald; beoordeel op basis van bovenstaande antwoorden en wees daar transparant over in je samenvatting. ---",
+      "--- De homepage kon niet automatisch worden opgehaald; beoordeel op basis van de antwoorden en wees daar transparant over in je samenvatting. ---",
     );
   }
 
   lines.push("");
   lines.push(
-    "Beoordeel de AI-vindbaarheid en geef een visibility_score van 0-100, een korte samenvatting, wat AI waarschijnlijk van deze site begrijpt, de waarschijnlijke AI-positionering, sterke punten, zwakke punten, ontbrekende signalen, content gaps, aanbevolen pagina's, aanbevolen FAQ-vragen, quick wins, een 30-dagen actieplan en concrete verbetervoorstellen voor de homepage-copy.",
+    "Beoordeel deze homepage volgens de GEO-rubric en geef het volledige gestructureerde resultaat terug (visibility_score 0-100, samenvatting, wat AI begrijpt, positionering, sterke punten, zwakke punten, ontbrekende signalen, content gaps, aanbevolen pagina's, aanbevolen FAQ-vragen, quick wins, 30-dagen actieplan, en concrete verbetervoorstellen voor de homepage-copy). Scope: alleen deze ene homepage.",
   );
 
   return lines.join("\n");

@@ -8,14 +8,17 @@ import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
 /**
  * Analysis provider registry + selection.
  *
- * Selection order:
- *   1. GEO_ANALYSIS_PROVIDER env (explicit: "geo-skill" | "claude" | "mock")
- *   2. The shared NXTLI org skill `geo-page-checker` (primary engine — needs
- *      ANTHROPIC_API_KEY for the org that owns the skill)
- *   3. The direct Claude API (generic GEO analysis), if ANTHROPIC_API_KEY is set
- *   4. The deterministic mock (always available — keeps the flow working)
+ * Default (auto) selection order:
+ *   1. GEO_ANALYSIS_PROVIDER env (explicit: "claude" | "geo-skill" | "mock")
+ *   2. The Claude provider, which runs the NXTLI `geo-page-checker` methodology
+ *      one-shot (see lib/geo/analysis/prompt.ts) — needs ANTHROPIC_API_KEY.
+ *   3. The deterministic mock (always available — keeps the flow working).
  *
- * Add a new engine by implementing GeoAnalysisProvider and registering it here.
+ * `geo-skill` (invoking the interactive geo-page-checker skill via the Messages
+ * API container.skills) is registered but NOT auto-selected: that skill is
+ * built for interactive Cowork use (checkpoints, human-assisted PageSpeed, no
+ * container internet) and is a poor fit for a one-shot automated scan. Use it
+ * only via an explicit GEO_ANALYSIS_PROVIDER=geo-skill override.
  */
 const registry: Record<string, GeoAnalysisProvider> = {};
 
@@ -31,7 +34,7 @@ export function selectProvider(): GeoAnalysisProvider {
   const explicit = process.env.GEO_ANALYSIS_PROVIDER?.trim();
   if (explicit && registry[explicit]) return registry[explicit];
 
-  const order = ["geo-skill", "claude", "mock"];
+  const order = ["claude", "mock"];
   for (const id of order) {
     const p = registry[id];
     if (p?.isConfigured()) return p;

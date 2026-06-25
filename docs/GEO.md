@@ -109,49 +109,40 @@ Run. Idempotent, veilig om opnieuw te draaien.
 
 **3. Supabase CLI.** `supabase db push` met het project gelinkt.
 
-## De gedeelde Claude-skill `geo-page-checker` koppelen
+## De AI-analyse en de `geo-page-checker`-methodiek
 
 De analyse draait via een **swap-bare provider-architectuur**
-(`lib/geo/analysis/`). Volgorde van selectie: expliciete
-`GEO_ANALYSIS_PROVIDER` → de gedeelde org-skill (`geo-skill`) → de directe
-Claude API (`claude`) → de mock.
+(`lib/geo/analysis/`). Auto-selectie: expliciete `GEO_ANALYSIS_PROVIDER` → de
+**`claude`**-provider (mits `ANTHROPIC_API_KEY` gezet) → de mock.
 
-De primaire engine is de **gedeelde organisatie-skill `geo-page-checker`**. Die
-wordt aangeroepen via de Claude **Agent Skills**-surface op de Messages API
-(`lib/geo/analysis/providers/geo-skill.ts`):
+**De `claude`-provider draait de NXTLI `geo-page-checker`-methodiek** als één
+geautomatiseerde scan. De volledige skill staat in `skills/geo-page-checker/`
+(bron-van-waarheid); de scoringsrubric (6 categorieën / 100 punten), de
+technische checklist en de principes zijn verwerkt in de analyse-prompt
+(`lib/geo/analysis/prompt.ts`). De homepage + `robots.txt` + `llms.txt` worden
+server-side opgehaald (`scrape.ts`) en meegegeven; de output wordt op het
+`GeoAnalysisResult`-schema vastgezet en gevalideerd met `parseAnalysisResult`.
 
-```
-client.beta.messages.create({
-  model: "claude-opus-4-8",
-  container: { skills: [{ type: "custom", skill_id, version: "latest" }] },
-  tools:     [{ type: "code_execution_20260521", name: "code_execution" }],
-  betas:     ["code-execution-2025-08-25", "skills-2025-10-02"],
-  system, messages,
-})
-```
+Aanzetten: zet **`ANTHROPIC_API_KEY`** (server-side) van de org/workspace met
+toegang. Klaar — de `claude`-provider wordt dan automatisch gekozen. Optioneel:
+`GEO_ANALYSIS_MODEL` (default `claude-opus-4-8`). Zonder key valt alles terug op
+de mock, zodat de flow nooit breekt.
 
-De skill (de `SKILL.md`) bepaalt **hoe** de homepage beoordeeld wordt; onze
-prompt pint de **output** vast op het `GeoAnalysisResult`-schema, dat we daarna
-valideren met `parseAnalysisResult` (coerce't loszittende output netjes).
+### Waarom niet de skill zélf via de Skills-API?
 
-Aanzetten:
+`geo-page-checker` is gebouwd als **interactieve Cowork-skill**: fasen met
+tussenstops, de gebruiker draait zelf PageSpeed, "welke 3 pagina's", en hij
+schrijft naar een bestand. Bovendien heeft de Agent-Skills code-execution-
+container **geen internet** (kan robots/PageSpeed niet ophalen). Dat past niet
+in één geautomatiseerde API-call die gestructureerde JSON moet teruggeven.
+Daarom nemen we de **methodiek** over in de prompt i.p.v. de interactieve skill
+via `container.skills` aan te roepen.
 
-1. Zet **`ANTHROPIC_API_KEY`** van de Anthropic-org/workspace die de skill bezit.
-   (Server-side; nooit client-side.)
-2. Dat is alles — de provider zoekt de skill automatisch op naam op
-   (`GEO_SKILL_NAME`, default `geo-page-checker`) via `GET /v1/skills` en cachet
-   het `skill_id`. Wil je de lookup overslaan, zet dan `GEO_SKILL_ID` direct.
-3. Optioneel: `GEO_SKILL_VERSION` (default `latest`), `GEO_ANALYSIS_MODEL`
-   (default `claude-opus-4-8`).
-
-> De homepage-inhoud wordt server-side opgehaald (`scrape.ts`) en in de prompt
-> meegegeven, omdat de code-execution-container van Agent Skills geen internet
-> heeft. De skill analyseert dus de meegeleverde content (of, als ophalen
-> mislukt, de antwoorden van de ondernemer).
-
-Als de skill faalt of niet gevonden wordt, valt de analyse netjes terug op de
-mock (de bezoeker krijgt altijd een resultaat; `degraded` markeert dat voor een
-handmatige follow-up).
+De `geo-skill`-provider (`providers/geo-skill.ts`, die de skill wél via
+`container.skills` aanroept) blijft als optie bestaan, maar wordt **niet
+automatisch gekozen** — alleen via een expliciete `GEO_ANALYSIS_PROVIDER=geo-skill`.
+Gebruik die alleen als de skill ooit als niet-interactieve, API-aanroepbare
+custom skill wordt geregistreerd.
 
 Input naar de analyse (`GeoAnalysisInput`): homepage_url, company_name,
 offer_description, target_audience, desired_queries, competitors, en —

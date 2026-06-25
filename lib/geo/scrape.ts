@@ -12,12 +12,19 @@ import { logError } from "./logger";
 export interface ScrapeResult {
   text: string | null;
   metadata: GeoPageMetadata;
+  /** /robots.txt contents (best-effort; null if unreachable). */
+  robotsTxt: string | null;
+  /** Whether /llms.txt exists (undefined if not checked). */
+  llmsTxtPresent?: boolean;
 }
 
 const MAX_CHARS = 12_000;
 const TIMEOUT_MS = 8_000;
 
 export async function fetchHomepage(url: string): Promise<ScrapeResult> {
+  // Site-wide technical signals first (cheap, best-effort).
+  const { robotsTxt, llmsTxtPresent } = await fetchSiteSignals(url);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -33,7 +40,7 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
 
     const status = res.status;
     if (!res.ok) {
-      return { text: null, metadata: { fetched: false, status } };
+      return { text: null, metadata: { fetched: false, status }, robotsTxt, llmsTxtPresent };
     }
 
     const html = await res.text();
@@ -53,10 +60,49 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
         description: description ?? null,
         word_count: text ? text.split(/\s+/).length : 0,
       },
+      robotsTxt,
+      llmsTxtPresent,
     };
   } catch (error) {
     logError("scrape.fetchHomepage", error);
-    return { text: null, metadata: { fetched: false } };
+    return { text: null, metadata: { fetched: false }, robotsTxt, llmsTxtPresent };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Best-effort /robots.txt + /llms.txt fetch for the GEO technical layer. */
+async function fetchSiteSignals(
+  url: string,
+): Promise<{ robotsTxt: string | null; llmsTxtPresent?: boolean }> {
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return { robotsTxt: null };
+  }
+
+  const robotsTxt = await getText(`${origin}/robots.txt`);
+  const llms = await getText(`${origin}/llms.txt`);
+  return {
+    robotsTxt: robotsTxt ? robotsTxt.slice(0, 4_000) : null,
+    llmsTxtPresent: llms === null ? undefined : llms.trim().length > 0,
+  };
+}
+
+async function getText(target: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const res = await fetch(target, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "User-Agent": "NXTLI-GEO-Scan/1.0 (+https://geo.nxtli.com)" },
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
   } finally {
     clearTimeout(timeout);
   }

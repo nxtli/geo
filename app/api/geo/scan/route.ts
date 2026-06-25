@@ -132,6 +132,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       competitors: lead.competitors,
       page_content: page.text,
       metadata: page.metadata,
+      robots_txt: page.robotsTxt,
+      llms_txt_present: page.llmsTxtPresent,
     });
 
     // 4. Build the branded report (HTML now; PDF via adapter when configured).

@@ -101,6 +101,10 @@ export interface GeoAnalysisInput {
   competitors?: string | null;
   page_content?: string | null;
   metadata?: GeoPageMetadata | null;
+  /** Contents of /robots.txt (best-effort), for AI-crawler access check. */
+  robots_txt?: string | null;
+  /** Whether /llms.txt was found. undefined = not checked. */
+  llms_txt_present?: boolean;
 }
 
 export interface GeoPageMetadata {

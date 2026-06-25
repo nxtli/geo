@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { listScansForAdmin, isSupabaseConfigured } from "@/lib/geo/supabase/service";
+import { ensureSchemaOnce } from "@/lib/geo/supabase/migrate";
 import { costUsd, fmtEur, fmtUsd, usdToEur } from "@/lib/geo/pricing";
 
 export const runtime = "nodejs";
@@ -40,6 +41,7 @@ export default async function AdminPage() {
     );
   }
 
+  await ensureSchemaOnce();
   const rows = await listScansForAdmin(ROW_LIMIT);
 
   const completed = rows.filter((r) => r.status === "completed");

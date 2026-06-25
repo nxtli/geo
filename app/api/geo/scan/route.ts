@@ -9,6 +9,7 @@ import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
+import { ensureSchemaOnce } from "@/lib/geo/supabase/migrate";
 import {
   countCompletedScansSince,
   createScanRequest,
@@ -64,6 +65,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       competitors: parsed.data.competitors ?? null,
       consent: parsed.data.consent,
     };
+
+    // Self-heal the DB schema on deploy (idempotent, cached per process) so
+    // new columns exist before we read/write — no manual migration needed.
+    await ensureSchemaOnce();
 
     // 0a. Abuse protection — one scan per email. Re-use the earlier report
     //     instead of spending credits on a repeat run.

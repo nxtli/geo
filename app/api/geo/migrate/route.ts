@@ -4,7 +4,7 @@ import { Client } from "pg";
 import {
   GEO_SCHEMA_SQL,
   PG_CONNECTION_ENV_VARS,
-  resolvePgConnectionString,
+  getPgCandidates,
 } from "@/lib/geo/supabase/schema";
 import { logError, logInfo } from "@/lib/geo/logger";
 
@@ -53,8 +53,8 @@ async function run(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const connectionString = resolvePgConnectionString();
-  if (!connectionString) {
+  const candidates = getPgCandidates();
+  if (candidates.length === 0) {
     return NextResponse.json(
       {
         ok: false,
@@ -67,37 +67,73 @@ async function run(request: Request): Promise<NextResponse> {
     );
   }
 
-  const client = new Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-  });
+  // Try each connection string (pooler first) until one connects + applies.
+  const attempts: Array<{ source: string; host: string; error: string }> = [];
 
-  try {
-    await client.connect();
-    await client.query(GEO_SCHEMA_SQL);
-    const { rows } = await client.query(
-      `select table_name from information_schema.tables
-       where table_schema = 'public' and table_name like 'geo_%'
-       order by table_name`,
-    );
-    logInfo("api.geo.migrate", "schema applied");
-    return NextResponse.json({
-      ok: true,
-      message: "Migratie uitgevoerd.",
-      tables: rows.map((r: { table_name: string }) => r.table_name),
+  for (const candidate of candidates) {
+    const client = new Client({
+      connectionString: candidate.value,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10_000,
     });
-  } catch (error) {
-    logError("api.geo.migrate", error);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Migratie mislukt. Controleer de Postgres-connection string in Vercel.",
-      },
-      { status: 500 },
-    );
-  } finally {
-    await client.end().catch(() => undefined);
+    try {
+      await client.connect();
+      await client.query(GEO_SCHEMA_SQL);
+      const { rows } = await client.query(
+        `select table_name from information_schema.tables
+         where table_schema = 'public' and table_name like 'geo_%'
+         order by table_name`,
+      );
+      logInfo("api.geo.migrate", `schema applied via ${candidate.source}`);
+      await client.end().catch(() => undefined);
+      return NextResponse.json({
+        ok: true,
+        message: "Migratie uitgevoerd.",
+        via: candidate.source,
+        tables: rows.map((r: { table_name: string }) => r.table_name),
+      });
+    } catch (error) {
+      logError(`api.geo.migrate(${candidate.source})`, error);
+      attempts.push({
+        source: candidate.source,
+        host: safeHost(candidate.value),
+        error: describeError(error),
+      });
+      await client.end().catch(() => undefined);
+    }
   }
+
+  // All candidates failed — return diagnostics (route is secret-protected).
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "Migratie mislukt op alle beschikbare connection strings.",
+      attempts,
+      hint:
+        "De pooler-URL (POSTGRES_URL) is vanaf Vercel bereikbaar; de directe " +
+        "POSTGRES_URL_NON_POOLING is vaak IPv6-only en faalt. Controleer of " +
+        "POSTGRES_URL in Vercel staat en naar de Supabase-pooler wijst.",
+    },
+    { status: 500 },
+  );
+}
+
+/** Hostname only — never echo the password from the connection string. */
+function safeHost(connectionString: string): string {
+  try {
+    const u = new URL(connectionString);
+    return u.port ? `${u.hostname}:${u.port}` : u.hostname;
+  } catch {
+    return "onbekend";
+  }
+}
+
+function describeError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as { code?: string; message?: string };
+    return [e.code, e.message].filter(Boolean).join(" — ") || String(error);
+  }
+  return String(error);
 }
 
 function safeEqual(a: string, b: string): boolean {

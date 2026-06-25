@@ -63,18 +63,37 @@ alter table public.geo_scan_requests  enable row level security;
 alter table public.geo_scan_reports   enable row level security;
 `;
 
-/** Connection-string env vars set by the Vercel↔Supabase integration, in order. */
+/**
+ * Connection-string env vars set by the Vercel↔Supabase integration.
+ *
+ * Order matters: the POOLER connections (POSTGRES_URL / POSTGRES_PRISMA_URL)
+ * are reachable over IPv4 from Vercel serverless. The DIRECT connection
+ * (POSTGRES_URL_NON_POOLING → db.<ref>.supabase.co) is IPv6-only and typically
+ * NOT reachable from Vercel functions, so it's tried last.
+ */
 export const PG_CONNECTION_ENV_VARS = [
-  "POSTGRES_URL_NON_POOLING",
   "POSTGRES_URL",
-  "SUPABASE_DB_URL",
+  "POSTGRES_PRISMA_URL",
   "DATABASE_URL",
+  "SUPABASE_DB_URL",
+  "POSTGRES_URL_NON_POOLING",
 ] as const;
 
-export function resolvePgConnectionString(): string | null {
+export interface PgCandidate {
+  source: string;
+  value: string;
+}
+
+/** All present connection strings, in preference order (pooler first). */
+export function getPgCandidates(): PgCandidate[] {
+  const out: PgCandidate[] = [];
   for (const key of PG_CONNECTION_ENV_VARS) {
     const v = process.env[key];
-    if (v && v.trim()) return v.trim();
+    if (v && v.trim()) out.push({ source: key, value: v.trim() });
   }
-  return null;
+  return out;
+}
+
+export function resolvePgConnectionString(): string | null {
+  return getPgCandidates()[0]?.value ?? null;
 }

@@ -159,6 +159,53 @@ export async function insertReport(params: {
   return { id: data.id as string };
 }
 
+/**
+ * Abuse protection: find this email's most recent COMPLETED scan (if any), so
+ * we can return the earlier result instead of burning credits on a re-scan.
+ * Returns null when Supabase is off or no prior completed scan exists.
+ */
+export async function findCompletedScanByEmail(
+  email: string,
+): Promise<{ id: string; analysis_result: unknown } | null> {
+  const db = getClient();
+  if (!db) return null;
+
+  const { data, error } = await db
+    .from("geo_scan_requests")
+    .select("id, analysis_result, geo_leads!inner(email)")
+    .eq("geo_leads.email", email)
+    .eq("status", "completed")
+    .not("analysis_result", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    logError("supabase.findCompletedScanByEmail", error);
+    return null;
+  }
+  if (!data) return null;
+  return { id: data.id as string, analysis_result: data.analysis_result };
+}
+
+/** Count completed scans since a timestamp — for the global daily cap. */
+export async function countCompletedScansSince(sinceIso: string): Promise<number> {
+  const db = getClient();
+  if (!db) return 0;
+
+  const { count, error } = await db
+    .from("geo_scan_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .gte("created_at", sinceIso);
+
+  if (error) {
+    logError("supabase.countCompletedScansSince", error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 /** Read a stored report (used by the report/PDF route). */
 export async function getReportByScanRequest(
   scanRequestId: string,

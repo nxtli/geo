@@ -3,13 +3,16 @@ import { geoLeadSchema } from "@/lib/geo/validation";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { fetchHomepage } from "@/lib/geo/scrape";
 import { runGeoAnalysis } from "@/lib/geo/analysis";
+import { parseAnalysisResult } from "@/lib/geo/analysis/provider";
 import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
 import {
+  countCompletedScansSince,
   createScanRequest,
+  findCompletedScanByEmail,
   insertLead,
   insertReport,
   updateScanRequest,
@@ -50,7 +53,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     lead = {
       name: parsed.data.name,
-      email: parsed.data.email,
+      email: parsed.data.email.toLowerCase(),
       phone: parsed.data.phone,
       job_title: parsed.data.job_title,
       company_name: parsed.data.company_name,
@@ -61,6 +64,49 @@ export async function POST(request: Request): Promise<NextResponse> {
       competitors: parsed.data.competitors ?? null,
       consent: parsed.data.consent,
     };
+
+    // 0a. Abuse protection — one scan per email. Re-use the earlier report
+    //     instead of spending credits on a repeat run.
+    const prior = await findCompletedScanByEmail(lead.email);
+    if (prior?.analysis_result) {
+      const priorAnalysis = parseAnalysisResult(prior.analysis_result);
+      const priorUrl = `/api/geo/report/${prior.id}`;
+      await notifySlackNewLead({
+        lead,
+        status: "completed",
+        analysis: priorAnalysis,
+        reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
+        repeat: true,
+      });
+      return NextResponse.json({
+        ok: true,
+        scan_request_id: prior.id,
+        status: "completed",
+        preview: buildPreview(priorAnalysis),
+        report_url: priorUrl,
+        email_queued: false,
+        message:
+          "Je hebt met dit e-mailadres al een gratis scan gedaan. Hier is je eerdere rapport — wil je een nieuwe analyse? Plan dan even een sessie met NXTLI.",
+      });
+    }
+
+    // 0b. Optional global daily cap (GEO_MAX_SCANS_PER_DAY) — a credit backstop.
+    const dailyCap = Number(process.env.GEO_MAX_SCANS_PER_DAY);
+    if (Number.isFinite(dailyCap) && dailyCap > 0) {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const used = await countCompletedScansSince(since);
+      if (used >= dailyCap) {
+        return NextResponse.json(
+          {
+            ok: false,
+            status: "failed",
+            message:
+              "We hebben vandaag al heel veel scans gedraaid. Probeer het morgen opnieuw — of plan direct een korte sessie met NXTLI.",
+          },
+          { status: 429 },
+        );
+      }
+    }
 
     // 1. Persist lead + scan request (no-ops gracefully if Supabase is off).
     const persistedLead = await insertLead(lead);

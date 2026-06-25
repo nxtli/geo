@@ -21,6 +21,8 @@ export interface SlackNotifyParams {
   degraded?: boolean;
   /** Which analysis engine produced this (geo-skill | claude | mock). */
   providerId?: string;
+  /** True when this email already had a scan (re-used, no credits spent). */
+  repeat?: boolean;
 }
 
 export async function notifySlackNewLead(
@@ -56,7 +58,9 @@ function buildMessage(p: SlackNotifyParams) {
   const headline =
     status === "failed"
       ? ":warning: Nieuwe GEO Scan aanvraag (scan mislukt — handmatig opvolgen)"
-      : ":mag: Nieuwe GEO Scan aanvraag";
+      : p.repeat
+        ? ":repeat: Herhaalde GEO Scan aanvraag (zelfde e-mailadres — geen credits gebruikt)"
+        : ":mag: Nieuwe GEO Scan aanvraag";
 
   const engineNote =
     status === "completed" && (p.degraded || p.providerId === "mock")

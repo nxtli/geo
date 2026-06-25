@@ -17,7 +17,8 @@ export function WhyNxtli() {
               Waarom NXTLI
             </div>
             <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Wij bouwen websites en systemen die ook voor AI te begrijpen zijn
+              Jouw website begrijpelijk voor mensen én AI — zo bouw je aan
+              blijvende vindbaarheid
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
               NXTLI is een AI-first studio en automation-partner. We helpen
@@ -42,10 +43,10 @@ export function WhyNxtli() {
             <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-brand/10 to-accent/10 blur-2xl" />
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { k: "AI-first", v: "ontworpen voor mens & machine" },
-                { k: "Automation", v: "minder handwerk, meer output" },
-                { k: "Structuur", v: "content die AI kan citeren" },
-                { k: "Resultaat", v: "vaker gevonden & genoemd" },
+                { k: "AI-first", v: "Jouw website begrepen door mens én AI" },
+                { k: "Automation", v: "Meer output, minder handmatig werk" },
+                { k: "Structuur", v: "Content die AI citeert en klanten overtuigt" },
+                { k: "Resultaat", v: "Vaker gevonden. Vaker gekozen." },
               ].map((s) => (
                 <div
                   key={s.k}

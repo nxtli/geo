@@ -12,32 +12,32 @@ const FEATURES = [
   {
     icon: SearchIcon,
     title: "Begrijpt AI wat je bedrijf doet?",
-    body: "We toetsen of je kernaanbod in één oogopslag duidelijk is voor een AI-systeem.",
+    body: "Als AI niet begrijpt wat jij doet, sla je de eerste vraag al mis.",
   },
   {
     icon: TargetIcon,
     title: "Zijn je diensten en doelgroep helder?",
-    body: "Komt scherp naar voren wat je aanbiedt, voor wie, en waarom jij?",
+    body: "Vaag aanbod = onzichtbaar voor AI. Wij checken of jouw propositie scherp genoeg is.",
   },
   {
     icon: QuoteIcon,
     title: "Beantwoord je de vragen van klanten?",
-    body: "Sluit je content aan op de echte vragen die je doelgroep aan AI stelt?",
+    body: "AI beantwoordt vragen. Als jouw content die vragen niet beantwoordt, besta je niet voor AI.",
   },
   {
     icon: DocIcon,
     title: "Is je content citeerbaar?",
-    body: "Is je informatie concreet en gestructureerd genoeg om samengevat of geciteerd te worden?",
+    body: "Mag AI jou citeren? Alleen als je content concreet en helder genoeg is. Wij meten dat.",
   },
   {
     icon: ShieldIcon,
     title: "Zijn er signalen van vertrouwen?",
-    body: "Tonen je pagina's autoriteit en bewijs: cases, cijfers, referenties?",
+    body: "Vertrouwt AI jou? Alleen als er bewijs is. Cases, cijfers en referenties tellen zwaar mee.",
   },
   {
     icon: BoltIcon,
     title: "Welke content mist nog?",
-    body: "We benoemen de gaps die je vaker genoemd kunnen maken in AI-antwoorden.",
+    body: "Wat ontbreekt er nog? We benoemen exact welke content jou vaker in AI-antwoorden zet.",
   },
 ];
 
@@ -50,7 +50,7 @@ export function GeoScanFeatures() {
       <Container>
         <SectionHeading
           eyebrow="Wat de scan analyseert"
-          title="Zes vragen waar AI-systemen op letten"
+          title="Dit bepaalt of AI jou noemt of overslaat"
           intro="Brian beoordeelt je homepage op de criteria die bepalen of AI je begrijpt, vertrouwt en aanbeveelt."
         />
 

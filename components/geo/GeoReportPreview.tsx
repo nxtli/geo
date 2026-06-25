@@ -86,6 +86,18 @@ export function GeoReportPreview() {
             </div>
           </div>
         </div>
+
+        {/* ⚠️ PLACEHOLDER testimonial — replace with a real, permissioned quote. */}
+        <figure className="mx-auto mt-8 max-w-2xl text-center">
+          <blockquote className="text-lg italic leading-relaxed text-ink">
+            “Dit rapport was de eerste keer dat ik écht begreep waarom AI mijn
+            website negeerde.”
+          </blockquote>
+          <figcaption className="mt-3 text-sm text-muted">
+            <span className="font-semibold text-ink">Thomas Visser</span> — Visser
+            Consultancy
+          </figcaption>
+        </figure>
       </Container>
     </section>
   );

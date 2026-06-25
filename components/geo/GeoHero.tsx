@@ -27,9 +27,8 @@ export function GeoHero() {
               </span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-              Ontdek gratis hoe goed jouw website zichtbaar is voor ChatGPT,
-              Claude en andere AI-antwoorden — en wat je kunt verbeteren om
-              vaker genoemd te worden.
+              Elke dag beantwoorden AI-tools vragen van jouw klanten. De vraag
+              is: noemen ze jou — of je concurrent?
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -46,6 +45,10 @@ export function GeoHero() {
 
             <p className="mt-4 text-sm text-subtle">
               Gratis scan. Binnen enkele minuten inzicht. Geen verplichtingen.
+            </p>
+            <p className="mt-1.5 max-w-md text-sm text-subtle">
+              Geen technische kennis nodig. Je ontvangt direct concrete
+              verbeterpunten — of je nu verder gaat met NXTLI of niet.
             </p>
           </div>
 

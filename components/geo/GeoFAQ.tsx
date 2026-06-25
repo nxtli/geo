@@ -24,6 +24,10 @@ const FAQS = [
     q: "Wat gebeurt er met mijn gegevens?",
     a: "We gebruiken je gegevens alleen om de scan uit te voeren en je rapport toe te sturen. Geen spam.",
   },
+  {
+    q: "Is dit rapport een opmaat naar een verkoopgesprek?",
+    a: "Nee. Je krijgt een volledig rapport met concrete verbeterpunten — ook als je daarna niks met NXTLI doet. We geloven dat je eerst waarde moet ervaren voordat je ook maar één beslissing neemt.",
+  },
 ];
 
 export function GeoFAQ() {
@@ -32,7 +36,10 @@ export function GeoFAQ() {
   return (
     <section className="bg-elevated/50 py-20 sm:py-28">
       <Container>
-        <SectionHeading eyebrow="Veelgestelde vragen" title="Goed om te weten" />
+        <SectionHeading
+          eyebrow="Veelgestelde vragen"
+          title="Veelgestelde vragen — eerlijk beantwoord"
+        />
 
         <div className="mx-auto mt-10 max-w-2xl divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
           {FAQS.map((f, i) => {

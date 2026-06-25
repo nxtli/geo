@@ -8,17 +8,17 @@ const STEPS = [
   },
   {
     n: "02",
-    title: "Vul je homepage en doelgroep in",
+    title: "Vertel Brian over je bedrijf en doelgroep",
     body: "Een paar korte vragen over je bedrijf, aanbod en de vragen waarop je gevonden wilt worden.",
   },
   {
     n: "03",
-    title: "Brian analyseert je AI-vindbaarheid",
+    title: "Brian scant je homepage op AI-vindbaarheid",
     body: "We halen je homepage op, beoordelen de content en bepalen je AI Visibility Score.",
   },
   {
     n: "04",
-    title: "Je ontvangt een NXTLI-rapport",
+    title: "Je krijgt direct concrete verbeterpunten",
     body: "Met concrete verbeterpunten — in de chat, als download én in je inbox.",
   },
 ];
@@ -29,7 +29,7 @@ export function GeoHowItWorks() {
       <Container>
         <SectionHeading
           eyebrow="Hoe het werkt"
-          title="Van vraag naar rapport in vier stappen"
+          title="Binnen 5 minuten weet je hoe goed AI jou vindt"
         />
 
         <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">

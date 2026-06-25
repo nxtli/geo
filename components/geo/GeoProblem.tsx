@@ -7,7 +7,7 @@ export function GeoProblem() {
       <Container>
         <SectionHeading
           eyebrow="Waarom dit telt"
-          title="SEO maakt je vindbaar in Google. Maar word je ook genoemd door AI?"
+          title="Goed gevonden in Google. Maar onzichtbaar voor AI?"
           intro="Steeds vaker krijgen mensen hun antwoord rechtstreeks van AI-tools in plaats van uit een lijst met zoekresultaten. Wie daar niet in voorkomt, wordt simpelweg niet overwogen."
         />
 
@@ -17,7 +17,7 @@ export function GeoProblem() {
               <SearchIcon className="h-5 w-5" />
             </div>
             <h3 className="mt-4 font-display text-lg font-semibold text-ink">
-              Klassieke SEO
+              Je staat in de lijst. Iemand klikt — of niet.
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               Gericht op rankings, keywords en links. Je verschijnt in een lijst,
@@ -30,7 +30,7 @@ export function GeoProblem() {
               <SparkIcon className="h-5 w-5" />
             </div>
             <h3 className="mt-4 font-display text-lg font-semibold text-ink">
-              AI-vindbaarheid (GEO)
+              AI noemt jouw naam — of die van je concurrent.
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               AI-tools kijken anders naar content: ze zoeken naar duidelijke

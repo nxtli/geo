@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * NXTLI GEO — brand tokens (LIGHT PREMIUM).
+ *
+ * This is the single source of truth for brand color + type. Swap these values
+ * to drop in the real NXTLI brand once it's confirmed. Every component reads
+ * through the Tailwind token names mapped in tailwind.config.ts.
+ *
+ * Colors are space-separated RGB channels so Tailwind's `<alpha-value>` works.
+ * Fonts use a system stack so the build needs no network font fetch; to use a
+ * brand typeface later, self-host it and point --font-display / --font-sans here.
+ */
+:root {
+  --bg: 252 252 253;
+  --surface: 255 255 255;
+  --elevated: 246 247 250;
+  --ink: 15 23 42;
+  --muted: 71 85 105;
+  --subtle: 148 163 184;
+  --border: 228 231 237;
+
+  --brand: 88 80 236;
+  --brand-fg: 255 255 255;
+  --brand-soft: 238 239 255;
+
+  --accent: 14 165 233;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+  --danger: 220 38 38;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-display: var(--font-sans);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(var(--brand) / 0.16);
+}
+
+/* Subtle scrollbar inside the chat */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--subtle) / 0.5) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--subtle) / 0.5);
+  border-radius: 9999px;
+}
+
+/* Decorative grid / glow used in the hero */
+.bg-grid {
+  background-image: linear-gradient(rgb(var(--ink) / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--ink) / 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

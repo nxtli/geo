@@ -21,7 +21,9 @@ import {
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Headroom for the analysis call (clamped to the Vercel plan's max). The call
+// itself targets ~15-30s via the fast model + low effort + streaming.
+export const maxDuration = 120;
 
 /**
  * POST /api/geo/scan

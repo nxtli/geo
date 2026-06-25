@@ -19,89 +19,72 @@ export interface ScrapeResult {
 }
 
 const MAX_CHARS = 12_000;
-const TIMEOUT_MS = 8_000;
+const PAGE_TIMEOUT_MS = 7_000;
+const SIGNAL_TIMEOUT_MS = 5_000;
 
 export async function fetchHomepage(url: string): Promise<ScrapeResult> {
-  // Site-wide technical signals first (cheap, best-effort).
-  const { robotsTxt, llmsTxtPresent } = await fetchSiteSignals(url);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": "NXTLI-GEO-Scan/1.0 (+https://geo.nxtli.com)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-
-    const status = res.status;
-    if (!res.ok) {
-      return { text: null, metadata: { fetched: false, status }, robotsTxt, llmsTxtPresent };
-    }
-
-    const html = await res.text();
-    const title = extractTag(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const description =
-      extractAttr(html, /<meta[^>]+name=["']description["'][^>]*>/i) ??
-      extractAttr(html, /<meta[^>]+property=["']og:description["'][^>]*>/i);
-
-    const text = htmlToText(html).slice(0, MAX_CHARS);
-
-    return {
-      text: text || null,
-      metadata: {
-        fetched: true,
-        status,
-        title: title ?? null,
-        description: description ?? null,
-        word_count: text ? text.split(/\s+/).length : 0,
-      },
-      robotsTxt,
-      llmsTxtPresent,
-    };
-  } catch (error) {
-    logError("scrape.fetchHomepage", error);
-    return { text: null, metadata: { fetched: false }, robotsTxt, llmsTxtPresent };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-/** Best-effort /robots.txt + /llms.txt fetch for the GEO technical layer. */
-async function fetchSiteSignals(
-  url: string,
-): Promise<{ robotsTxt: string | null; llmsTxtPresent?: boolean }> {
-  let origin: string;
+  let origin: string | null = null;
   try {
     origin = new URL(url).origin;
   } catch {
-    return { robotsTxt: null };
+    origin = null;
   }
 
-  const robotsTxt = await getText(`${origin}/robots.txt`);
-  const llms = await getText(`${origin}/llms.txt`);
+  // Fetch the page + robots.txt + llms.txt CONCURRENTLY so the technical
+  // signals never add latency on top of the page fetch.
+  const [pageRes, robotsRaw, llmsRaw] = await Promise.all([
+    getText(url, PAGE_TIMEOUT_MS, true),
+    origin ? getText(`${origin}/robots.txt`, SIGNAL_TIMEOUT_MS) : Promise.resolve(null),
+    origin ? getText(`${origin}/llms.txt`, SIGNAL_TIMEOUT_MS) : Promise.resolve(null),
+  ]);
+
+  const robotsTxt = robotsRaw ? robotsRaw.slice(0, 4_000) : null;
+  const llmsTxtPresent = llmsRaw === null ? undefined : llmsRaw.trim().length > 0;
+
+  if (!pageRes) {
+    return { text: null, metadata: { fetched: false }, robotsTxt, llmsTxtPresent };
+  }
+
+  const html = pageRes;
+  const title = extractTag(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const description =
+    extractAttr(html, /<meta[^>]+name=["']description["'][^>]*>/i) ??
+    extractAttr(html, /<meta[^>]+property=["']og:description["'][^>]*>/i);
+  const text = htmlToText(html).slice(0, MAX_CHARS);
+
   return {
-    robotsTxt: robotsTxt ? robotsTxt.slice(0, 4_000) : null,
-    llmsTxtPresent: llms === null ? undefined : llms.trim().length > 0,
+    text: text || null,
+    metadata: {
+      fetched: true,
+      title: title ?? null,
+      description: description ?? null,
+      word_count: text ? text.split(/\s+/).length : 0,
+    },
+    robotsTxt,
+    llmsTxtPresent,
   };
 }
 
-async function getText(target: string): Promise<string | null> {
+async function getText(
+  target: string,
+  timeoutMs: number,
+  html = false,
+): Promise<string | null> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(target, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "User-Agent": "NXTLI-GEO-Scan/1.0 (+https://geo.nxtli.com)" },
+      headers: {
+        "User-Agent": "NXTLI-GEO-Scan/1.0 (+https://geo.nxtli.com)",
+        ...(html ? { Accept: "text/html,application/xhtml+xml" } : {}),
+      },
     });
     if (!res.ok) return null;
     return await res.text();
-  } catch {
+  } catch (error) {
+    if (html) logError("scrape.fetchHomepage", error);
     return null;
   } finally {
     clearTimeout(timeout);

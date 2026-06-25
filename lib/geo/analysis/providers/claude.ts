@@ -31,14 +31,17 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
 
   async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const model = process.env.GEO_ANALYSIS_MODEL || "claude-opus-4-8";
+    // Default to the fast Sonnet model: a public scan must finish well within
+    // the serverless timeout, and this scoring task doesn't need Opus depth.
+    // Override with GEO_ANALYSIS_MODEL. No extended thinking + low effort keeps
+    // latency low; streaming avoids SDK request timeouts.
+    const model = process.env.GEO_ANALYSIS_MODEL || "claude-sonnet-4-6";
 
     const params = {
       model,
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
+      max_tokens: 6000,
       output_config: {
-        effort: "medium",
+        effort: "low",
         format: { type: "json_schema", schema: geoAnalysisJsonSchema },
       },
       system: GEO_SYSTEM_PROMPT,
@@ -46,7 +49,9 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response: any = await client.messages.create(params as any);
+    const stream = client.messages.stream(params as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response: any = await stream.finalMessage();
 
     if (response?.stop_reason === "refusal") {
       logError("analysis.claude", "model returned refusal stop_reason");

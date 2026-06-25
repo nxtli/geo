@@ -166,6 +166,8 @@ export function BrianChat({
       if (!res.ok || !data.ok) {
         setPhase("error");
         await pushBrian(data.message ?? BRIAN_COPY.errorFallback, 500);
+        const debug = (data as { debug?: string }).debug;
+        if (debug) await pushBrian(`🔧 Debug (tijdelijk): ${debug}`, 300);
         return;
       }
 

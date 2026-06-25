@@ -71,28 +71,33 @@ export async function POST(request: Request): Promise<NextResponse> {
     await ensureSchemaOnce();
 
     // 0a. Abuse protection — one scan per email. Re-use the earlier report
-    //     instead of spending credits on a repeat run.
-    const prior = await findCompletedScanByEmail(lead.email);
-    if (prior?.analysis_result) {
-      const priorAnalysis = parseAnalysisResult(prior.analysis_result);
-      const priorUrl = `/api/geo/report/${prior.id}`;
-      await notifySlackNewLead({
-        lead,
-        status: "completed",
-        analysis: priorAnalysis,
-        reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
-        repeat: true,
-      });
-      return NextResponse.json({
-        ok: true,
-        scan_request_id: prior.id,
-        status: "completed",
-        preview: buildPreview(priorAnalysis),
-        report_url: priorUrl,
-        email_queued: false,
-        message:
-          "Je hebt met dit e-mailadres al een gratis scan gedaan. Hier is je eerdere rapport — wil je een nieuwe analyse? Plan dan even een sessie met NXTLI.",
-      });
+    //     instead of spending credits on a repeat run. Guarded: a malformed
+    //     stored result must never break a new scan.
+    try {
+      const prior = await findCompletedScanByEmail(lead.email);
+      if (prior?.analysis_result) {
+        const priorAnalysis = parseAnalysisResult(prior.analysis_result);
+        const priorUrl = `/api/geo/report/${prior.id}`;
+        await notifySlackNewLead({
+          lead,
+          status: "completed",
+          analysis: priorAnalysis,
+          reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
+          repeat: true,
+        });
+        return NextResponse.json({
+          ok: true,
+          scan_request_id: prior.id,
+          status: "completed",
+          preview: buildPreview(priorAnalysis),
+          report_url: priorUrl,
+          email_queued: false,
+          message:
+            "Je hebt met dit e-mailadres al een gratis scan gedaan. Hier is je eerdere rapport — wil je een nieuwe analyse? Plan dan even een sessie met NXTLI.",
+        });
+      }
+    } catch (dedupError) {
+      logError("api.geo.scan.dedup", dedupError); // fall through to a fresh scan
     }
 
     // 0b. Optional global daily cap (GEO_MAX_SCANS_PER_DAY) — a credit backstop.
@@ -221,6 +226,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         status: "failed",
         message:
           "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",
+        // TEMPORARY diagnostic — short error signature (no secrets). Remove
+        // once the root cause is fixed. Surfaced in the chat for debugging.
+        debug: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
       },
       { status: 500 },
     );

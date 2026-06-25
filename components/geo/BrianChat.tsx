@@ -10,6 +10,7 @@ import {
 } from "@/lib/geo/brian";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
+import { BrianAvatar } from "./BrianAvatar";
 import { Button, cn } from "./primitives";
 import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons";
 
@@ -212,10 +213,7 @@ export function BrianChat({
         {/* Header */}
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-fg">
-              {BRIAN.avatarInitial}
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-success" />
-            </div>
+            <BrianAvatar size="md" withStatus />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-ink">{BRIAN.name}</div>
               <div className="text-xs text-muted">{BRIAN.role}</div>

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button, Container, Eyebrow } from "./primitives";
 import { ArrowRightIcon, SparkIcon } from "./icons";
 import { useGeoChat } from "./chat-context";
+import { BrianAvatar } from "./BrianAvatar";
 import { BRIAN } from "@/lib/geo/brian";
 
 export function GeoHero() {
@@ -67,10 +68,7 @@ function HeroChatPreview({ onStart }: { onStart: () => void }) {
       <div className="pointer-events-none absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-tr from-brand/15 to-accent/10 blur-2xl" />
       <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-lift">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-fg">
-            {BRIAN.avatarInitial}
-            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-success" />
-          </div>
+          <BrianAvatar size="md" withStatus />
           <div className="leading-tight">
             <div className="text-sm font-semibold text-ink">{BRIAN.name}</div>
             <div className="text-xs text-muted">AI-analist · online</div>

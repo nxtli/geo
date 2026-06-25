@@ -1,21 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { BRIAN } from "@/lib/geo/brian";
 import { cn } from "./primitives";
+import { BrianAvatar } from "./BrianAvatar";
 
 export interface ChatMessageData {
   id: string;
   from: "brian" | "user";
   text: string;
-}
-
-function BrianAvatar() {
-  return (
-    <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-fg shadow-soft">
-      {BRIAN.avatarInitial}
-    </div>
-  );
 }
 
 export function ChatMessage({ message }: { message: ChatMessageData }) {

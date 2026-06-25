@@ -17,6 +17,8 @@ export interface GeoLead {
   created_at: string;
   name: string;
   email: string;
+  phone: string;
+  job_title: string;
   company_name: string;
   homepage_url: string;
   offer_description: string;
@@ -31,6 +33,8 @@ export interface GeoLead {
 export interface GeoLeadInput {
   name: string;
   email: string;
+  phone: string;
+  job_title: string;
   company_name: string;
   homepage_url: string;
   offer_description: string;

@@ -26,6 +26,16 @@ const urlSchema = z
     }
   }, "Dat lijkt geen geldige URL. Bijvoorbeeld: https://jouwbedrijf.nl");
 
+const phoneSchema = z
+  .string()
+  .trim()
+  .min(1, "Vul je telefoonnummer in.")
+  .refine((value) => {
+    const digits = value.replace(/[\s().-]/g, "");
+    // NL mobiel/vast: 06… of +31… of 0…, minstens 9 cijfers.
+    return /^(\+?\d{8,15})$/.test(digits);
+  }, "Dat telefoonnummer klopt niet helemaal. Bijvoorbeeld: 06 12345678");
+
 export const geoLeadSchema = z.object({
   name: z.string().trim().min(2, "Vul je naam in.").max(120),
   email: z
@@ -33,6 +43,8 @@ export const geoLeadSchema = z.object({
     .trim()
     .min(1, "Vul je e-mailadres in.")
     .email("Dat e-mailadres klopt niet helemaal. Probeer het nog eens."),
+  phone: phoneSchema,
+  job_title: z.string().trim().min(2, "Vul je functie in.").max(160),
   company_name: z.string().trim().min(1, "Vul je bedrijfsnaam in.").max(160),
   homepage_url: urlSchema,
   offer_description: z
@@ -67,6 +79,12 @@ export const fieldValidators = {
   url(value: string): string | null {
     const r = urlSchema.safeParse(value);
     return r.success ? null : "Dat lijkt geen geldige URL. Bijvoorbeeld: https://jouwbedrijf.nl";
+  },
+  phone(value: string): string | null {
+    const r = phoneSchema.safeParse(value);
+    return r.success
+      ? null
+      : "Dat telefoonnummer klopt niet helemaal. Bijvoorbeeld: 06 12345678";
   },
   required(value: string): string | null {
     return value.trim().length >= 2 ? null : "Dit veld mag niet leeg zijn.";

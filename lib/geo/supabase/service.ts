@@ -59,6 +59,8 @@ export async function insertLead(
     .insert({
       name: input.name,
       email: input.email,
+      phone: input.phone,
+      job_title: input.job_title,
       company_name: input.company_name,
       homepage_url: input.homepage_url,
       offer_description: input.offer_description,

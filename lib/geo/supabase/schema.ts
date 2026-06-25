@@ -13,6 +13,8 @@ create table if not exists public.geo_leads (
   created_at       timestamptz not null default now(),
   name             text not null,
   email            text not null,
+  phone            text,
+  job_title        text,
   company_name     text not null,
   homepage_url     text not null,
   offer_description text not null,
@@ -22,6 +24,9 @@ create table if not exists public.geo_leads (
   consent          boolean not null default false,
   source           text not null default 'geo.nxtli.com'
 );
+-- Backfill columns on tables created before phone/job_title existed.
+alter table public.geo_leads add column if not exists phone text;
+alter table public.geo_leads add column if not exists job_title text;
 create index if not exists geo_leads_email_idx on public.geo_leads (email);
 create index if not exists geo_leads_created_at_idx on public.geo_leads (created_at desc);
 

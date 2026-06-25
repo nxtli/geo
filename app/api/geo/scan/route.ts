@@ -7,6 +7,7 @@ import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
+import { notifySlackNewLead } from "@/lib/geo/notify/slack";
 import {
   createScanRequest,
   insertLead,
@@ -31,6 +32,8 @@ export const maxDuration = 60;
  */
 export async function POST(request: Request): Promise<NextResponse> {
   let scanRequestId: string | null = null;
+  let lead: GeoLeadInput | null = null;
+  const baseUrl = resolveBaseUrl(request);
 
   try {
     const body = await request.json().catch(() => null);
@@ -45,9 +48,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const lead: GeoLeadInput = {
+    lead = {
       name: parsed.data.name,
       email: parsed.data.email,
+      phone: parsed.data.phone,
+      job_title: parsed.data.job_title,
       company_name: parsed.data.company_name,
       homepage_url: parsed.data.homepage_url,
       offer_description: parsed.data.offer_description,
@@ -72,7 +77,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const page = await fetchHomepage(lead.homepage_url);
 
     // 3. Run the AI analysis (existing skill → Claude → mock fallback chain).
-    const { result: analysis, degraded } = await runGeoAnalysis({
+    const { result: analysis, degraded, providerId } = await runGeoAnalysis({
       homepage_url: lead.homepage_url,
       company_name: lead.company_name,
       offer_description: lead.offer_description,
@@ -120,6 +125,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       await updateScanRequest(scan.id, { email_sent_at: new Date().toISOString() });
     }
 
+    // 7. Notify the team in Slack (no-op if SLACK_WEBHOOK_URL is unset).
+    await notifySlackNewLead({
+      lead,
+      status: "completed",
+      analysis,
+      reportUrl: baseUrl ? `${baseUrl}${reportUrl}` : reportUrl,
+      degraded,
+      providerId,
+    });
+
     return NextResponse.json({
       ok: true,
       scan_request_id: scanRequestId,
@@ -139,6 +154,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         error_message: error instanceof Error ? error.message : "unknown",
       }).catch(() => undefined);
     }
+    // Still ping Slack so a failed scan gets manual follow-up (if we have a lead).
+    if (lead) {
+      await notifySlackNewLead({ lead, status: "failed" }).catch(() => undefined);
+    }
     return NextResponse.json(
       {
         ok: false,
@@ -149,6 +168,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 500 },
     );
   }
+}
+
+/** Absolute origin for building report links (used in Slack/email). */
+function resolveBaseUrl(request: Request): string | null {
+  const env = process.env.NEXT_PUBLIC_SITE_URL || process.env.GEO_PUBLIC_BASE_URL;
+  if (env) return env.replace(/\/$/, "");
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  return host ? `${proto}://${host}` : null;
 }
 
 function cryptoRandomId(): string {

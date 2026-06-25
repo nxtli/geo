@@ -140,6 +140,8 @@ export function BrianChat({
     const payload: GeoLeadInput = {
       name: answers.name ?? "",
       email: answers.email ?? "",
+      phone: answers.phone ?? "",
+      job_title: answers.job_title ?? "",
       company_name: answers.company_name ?? "",
       homepage_url: answers.homepage_url ?? "",
       offer_description: answers.offer_description ?? "",

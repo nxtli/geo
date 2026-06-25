@@ -22,6 +22,8 @@ export const BRIAN = {
 export type GeoFieldKey =
   | "name"
   | "email"
+  | "phone"
+  | "job_title"
   | "company_name"
   | "homepage_url"
   | "offer_description"
@@ -62,11 +64,26 @@ export const BRIAN_STEPS: BrianStep[] = [
     ack: () => "Top, daar stuur ik je rapport straks naartoe.",
   },
   {
+    key: "phone",
+    prompt: "Wat is je telefoonnummer? Voor als we even willen sparren.",
+    placeholder: "06 12345678",
+    inputType: "text",
+    validate: fieldValidators.phone,
+    ack: () => "Genoteerd.",
+  },
+  {
     key: "company_name",
     prompt: "En wat is de naam van je bedrijf?",
     placeholder: "Bijv. NXTLI",
     validate: fieldValidators.required,
     ack: (v) => `Helder, ${v}.`,
+  },
+  {
+    key: "job_title",
+    prompt: "Wat is je functie binnen het bedrijf?",
+    placeholder: "Bijv. oprichter, marketeer, marketingmanager",
+    validate: fieldValidators.required,
+    ack: () => "Duidelijk.",
   },
   {
     key: "homepage_url",

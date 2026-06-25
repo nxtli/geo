@@ -115,6 +115,10 @@ export async function updateScanRequest(
     pdf_url?: string | null;
     email_sent_at?: string | null;
     error_message?: string | null;
+    visibility_score?: number | null;
+    model?: string | null;
+    input_tokens?: number | null;
+    output_tokens?: number | null;
   },
 ): Promise<void> {
   const db = getClient();
@@ -204,6 +208,68 @@ export async function countCompletedScansSince(sinceIso: string): Promise<number
     return 0;
   }
   return count ?? 0;
+}
+
+/** A row for the admin overview (scan + its lead). */
+export interface AdminScanRow {
+  id: string;
+  created_at: string;
+  status: GeoScanStatus;
+  homepage_url: string;
+  visibility_score: number | null;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  name: string | null;
+  email: string | null;
+  company_name: string | null;
+  phone: string | null;
+  job_title: string | null;
+}
+
+/** List recent scans with lead details for the admin dashboard. */
+export async function listScansForAdmin(limit = 500): Promise<AdminScanRow[]> {
+  const db = getClient();
+  if (!db) return [];
+
+  const { data, error } = await db
+    .from("geo_scan_requests")
+    .select(
+      "id, created_at, status, homepage_url, visibility_score, model, input_tokens, output_tokens, geo_leads!left(name, email, company_name, phone, job_title)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logError("supabase.listScansForAdmin", error);
+    return [];
+  }
+
+  return (data ?? []).map((row: Record<string, unknown>) => {
+    const lead = normalizeEmbedded(row.geo_leads);
+    return {
+      id: row.id as string,
+      created_at: row.created_at as string,
+      status: row.status as GeoScanStatus,
+      homepage_url: row.homepage_url as string,
+      visibility_score: (row.visibility_score as number | null) ?? null,
+      model: (row.model as string | null) ?? null,
+      input_tokens: (row.input_tokens as number | null) ?? null,
+      output_tokens: (row.output_tokens as number | null) ?? null,
+      name: (lead?.name as string | null) ?? null,
+      email: (lead?.email as string | null) ?? null,
+      company_name: (lead?.company_name as string | null) ?? null,
+      phone: (lead?.phone as string | null) ?? null,
+      job_title: (lead?.job_title as string | null) ?? null,
+    };
+  });
+}
+
+/** PostgREST returns an embedded relation as an object or a single-item array. */
+function normalizeEmbedded(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) return (value[0] as Record<string, unknown>) ?? null;
+  if (value && typeof value === "object") return value as Record<string, unknown>;
+  return null;
 }
 
 /** Read a stored report (used by the report/PDF route). */

@@ -152,6 +152,26 @@ strengths, weaknesses, missing_signals, content_gaps, recommended_pages,
 recommended_faq_questions, quick_wins, thirty_day_action_plan,
 suggested_homepage_copy_improvements.
 
+## Admin dashboard (/admin)
+
+Een verborgen, met **HTTP Basic Auth** beveiligd overzicht op `/admin` (niet
+gelinkt, `noindex`). Toont alle inzendingen (naam, e-mail, telefoon, functie,
+bedrijf, homepage, status, score, model) plus de **credit-/€-kosten**, berekend
+uit de opgeslagen token-usage per scan (Anthropic-prijs × tokens, omgerekend
+naar €). Auth via `middleware.ts`; credentials uit env:
+
+```
+ADMIN_USERNAME=nxtli
+ADMIN_PASSWORD=geochecker2026
+# ADMIN_EUR_PER_USD=0.92   # USD→EUR koers voor de kostenweergave
+```
+
+Zonder die env-vars is `/admin` op slot (503). Kosten worden gemeten vanaf de
+invoering van usage-logging; oudere scans tonen geen tokens. De nieuwe kolommen
+(`model`, `input_tokens`, `output_tokens`, `visibility_score` op
+`geo_scan_requests`) worden toegevoegd door de migratie-route opnieuw te draaien
+(idempotent `add column if not exists`).
+
 ## Brand / styling aanpassen
 
 Alle brand-tokens staan in **`app/globals.css`** (`:root`) en worden via

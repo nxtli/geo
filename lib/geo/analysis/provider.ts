@@ -1,21 +1,27 @@
 import { z } from "zod";
-import type { GeoAnalysisInput, GeoAnalysisResult } from "../types";
+import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
+
+/** What a provider returns: the result plus optional token usage for costing. */
+export interface GeoAnalysisOutcome {
+  result: GeoAnalysisResult;
+  usage?: GeoUsage;
+}
 
 /**
  * The analysis provider contract.
  *
- * Any analysis backend — the real NXTLI Claude skill, a direct Claude API
- * call, or a deterministic mock — implements this interface. The registry in
- * ./index.ts selects one at runtime, so swapping or extending the engine is a
- * one-line change and never touches the API route or the UI.
+ * Any analysis backend — the direct Claude API call (running the
+ * geo-page-checker methodology), the interactive skill, or a deterministic
+ * mock — implements this interface. The registry in ./index.ts selects one at
+ * runtime, so swapping or extending the engine never touches the API or UI.
  */
 export interface GeoAnalysisProvider {
   /** Stable identifier, also used to select via GEO_ANALYSIS_PROVIDER. */
   readonly id: string;
   /** True when this provider has the config/credentials it needs to run. */
   isConfigured(): boolean;
-  /** Produce a validated analysis result. May throw on hard failure. */
-  analyze(input: GeoAnalysisInput): Promise<GeoAnalysisResult>;
+  /** Produce a validated analysis result (+ usage). May throw on hard failure. */
+  analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome>;
 }
 
 const priorityActionSchema = z.object({

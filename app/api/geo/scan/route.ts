@@ -123,7 +123,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const page = await fetchHomepage(lead.homepage_url);
 
     // 3. Run the AI analysis (existing skill → Claude → mock fallback chain).
-    const { result: analysis, degraded, providerId } = await runGeoAnalysis({
+    const { result: analysis, degraded, providerId, usage } = await runGeoAnalysis({
       homepage_url: lead.homepage_url,
       company_name: lead.company_name,
       offer_description: lead.offer_description,
@@ -157,6 +157,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         analysis_result: analysis,
         report_url: reportUrl,
         pdf_url: pdfUrl,
+        visibility_score: analysis.visibility_score,
+        model: usage?.model ?? null,
+        input_tokens: usage?.input_tokens ?? null,
+        output_tokens: usage?.output_tokens ?? null,
       });
     }
 

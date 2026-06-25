@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { GeoAnalysisInput, GeoAnalysisResult } from "../../types";
+import type { GeoAnalysisInput } from "../../types";
 import {
   geoAnalysisJsonSchema,
   parseAnalysisResult,
+  type GeoAnalysisOutcome,
   type GeoAnalysisProvider,
 } from "../provider";
 import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
@@ -28,7 +29,7 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     return Boolean(process.env.ANTHROPIC_API_KEY);
   }
 
-  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisResult> {
+  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const model = process.env.GEO_ANALYSIS_MODEL || "claude-opus-4-8";
 
@@ -65,7 +66,13 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
 
     if (!text) throw new Error("empty_analysis_response");
 
-    return parseAnalysisResult(JSON.parse(stripCodeFence(text)));
+    const result = parseAnalysisResult(JSON.parse(stripCodeFence(text)));
+    const usage = {
+      model: typeof response?.model === "string" ? response.model : model,
+      input_tokens: Number(response?.usage?.input_tokens ?? 0),
+      output_tokens: Number(response?.usage?.output_tokens ?? 0),
+    };
+    return { result, usage };
   }
 }
 

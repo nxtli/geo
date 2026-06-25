@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { GeoAnalysisInput, GeoAnalysisResult } from "../../types";
+import type { GeoAnalysisInput } from "../../types";
 import {
   geoAnalysisJsonSchema,
   parseAnalysisResult,
+  type GeoAnalysisOutcome,
   type GeoAnalysisProvider,
 } from "../provider";
 import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
@@ -39,7 +40,7 @@ export class GeoSkillAnalysisProvider implements GeoAnalysisProvider {
     return Boolean(process.env.ANTHROPIC_API_KEY);
   }
 
-  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisResult> {
+  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("geo_skill_not_configured");
 
@@ -81,7 +82,13 @@ ${JSON.stringify(geoAnalysisJsonSchema)}`,
     const text = collectText(response);
     if (!text) throw new Error("empty_skill_response");
 
-    return parseAnalysisResult(JSON.parse(extractJson(text)));
+    const result = parseAnalysisResult(JSON.parse(extractJson(text)));
+    const usage = {
+      model: typeof response?.model === "string" ? response.model : model,
+      input_tokens: Number(response?.usage?.input_tokens ?? 0),
+      output_tokens: Number(response?.usage?.output_tokens ?? 0),
+    };
+    return { result, usage };
   }
 }
 

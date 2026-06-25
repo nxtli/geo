@@ -1,4 +1,4 @@
-import type { GeoAnalysisInput, GeoAnalysisResult } from "../types";
+import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
 import { logInfo } from "../logger";
 import type { GeoAnalysisProvider } from "./provider";
 import { MockAnalysisProvider } from "./providers/mock";
@@ -47,6 +47,8 @@ export interface RunAnalysisOutcome {
   providerId: string;
   /** True when we fell back to the mock because the real engine failed. */
   degraded: boolean;
+  /** Token usage for cost reporting (absent for the mock). */
+  usage?: GeoUsage;
 }
 
 /**
@@ -61,12 +63,12 @@ export async function runGeoAnalysis(
   logInfo("analysis", `using provider "${provider.id}"`);
 
   try {
-    const result = await provider.analyze(input);
-    return { result, providerId: provider.id, degraded: false };
+    const { result, usage } = await provider.analyze(input);
+    return { result, usage, providerId: provider.id, degraded: false };
   } catch {
     if (provider.id === "mock") throw new Error("analysis_failed");
     logInfo("analysis", `provider "${provider.id}" failed — falling back to mock`);
-    const result = await registry["mock"].analyze(input);
+    const { result } = await registry["mock"].analyze(input);
     return { result, providerId: "mock", degraded: true };
   }
 }

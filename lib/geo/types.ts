@@ -57,6 +57,18 @@ export interface GeoScanRequest {
   pdf_url: string | null;
   email_sent_at: string | null;
   error_message: string | null;
+  /** Token usage of the analysis call, for cost reporting. */
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  visibility_score: number | null;
+}
+
+/** Token usage returned by an analysis provider, for cost accounting. */
+export interface GeoUsage {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 /** The structured report. Maps to `geo_scan_reports`. */

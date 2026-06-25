@@ -1,5 +1,5 @@
 import type { GeoAnalysisInput, GeoAnalysisResult } from "../../types";
-import type { GeoAnalysisProvider } from "../provider";
+import type { GeoAnalysisOutcome, GeoAnalysisProvider } from "../provider";
 
 /**
  * Deterministic fallback provider. Always configured, never calls the network.
@@ -14,7 +14,7 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
     return true;
   }
 
-  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisResult> {
+  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
     const company = input.company_name || "je bedrijf";
     const fetched = input.metadata?.fetched ?? false;
 
@@ -27,7 +27,7 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
     if (input.metadata?.description) score += 6;
     score = Math.max(28, Math.min(82, score));
 
-    return {
+    const result: GeoAnalysisResult = {
       visibility_score: score,
       short_summary: fetched
         ? `${company} is herkenbaar online aanwezig, maar de homepage maakt voor AI-systemen nog niet scherp genoeg duidelijk wat je precies aanbiedt en voor wie. Met een paar gerichte aanpassingen word je makkelijker samengevat en aanbevolen.`
@@ -93,6 +93,7 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
         "Voeg een korte, scanbare opsomming toe van je belangrijkste diensten.",
       ],
     };
+    return { result };
   }
 }
 

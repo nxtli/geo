@@ -40,8 +40,16 @@ create table if not exists public.geo_scan_requests (
   report_url       text,
   pdf_url          text,
   email_sent_at    timestamptz,
-  error_message    text
+  error_message    text,
+  visibility_score integer,
+  model            text,
+  input_tokens     integer,
+  output_tokens    integer
 );
+alter table public.geo_scan_requests add column if not exists visibility_score integer;
+alter table public.geo_scan_requests add column if not exists model text;
+alter table public.geo_scan_requests add column if not exists input_tokens integer;
+alter table public.geo_scan_requests add column if not exists output_tokens integer;
 
 create index if not exists geo_scan_requests_lead_idx on public.geo_scan_requests (lead_id);
 create index if not exists geo_scan_requests_status_idx on public.geo_scan_requests (status);

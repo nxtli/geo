@@ -69,11 +69,12 @@ voorbereid). Voor productie:
 |---|---|---|
 | `SUPABASE_URL` | Opslag | |
 | `SUPABASE_SERVICE_ROLE_KEY` | Opslag | **SERVER ONLY** — nooit client-side |
-| `ANTHROPIC_API_KEY` | Claude-analyse | SERVER ONLY |
+| `ANTHROPIC_API_KEY` | `geo-skill` + `claude` | SERVER ONLY — org die de skill bezit |
 | `GEO_ANALYSIS_MODEL` | optioneel | default `claude-opus-4-8` |
-| `GEO_ANALYSIS_PROVIDER` | optioneel | `existing-skill` \| `claude` \| `mock` |
-| `GEO_SKILL_ENDPOINT` | Bestaande NXTLI-skill | zie hieronder |
-| `GEO_SKILL_API_KEY` | Bestaande NXTLI-skill | optioneel |
+| `GEO_ANALYSIS_PROVIDER` | optioneel | `geo-skill` \| `claude` \| `mock` |
+| `GEO_SKILL_NAME` | optioneel | default `geo-page-checker` |
+| `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
+| `GEO_SKILL_VERSION` | optioneel | default `latest` |
 | `RESEND_API_KEY` + `GEO_EMAIL_FROM` | E-mail versturen | anders alleen voorbereid |
 | `GEO_PDF_STRATEGY` | Echte PDF | default `none` (HTML-rapport) |
 | `NEXT_PUBLIC_GEO_STRATEGY_CALL_URL` | CTA-link (client) | |
@@ -87,23 +88,49 @@ de Supabase CLI). Het maakt `geo_leads`, `geo_scan_requests` en
 de service-role key (server-side), die RLS omzeilt. Zet daarna `SUPABASE_URL` +
 `SUPABASE_SERVICE_ROLE_KEY`.
 
-## De bestaande Claude-skill koppelen
+## De gedeelde Claude-skill `geo-page-checker` koppelen
 
 De analyse draait via een **swap-bare provider-architectuur**
 (`lib/geo/analysis/`). Volgorde van selectie: expliciete
-`GEO_ANALYSIS_PROVIDER` → de bestaande NXTLI-skill (indien geconfigureerd) →
-de directe Claude API → de mock.
+`GEO_ANALYSIS_PROVIDER` → de gedeelde org-skill (`geo-skill`) → de directe
+Claude API (`claude`) → de mock.
 
-Om de **bestaande NXTLI GEO-skill** in te pluggen:
+De primaire engine is de **gedeelde organisatie-skill `geo-page-checker`**. Die
+wordt aangeroepen via de Claude **Agent Skills**-surface op de Messages API
+(`lib/geo/analysis/providers/geo-skill.ts`):
 
-1. Open `lib/geo/analysis/providers/existing-skill.ts` — dit is de
-   integratie-seam (duidelijk gemarkeerd met `TODO(NXTLI)`).
-2. Vervang de request/response-mapping door het echte skill-contract (een
-   Claude Agent Skill-aanroep, een interne NXTLI-service, of een queue). De
-   output hoeft alleen dicht bij `GeoAnalysisResult` te zitten —
-   `parseAnalysisResult` valideert/coerce't.
-3. Zet `GEO_SKILL_ENDPOINT` (+ eventueel `GEO_SKILL_API_KEY`). De provider wordt
-   dan automatisch geselecteerd; nergens anders is een wijziging nodig.
+```
+client.beta.messages.create({
+  model: "claude-opus-4-8",
+  container: { skills: [{ type: "custom", skill_id, version: "latest" }] },
+  tools:     [{ type: "code_execution_20260521", name: "code_execution" }],
+  betas:     ["code-execution-2025-08-25", "skills-2025-10-02"],
+  system, messages,
+})
+```
+
+De skill (de `SKILL.md`) bepaalt **hoe** de homepage beoordeeld wordt; onze
+prompt pint de **output** vast op het `GeoAnalysisResult`-schema, dat we daarna
+valideren met `parseAnalysisResult` (coerce't loszittende output netjes).
+
+Aanzetten:
+
+1. Zet **`ANTHROPIC_API_KEY`** van de Anthropic-org/workspace die de skill bezit.
+   (Server-side; nooit client-side.)
+2. Dat is alles — de provider zoekt de skill automatisch op naam op
+   (`GEO_SKILL_NAME`, default `geo-page-checker`) via `GET /v1/skills` en cachet
+   het `skill_id`. Wil je de lookup overslaan, zet dan `GEO_SKILL_ID` direct.
+3. Optioneel: `GEO_SKILL_VERSION` (default `latest`), `GEO_ANALYSIS_MODEL`
+   (default `claude-opus-4-8`).
+
+> De homepage-inhoud wordt server-side opgehaald (`scrape.ts`) en in de prompt
+> meegegeven, omdat de code-execution-container van Agent Skills geen internet
+> heeft. De skill analyseert dus de meegeleverde content (of, als ophalen
+> mislukt, de antwoorden van de ondernemer).
+
+Als de skill faalt of niet gevonden wordt, valt de analyse netjes terug op de
+mock (de bezoeker krijgt altijd een resultaat; `degraded` markeert dat voor een
+handmatige follow-up).
 
 Input naar de analyse (`GeoAnalysisInput`): homepage_url, company_name,
 offer_description, target_audience, desired_queries, competitors, en —

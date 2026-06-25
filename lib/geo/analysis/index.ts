@@ -3,15 +3,16 @@ import { logInfo } from "../logger";
 import type { GeoAnalysisProvider } from "./provider";
 import { MockAnalysisProvider } from "./providers/mock";
 import { ClaudeAnalysisProvider } from "./providers/claude";
-import { ExistingSkillAnalysisProvider } from "./providers/existing-skill";
+import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
 
 /**
  * Analysis provider registry + selection.
  *
  * Selection order:
- *   1. GEO_ANALYSIS_PROVIDER env (explicit: "existing-skill" | "claude" | "mock")
- *   2. The existing NXTLI skill, if configured (the intended primary engine)
- *   3. The direct Claude API, if ANTHROPIC_API_KEY is set
+ *   1. GEO_ANALYSIS_PROVIDER env (explicit: "geo-skill" | "claude" | "mock")
+ *   2. The shared NXTLI org skill `geo-page-checker` (primary engine — needs
+ *      ANTHROPIC_API_KEY for the org that owns the skill)
+ *   3. The direct Claude API (generic GEO analysis), if ANTHROPIC_API_KEY is set
  *   4. The deterministic mock (always available — keeps the flow working)
  *
  * Add a new engine by implementing GeoAnalysisProvider and registering it here.
@@ -22,7 +23,7 @@ function register(provider: GeoAnalysisProvider) {
   registry[provider.id] = provider;
 }
 
-register(new ExistingSkillAnalysisProvider());
+register(new GeoSkillAnalysisProvider());
 register(new ClaudeAnalysisProvider());
 register(new MockAnalysisProvider());
 
@@ -30,7 +31,7 @@ export function selectProvider(): GeoAnalysisProvider {
   const explicit = process.env.GEO_ANALYSIS_PROVIDER?.trim();
   if (explicit && registry[explicit]) return registry[explicit];
 
-  const order = ["existing-skill", "claude", "mock"];
+  const order = ["geo-skill", "claude", "mock"];
   for (const id of order) {
     const p = registry[id];
     if (p?.isConfigured()) return p;

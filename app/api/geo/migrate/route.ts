@@ -72,7 +72,10 @@ async function run(request: Request): Promise<NextResponse> {
 
   for (const candidate of candidates) {
     const client = new Client({
-      connectionString: candidate.value,
+      // Strip sslmode from the string: when present, node-postgres lets it
+      // override the explicit `ssl` option and re-enables cert verification,
+      // which fails against Supabase's pooler cert (SELF_SIGNED_CERT_IN_CHAIN).
+      connectionString: stripSslParams(candidate.value),
       ssl: { rejectUnauthorized: false },
       connectionTimeoutMillis: 10_000,
     });
@@ -116,6 +119,21 @@ async function run(request: Request): Promise<NextResponse> {
     },
     { status: 500 },
   );
+}
+
+/**
+ * Remove sslmode/ssl query params so the explicit `ssl` Client option wins.
+ * Keeps every other param (pgbouncer, connect_timeout, …) intact.
+ */
+function stripSslParams(connectionString: string): string {
+  try {
+    const u = new URL(connectionString);
+    u.searchParams.delete("sslmode");
+    u.searchParams.delete("ssl");
+    return u.toString();
+  } catch {
+    return connectionString;
+  }
 }
 
 /** Hostname only — never echo the password from the connection string. */

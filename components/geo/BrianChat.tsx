@@ -166,7 +166,7 @@ export function BrianChat({
 
     type Final =
       | { ok: true; data: GeoScanResponse }
-      | { ok: false; message?: string; debug?: string };
+      | { ok: false; message?: string };
     let final: Final | null = null;
 
     try {
@@ -196,7 +196,6 @@ export function BrianChat({
             step?: number;
             data?: GeoScanResponse;
             message?: string;
-            debug?: string;
           };
           try {
             evt = JSON.parse(line);
@@ -209,7 +208,7 @@ export function BrianChat({
           } else if (evt.type === "result" && evt.data) {
             final = { ok: true, data: evt.data };
           } else if (evt.type === "error") {
-            final = { ok: false, message: evt.message, debug: evt.debug };
+            final = { ok: false, message: evt.message };
           }
         }
       }
@@ -222,9 +221,6 @@ export function BrianChat({
       if (!final || !final.ok) {
         setPhase("error");
         await pushBrian(final?.message ?? BRIAN_COPY.errorFallback, 500);
-        if (final && !final.ok && final.debug) {
-          await pushBrian(`🔧 Debug (tijdelijk): ${final.debug}`, 300);
-        }
         return;
       }
 

@@ -30,7 +30,7 @@ export const maxDuration = 120;
  * `result` (or `error`) event. The chat reads these to drive the loader so the
  * bar tracks what's actually happening instead of a time estimate.
  *
- * Events: {type:"progress", pct, step} | {type:"result", data} | {type:"error", message, debug?}
+ * Events: {type:"progress", pct, step} | {type:"result", data} | {type:"error", message}
  *
  * All secrets stay server-side; user-facing messages never contain technical detail.
  */
@@ -255,7 +255,6 @@ export async function POST(request: Request): Promise<Response> {
           type: "error",
           message:
             "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",
-          debug: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
         });
         return close();
       }

@@ -83,16 +83,44 @@ export function buildAnalysisPrompt(input: GeoAnalysisInput): string {
   );
 
   if (input.metadata?.fetched) {
+    const md = input.metadata;
     lines.push("");
     lines.push("--- Opgehaalde homepage ---");
-    if (input.metadata.title) lines.push(`<title>: ${input.metadata.title}`);
-    if (input.metadata.description)
-      lines.push(`meta description: ${input.metadata.description}`);
-    if (typeof input.metadata.word_count === "number")
-      lines.push(`zichtbaar aantal woorden (ca.): ${input.metadata.word_count}`);
+    if (md.title) lines.push(`<title>: ${md.title}`);
+    if (md.description) lines.push(`meta description: ${md.description}`);
+    if (typeof md.word_count === "number")
+      lines.push(`zichtbaar aantal woorden (ca.): ${md.word_count}`);
+
+    // Real technical signals parsed from the raw HTML — base the
+    // technical_checks on THESE, niet op een gok.
+    lines.push("");
+    lines.push("Gemeten technische signalen (uit de ruwe HTML):");
+    lines.push(
+      md.meta_robots
+        ? `- <meta name="robots">: "${md.meta_robots}"${/noindex/i.test(md.meta_robots) ? " — LET OP: noindex aanwezig (harde blokker)." : ""}`
+        : "- <meta name=\"robots\">: niet aanwezig (geen noindex op pagina-niveau → indexeerbaar).",
+    );
+    lines.push(
+      md.has_json_ld
+        ? "- JSON-LD (application/ld+json): aanwezig in de HTML."
+        : "- JSON-LD (application/ld+json): niet aangetroffen in de HTML → gemiste kans (status \"aandacht\", geen punten hard aftrekken).",
+    );
+    lines.push(
+      `- Koppenstructuur: ${md.h1_count ?? 0}× <h1>, ${md.heading_count ?? 0}× <h1>–<h3> totaal.${
+        (md.h1_count ?? 0) === 0
+          ? " Geen h1 gevonden → semantische structuur is zwak."
+          : (md.h1_count ?? 0) > 1
+            ? " Meerdere h1's → koppenhiërarchie is mogelijk onduidelijk."
+            : ""
+      }`,
+    );
+    lines.push(
+      "Deze drie signalen zijn betrouwbaar gemeten in de server-side HTML; baseer de technical_checks voor indexeerbaarheid, structured data en semantische HTML hierop (niet op een aanname).",
+    );
+
     if (input.page_content) {
       lines.push("");
-      lines.push("Zichtbare tekst (ingekort, scripts verwijderd — schema/JSON-LD dus niet zichtbaar):");
+      lines.push("Zichtbare tekst (ingekort, scripts verwijderd — JSON-LD-inhoud zelf dus niet zichtbaar, alleen de aanwezigheid is hierboven gemeld):");
       lines.push(input.page_content);
     }
   } else {

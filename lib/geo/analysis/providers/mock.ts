@@ -22,6 +22,12 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
   async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
     const company = input.company_name || "je bedrijf";
     const fetched = input.metadata?.fetched ?? false;
+    const md = input.metadata;
+    const metaRobots = md?.meta_robots ?? null;
+    const hasNoindex = !!metaRobots && /noindex/i.test(metaRobots);
+    const hasJsonLd = md?.has_json_ld ?? null;
+    const h1Count = md?.h1_count ?? null;
+    const headingCount = md?.heading_count ?? null;
 
     // Cheap heuristic score: reward concrete, detailed inputs + a reachable page.
     let score = 42;
@@ -54,8 +60,12 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
       },
       {
         label: "Indexeerbaarheid (noindex/nofollow)",
-        status: fetched ? "goed" : "onbekend",
-        detail: fetched ? "Geen noindex aangetroffen." : "Niet gecontroleerd.",
+        status: !fetched ? "onbekend" : hasNoindex ? "blokker" : "goed",
+        detail: !fetched
+          ? "Pagina niet opgehaald — indexeerbaarheid niet gecontroleerd."
+          : hasNoindex
+            ? `De pagina bevat <meta name="robots" content="${metaRobots}"> — AI-zoekmachines mogen 'm dan niet indexeren.`
+            : "Geen noindex op pagina-niveau aangetroffen — de pagina is indexeerbaar.",
       },
       {
         label: "Content-rendering (zonder JavaScript leesbaar)",
@@ -66,13 +76,30 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
       },
       {
         label: "Structured data (schema / JSON-LD)",
-        status: "onbekend",
-        detail: "Niet te verifiëren zonder browser.",
+        status: hasJsonLd == null ? "onbekend" : hasJsonLd ? "goed" : "aandacht",
+        detail:
+          hasJsonLd == null
+            ? "Pagina niet opgehaald — niet gecontroleerd."
+            : hasJsonLd
+              ? "Er is JSON-LD (application/ld+json) in de HTML aangetroffen."
+              : "Geen JSON-LD aangetroffen — een gemiste kans om je entiteit expliciet te maken voor AI.",
       },
       {
         label: "Semantische HTML (koppenstructuur)",
-        status: "onbekend",
-        detail: "Niet automatisch beoordeeld in deze voorlopige scan.",
+        status:
+          h1Count == null
+            ? "onbekend"
+            : h1Count === 0 || h1Count > 1
+              ? "aandacht"
+              : "goed",
+        detail:
+          h1Count == null
+            ? "Pagina niet opgehaald — koppen niet beoordeeld."
+            : h1Count === 0
+              ? `Geen <h1> gevonden (wel ${headingCount ?? 0} koppen h1–h3 totaal) — de paginastructuur is voor AI lastig te volgen.`
+              : h1Count > 1
+                ? `${h1Count}× <h1> gevonden (${headingCount ?? 0} koppen h1–h3 totaal) — één duidelijke h1 is beter voor de hiërarchie.`
+                : `Eén <h1> en ${headingCount ?? 0} koppen (h1–h3) — duidelijke semantische structuur.`,
       },
       {
         label: "llms.txt",

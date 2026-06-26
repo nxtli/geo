@@ -143,6 +143,14 @@ export interface GeoPageMetadata {
   fetched: boolean;
   status?: number | null;
   word_count?: number | null;
+  /** Content of the <meta name="robots"> tag, if present (e.g. "noindex"). */
+  meta_robots?: string | null;
+  /** Whether at least one JSON-LD (<script type="application/ld+json">) block is present. */
+  has_json_ld?: boolean;
+  /** Number of <h1> tags found in the raw HTML. */
+  h1_count?: number;
+  /** Number of <h1>/<h2>/<h3> tags found in the raw HTML. */
+  heading_count?: number;
 }
 
 /**

@@ -2,25 +2,28 @@ import type { GeoPageMetadata } from "./types";
 import { logError } from "./logger";
 
 /**
- * Best-effort homepage fetch. Used to give the AI real page content to judge.
- * Never throws — on any failure it returns `{ fetched: false }` and the
- * analysis proceeds on the visitor's answers alone.
- *
- * Note: in restricted network environments the target site may be unreachable;
- * the scan is designed to degrade gracefully in that case.
+ * Best-effort homepage fetch + real technical signals for the GEO check.
+ * Never throws. Crucially distinguishes "absent" (a definitive non-200, e.g.
+ * 404 for /llms.txt) from "unknown" (a network error/timeout) — they mean
+ * very different things in the report.
  */
 export interface ScrapeResult {
   text: string | null;
   metadata: GeoPageMetadata;
-  /** /robots.txt contents (best-effort; null if unreachable). */
+  /** /robots.txt: contents if served, "" if definitively absent, null if unreachable. */
   robotsTxt: string | null;
-  /** Whether /llms.txt exists (undefined if not checked). */
+  /** /llms.txt: true = present, false = absent (e.g. 404), undefined = not checked. */
   llmsTxtPresent?: boolean;
 }
 
 const MAX_CHARS = 12_000;
 const PAGE_TIMEOUT_MS = 7_000;
 const SIGNAL_TIMEOUT_MS = 5_000;
+
+interface Probe {
+  status: number | null; // null = network error / timeout (truly unknown)
+  text: string | null;
+}
 
 export async function fetchHomepage(url: string): Promise<ScrapeResult> {
   let origin: string | null = null;
@@ -30,22 +33,46 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
     origin = null;
   }
 
-  // Fetch the page + robots.txt + llms.txt CONCURRENTLY so the technical
-  // signals never add latency on top of the page fetch.
-  const [pageRes, robotsRaw, llmsRaw] = await Promise.all([
-    getText(url, PAGE_TIMEOUT_MS, true),
-    origin ? getText(`${origin}/robots.txt`, SIGNAL_TIMEOUT_MS) : Promise.resolve(null),
-    origin ? getText(`${origin}/llms.txt`, SIGNAL_TIMEOUT_MS) : Promise.resolve(null),
+  const [page, robots, llms] = await Promise.all([
+    probe(url, PAGE_TIMEOUT_MS, true),
+    origin ? probe(`${origin}/robots.txt`, SIGNAL_TIMEOUT_MS) : noProbe(),
+    origin ? probe(`${origin}/llms.txt`, SIGNAL_TIMEOUT_MS) : noProbe(),
   ]);
 
-  const robotsTxt = robotsRaw ? robotsRaw.slice(0, 4_000) : null;
-  const llmsTxtPresent = llmsRaw === null ? undefined : llmsRaw.trim().length > 0;
+  // robots.txt: served → contents; definitive non-2xx (no file) → "" (allowed);
+  // network error → null (unknown).
+  const robotsTxt =
+    robots.status === null
+      ? null
+      : isOk(robots.status) && robots.text
+        ? robots.text.slice(0, 4_000)
+        : "";
 
-  if (!pageRes) {
-    return { text: null, metadata: { fetched: false }, robotsTxt, llmsTxtPresent };
+  // llms.txt: present / absent / unknown (see interface).
+  const llmsTxtPresent =
+    llms.status === null
+      ? undefined
+      : isOk(llms.status) && !!llms.text && llms.text.trim().length > 0 && !looksLikeHtml(llms.text)
+        ? true
+        : false;
+
+  if (page.status === null || !isOk(page.status) || !page.text) {
+    return {
+      text: null,
+      metadata: { fetched: false, status: page.status ?? null },
+      robotsTxt,
+      llmsTxtPresent,
+    };
   }
 
-  const html = pageRes;
+  const html = page.text;
+  // Extract real technical signals from the RAW html (before stripping).
+  const metaRobots =
+    extractAttr(html, /<meta[^>]+name=["']robots["'][^>]*>/i) ?? null;
+  const hasJsonLd = /<script[^>]+type=["']application\/ld\+json["']/i.test(html);
+  const h1Count = (html.match(/<h1[\s>]/gi) ?? []).length;
+  const headingCount = (html.match(/<h[1-3][\s>]/gi) ?? []).length;
+
   const title = extractTag(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   const description =
     extractAttr(html, /<meta[^>]+name=["']description["'][^>]*>/i) ??
@@ -56,20 +83,33 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
     text: text || null,
     metadata: {
       fetched: true,
+      status: page.status,
       title: title ?? null,
       description: description ?? null,
       word_count: text ? text.split(/\s+/).length : 0,
+      meta_robots: metaRobots,
+      has_json_ld: hasJsonLd,
+      h1_count: h1Count,
+      heading_count: headingCount,
     },
     robotsTxt,
     llmsTxtPresent,
   };
 }
 
-async function getText(
-  target: string,
-  timeoutMs: number,
-  html = false,
-): Promise<string | null> {
+function isOk(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+function looksLikeHtml(s: string): boolean {
+  return /<!doctype html|<html|<body/i.test(s.slice(0, 600));
+}
+
+function noProbe(): Promise<Probe> {
+  return Promise.resolve({ status: null, text: null });
+}
+
+async function probe(target: string, timeoutMs: number, html = false): Promise<Probe> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -81,11 +121,16 @@ async function getText(
         ...(html ? { Accept: "text/html,application/xhtml+xml" } : {}),
       },
     });
-    if (!res.ok) return null;
-    return await res.text();
+    let text: string | null = null;
+    try {
+      text = await res.text();
+    } catch {
+      text = null;
+    }
+    return { status: res.status, text };
   } catch (error) {
     if (html) logError("scrape.fetchHomepage", error);
-    return null;
+    return { status: null, text: null };
   } finally {
     clearTimeout(timeout);
   }

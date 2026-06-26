@@ -41,8 +41,13 @@ export default async function AdminPage() {
     );
   }
 
-  await ensureSchemaOnce();
-  const rows = await listScansForAdmin(ROW_LIMIT);
+  let schemaError: string | null = null;
+  try {
+    await ensureSchemaOnce();
+  } catch (e) {
+    schemaError = e instanceof Error ? e.message : String(e);
+  }
+  const { rows, error: queryError, counts } = await listScansForAdmin(ROW_LIMIT);
 
   const completed = rows.filter((r) => r.status === "completed");
   const failed = rows.filter((r) => r.status === "failed");
@@ -53,8 +58,34 @@ export default async function AdminPage() {
     0,
   );
 
+  const diagnostics: string[] = [];
+  if (schemaError) diagnostics.push(`Migratie/schema-fout: ${schemaError}`);
+  if (queryError) diagnostics.push(`Database-query mislukt: ${queryError}`);
+  if (!schemaError && !queryError && rows.length === 0) {
+    if (counts.scans === 0 && counts.leads && counts.leads > 0) {
+      diagnostics.push(
+        `Er staan ${counts.leads} lead(s) in de database maar 0 scan-aanvragen — het wegschrijven van de scan-aanvraag mislukt. Check de Vercel-logs op "supabase.createScanRequest".`,
+      );
+    } else if (counts.scans === 0 && counts.leads === 0) {
+      diagnostics.push(
+        "Database is bereikbaar, maar er is nog niets weggeschreven (0 leads, 0 scans). De inzending bereikt Supabase dus niet — meestal ontbrekende of foutieve env-vars, of de insert faalt. Check de Vercel-logs op \"supabase.insertLead\".",
+      );
+    }
+  }
+
   return (
     <Shell>
+      {diagnostics.length > 0 ? (
+        <div className="mb-6 rounded-2xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
+          <div className="mb-1 font-semibold">Let op — diagnostische melding</div>
+          <ul className="list-disc space-y-1 pl-5">
+            {diagnostics.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Inzendingen" value={String(rows.length)} sub={`laatste ${ROW_LIMIT}`} />
         <Stat label="Voltooid" value={String(completed.length)} sub={`${failed.length} mislukt`} />

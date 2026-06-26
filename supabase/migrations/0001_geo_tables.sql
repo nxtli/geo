@@ -77,3 +77,8 @@ create index if not exists geo_scan_reports_scan_idx on public.geo_scan_reports 
 alter table public.geo_leads          enable row level security;
 alter table public.geo_scan_requests  enable row level security;
 alter table public.geo_scan_reports   enable row level security;
+
+-- Reload the PostgREST schema cache so the supabase-js REST client sees these
+-- tables immediately (otherwise REST inserts/selects fail with
+-- "Could not find the table in the schema cache").
+notify pgrst, 'reload schema';

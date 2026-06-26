@@ -227,10 +227,30 @@ export interface AdminScanRow {
   job_title: string | null;
 }
 
+export interface AdminScanList {
+  rows: AdminScanRow[];
+  /** Non-null when the query failed (e.g. missing table / FK) — shown in admin. */
+  error: string | null;
+  /** Total rows in geo_scan_requests + geo_leads, to distinguish "empty" from "broken". */
+  counts: { scans: number | null; leads: number | null };
+}
+
 /** List recent scans with lead details for the admin dashboard. */
-export async function listScansForAdmin(limit = 500): Promise<AdminScanRow[]> {
+export async function listScansForAdmin(limit = 500): Promise<AdminScanList> {
   const db = getClient();
-  if (!db) return [];
+  if (!db) return { rows: [], error: null, counts: { scans: null, leads: null } };
+
+  // Independent raw counts — these succeed even if the embedded join below
+  // fails, so the admin can tell "no submissions yet" from "query broken".
+  const [scansCount, leadsCount] = await Promise.all([
+    db.from("geo_scan_requests").select("id", { count: "exact", head: true }),
+    db.from("geo_leads").select("id", { count: "exact", head: true }),
+  ]);
+  const counts = {
+    scans: scansCount.error ? null : (scansCount.count ?? 0),
+    leads: leadsCount.error ? null : (leadsCount.count ?? 0),
+  };
+  if (scansCount.error) logError("supabase.listScansForAdmin.count", scansCount.error);
 
   const { data, error } = await db
     .from("geo_scan_requests")
@@ -242,10 +262,10 @@ export async function listScansForAdmin(limit = 500): Promise<AdminScanRow[]> {
 
   if (error) {
     logError("supabase.listScansForAdmin", error);
-    return [];
+    return { rows: [], error: error.message ?? "query mislukt", counts };
   }
 
-  return (data ?? []).map((row: Record<string, unknown>) => {
+  const rows = (data ?? []).map((row: Record<string, unknown>) => {
     const lead = normalizeEmbedded(row.geo_leads);
     return {
       id: row.id as string,
@@ -263,6 +283,8 @@ export async function listScansForAdmin(limit = 500): Promise<AdminScanRow[]> {
       job_title: (lead?.job_title as string | null) ?? null,
     };
   });
+
+  return { rows, error: null, counts };
 }
 
 /** PostgREST returns an embedded relation as an object or a single-item array. */

@@ -39,6 +39,7 @@ export function BrianChat({
   const [typing, setTyping] = React.useState(false);
   const [consent, setConsent] = React.useState(false);
   const [processingIndex, setProcessingIndex] = React.useState(0);
+  const [scanProgress, setScanProgress] = React.useState(0);
   const [result, setResult] = React.useState<GeoScanResponse | null>(null);
 
   const initialized = React.useRef(false);
@@ -125,18 +126,29 @@ export function BrianChat({
     if (!consent) return;
     setPhase("scanning");
     setProcessingIndex(0);
+    setScanProgress(0);
     await pushBrian(BRIAN_COPY.scanningLead, 300);
 
-    // Animate the processing checklist while the request runs.
-    let cancelled = false;
-    const animate = async () => {
-      for (let i = 0; i < BRIAN_PROCESSING_STEPS.length; i++) {
-        if (cancelled) return;
-        setProcessingIndex(i);
-        await wait(900);
-      }
+    // Time-paced progress: fill a bar toward ~92% over the estimated duration
+    // (ease-out so it slows near the end) and light up the steps in sync. The
+    // last bit and 100% land when the real response arrives — so the loader
+    // keeps moving for the whole scan instead of finishing in a few seconds.
+    const EST_MS = 24_000;
+    const stepCount = BRIAN_PROCESSING_STEPS.length;
+    const startTs = Date.now();
+    const timer = setInterval(() => {
+      const frac = Math.min(1, (Date.now() - startTs) / EST_MS);
+      const eased = 1 - Math.pow(1 - frac, 2);
+      const pct = Math.min(92, Math.round(eased * 92));
+      setScanProgress(pct);
+      setProcessingIndex(Math.min(stepCount - 1, Math.floor((pct / 92) * stepCount)));
+    }, 350);
+
+    const finish = () => {
+      clearInterval(timer);
+      setScanProgress(100);
+      setProcessingIndex(stepCount);
     };
-    const anim = animate();
 
     const payload: GeoLeadInput = {
       name: answers.name ?? "",
@@ -159,9 +171,8 @@ export function BrianChat({
         body: JSON.stringify(payload),
       });
       const data: GeoScanResponse = await res.json();
-      cancelled = true;
-      await anim;
-      setProcessingIndex(BRIAN_PROCESSING_STEPS.length);
+      finish();
+      await wait(500); // let the bar visibly land on 100%
 
       if (!res.ok || !data.ok) {
         setPhase("error");
@@ -179,7 +190,7 @@ export function BrianChat({
       }
       await pushBrian(BRIAN_COPY.finalCta, 600);
     } catch {
-      cancelled = true;
+      finish();
       setPhase("error");
       await pushBrian(BRIAN_COPY.errorFallback, 400);
     }
@@ -260,7 +271,9 @@ export function BrianChat({
           ))}
           {typing && <TypingIndicator />}
 
-          {phase === "scanning" && <ProcessingList activeIndex={processingIndex} />}
+          {phase === "scanning" && (
+            <ProcessingList activeIndex={processingIndex} progress={scanProgress} />
+          )}
           {phase === "success" && result?.preview ? (
             <ResultCard result={result} />
           ) : null}
@@ -436,15 +449,39 @@ function ConsentInput({
   );
 }
 
-function ProcessingList({ activeIndex }: { activeIndex: number }) {
+function ProcessingList({
+  activeIndex,
+  progress,
+}: {
+  activeIndex: number;
+  progress: number;
+}) {
+  const activeStep = BRIAN_PROCESSING_STEPS[Math.min(activeIndex, BRIAN_PROCESSING_STEPS.length - 1)];
   return (
     <div className="animate-fade-up rounded-2xl border border-border bg-elevated/60 p-4">
+      {/* Overall progress bar */}
+      <div className="mb-3">
+        <div className="mb-1.5 flex items-center justify-between text-xs">
+          <span className="font-medium text-ink">Bezig met scannen…</span>
+          <span className="tabular-nums text-subtle">{Math.round(progress)}%</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-brand to-accent transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {activeStep && progress < 100 ? (
+          <p className="mt-2 animate-fade-in text-xs text-muted">{activeStep.detail}</p>
+        ) : null}
+      </div>
+
       <ul className="space-y-2.5">
-        {BRIAN_PROCESSING_STEPS.map((label, i) => {
+        {BRIAN_PROCESSING_STEPS.map((step, i) => {
           const done = i < activeIndex;
           const active = i === activeIndex;
           return (
-            <li key={label} className="flex items-center gap-3 text-sm">
+            <li key={step.label} className="flex items-center gap-3 text-sm">
               <span
                 className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full border transition-colors",
@@ -461,10 +498,14 @@ function ProcessingList({ activeIndex }: { activeIndex: number }) {
               </span>
               <span
                 className={cn(
-                  done ? "text-muted line-through decoration-subtle/60" : active ? "font-medium text-ink" : "text-subtle",
+                  done
+                    ? "text-muted line-through decoration-subtle/60"
+                    : active
+                      ? "font-medium text-ink"
+                      : "text-subtle",
                 )}
               >
-                {label}
+                {step.label}
               </span>
             </li>
           );

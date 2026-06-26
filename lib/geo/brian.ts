@@ -131,13 +131,33 @@ export const BRIAN_STEPS: BrianStep[] = [
   },
 ];
 
-/** Steps Brian shows while the scan runs, with a soft delay between them. */
-export const BRIAN_PROCESSING_STEPS: string[] = [
-  "Website ophalen",
-  "Content analyseren",
-  "AI-vindbaarheid beoordelen",
-  "Verbeterpunten formuleren",
-  "Rapport genereren",
+/** Steps Brian shows while the scan runs (label + a short "what I'm doing"). */
+export interface BrianProcessingStep {
+  label: string;
+  detail: string;
+}
+
+export const BRIAN_PROCESSING_STEPS: BrianProcessingStep[] = [
+  {
+    label: "Website ophalen",
+    detail: "Ik haal je homepage op, plus robots.txt en llms.txt.",
+  },
+  {
+    label: "Content analyseren",
+    detail: "Ik lees je teksten: aanbod, expertise en structuur.",
+  },
+  {
+    label: "AI-vindbaarheid beoordelen",
+    detail: "Ik scoor op de criteria waar AI-systemen op letten.",
+  },
+  {
+    label: "Verbeterpunten formuleren",
+    detail: "Ik bepaal waar de grootste kansen liggen.",
+  },
+  {
+    label: "Rapport genereren",
+    detail: "Ik zet alles in jouw NXTLI-rapport.",
+  },
 ];
 
 export const BRIAN_COPY = {

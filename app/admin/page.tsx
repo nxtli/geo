@@ -30,13 +30,37 @@ function fmtDate(iso: string): string {
 
 export default async function AdminPage() {
   if (!isSupabaseConfigured()) {
+    const has = (k: string) => Boolean(process.env[k]);
+    const env = [
+      { k: "POSTGRES_URL", v: has("POSTGRES_URL") },
+      { k: "POSTGRES_PRISMA_URL", v: has("POSTGRES_PRISMA_URL") },
+      { k: "DATABASE_URL", v: has("DATABASE_URL") },
+      { k: "POSTGRES_URL_NON_POOLING", v: has("POSTGRES_URL_NON_POOLING") },
+    ];
     return (
       <Shell>
-        <p className="text-muted">
-          Supabase is niet geconfigureerd, dus er zijn geen inzendingen om te
-          tonen. Zet <code>SUPABASE_URL</code> en{" "}
-          <code>SUPABASE_SERVICE_ROLE_KEY</code> in Vercel.
-        </p>
+        <div className="rounded-2xl border border-danger/30 bg-danger/10 p-5 text-sm">
+          <p className="font-semibold text-danger">
+            Er is geen Postgres-verbinding geconfigureerd — daarom wordt er niets
+            weggeschreven en blijft dit overzicht leeg.
+          </p>
+          <p className="mt-2 text-muted">
+            Status van de database-connectiestrings in deze Vercel-omgeving (één
+            ervan is genoeg):
+          </p>
+          <ul className="mt-2 space-y-1">
+            {env.map((e) => (
+              <li key={e.k} className="font-mono text-xs">
+                {e.v ? "✅" : "❌"} {e.k}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-muted">
+            Deze worden normaal automatisch gezet door de Vercel↔Supabase
+            integratie. Staan ze allemaal op ❌, koppel de integratie dan
+            opnieuw (Vercel → Project → Storage / Integrations) en redeploy.
+          </p>
+        </div>
       </Shell>
     );
   }

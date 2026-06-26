@@ -3,6 +3,7 @@ import type { GeoAnalysisInput } from "../../types";
 import {
   geoAnalysisJsonSchema,
   parseAnalysisResult,
+  type GeoAnalysisOpts,
   type GeoAnalysisOutcome,
   type GeoAnalysisProvider,
 } from "../provider";
@@ -29,7 +30,10 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     return Boolean(process.env.ANTHROPIC_API_KEY);
   }
 
-  async analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome> {
+  async analyze(
+    input: GeoAnalysisInput,
+    opts?: GeoAnalysisOpts,
+  ): Promise<GeoAnalysisOutcome> {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     // Default to the fast Sonnet model: a public scan must finish well within
     // the serverless timeout, and this scoring task doesn't need Opus depth.
@@ -50,6 +54,22 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stream = client.messages.stream(params as any);
+
+    // Report live progress from the streamed tokens (fraction 0..1, throttled).
+    if (opts?.onProgress) {
+      let chars = 0;
+      let last = 0;
+      // ~4500 chars is a typical full report; cap at 0.95 until completion.
+      stream.on("text", (delta: string) => {
+        chars += delta.length;
+        const frac = Math.min(0.95, chars / 4500);
+        if (frac - last >= 0.02) {
+          last = frac;
+          opts.onProgress?.(frac);
+        }
+      });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response: any = await stream.finalMessage();
 

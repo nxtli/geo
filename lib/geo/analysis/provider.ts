@@ -7,6 +7,12 @@ export interface GeoAnalysisOutcome {
   usage?: GeoUsage;
 }
 
+/** Options passed to a provider, e.g. a live-progress callback (0..1). */
+export interface GeoAnalysisOpts {
+  /** Called with the analysis-generation fraction (0..1) as tokens stream in. */
+  onProgress?: (fraction: number) => void;
+}
+
 /**
  * The analysis provider contract.
  *
@@ -21,7 +27,7 @@ export interface GeoAnalysisProvider {
   /** True when this provider has the config/credentials it needs to run. */
   isConfigured(): boolean;
   /** Produce a validated analysis result (+ usage). May throw on hard failure. */
-  analyze(input: GeoAnalysisInput): Promise<GeoAnalysisOutcome>;
+  analyze(input: GeoAnalysisInput, opts?: GeoAnalysisOpts): Promise<GeoAnalysisOutcome>;
 }
 
 const priorityActionSchema = z.object({

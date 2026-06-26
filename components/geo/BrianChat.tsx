@@ -129,25 +129,25 @@ export function BrianChat({
     setScanProgress(0);
     await pushBrian(BRIAN_COPY.scanningLead, 300);
 
-    // Time-paced progress: fill a bar toward ~92% over the estimated duration
-    // (ease-out so it slows near the end) and light up the steps in sync. The
-    // last bit and 100% land when the real response arrives — so the loader
-    // keeps moving for the whole scan instead of finishing in a few seconds.
-    const EST_MS = 24_000;
     const stepCount = BRIAN_PROCESSING_STEPS.length;
-    const startTs = Date.now();
-    const timer = setInterval(() => {
-      const frac = Math.min(1, (Date.now() - startTs) / EST_MS);
-      const eased = 1 - Math.pow(1 - frac, 2);
-      const pct = Math.min(92, Math.round(eased * 92));
-      setScanProgress(pct);
-      setProcessingIndex(Math.min(stepCount - 1, Math.floor((pct / 92) * stepCount)));
-    }, 350);
 
-    const finish = () => {
-      clearInterval(timer);
-      setScanProgress(100);
-      setProcessingIndex(stepCount);
+    // The server streams real progress events (fetch → analyse-token-stream →
+    // report). We ease the displayed bar toward the latest real target so it
+    // always drifts forward, but never overshoots actual progress.
+    let target = 0;
+    let shown = 0;
+    let finished = false;
+    const creep = setInterval(() => {
+      if (finished) return;
+      const goal = Math.min(target, 99);
+      if (shown < goal) {
+        shown = Math.min(goal, shown + Math.max(0.25, (goal - shown) * 0.07));
+        setScanProgress(Math.round(shown));
+      }
+    }, 180);
+    const stop = () => {
+      finished = true;
+      clearInterval(creep);
     };
 
     const payload: GeoLeadInput = {
@@ -164,24 +164,71 @@ export function BrianChat({
       consent: true,
     };
 
+    type Final =
+      | { ok: true; data: GeoScanResponse }
+      | { ok: false; message?: string; debug?: string };
+    let final: Final | null = null;
+
     try {
       const res = await fetch("/api/geo/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data: GeoScanResponse = await res.json();
-      finish();
-      await wait(500); // let the bar visibly land on 100%
 
-      if (!res.ok || !data.ok) {
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("no_stream");
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          let evt: {
+            type: string;
+            pct?: number;
+            step?: number;
+            data?: GeoScanResponse;
+            message?: string;
+            debug?: string;
+          };
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (evt.type === "progress") {
+            if (typeof evt.pct === "number") target = Math.max(target, evt.pct);
+            if (typeof evt.step === "number") setProcessingIndex(evt.step);
+          } else if (evt.type === "result" && evt.data) {
+            final = { ok: true, data: evt.data };
+          } else if (evt.type === "error") {
+            final = { ok: false, message: evt.message, debug: evt.debug };
+          }
+        }
+      }
+
+      stop();
+      setScanProgress(100);
+      setProcessingIndex(stepCount);
+      await wait(450);
+
+      if (!final || !final.ok) {
         setPhase("error");
-        await pushBrian(data.message ?? BRIAN_COPY.errorFallback, 500);
-        const debug = (data as { debug?: string }).debug;
-        if (debug) await pushBrian(`🔧 Debug (tijdelijk): ${debug}`, 300);
+        await pushBrian(final?.message ?? BRIAN_COPY.errorFallback, 500);
+        if (final && !final.ok && final.debug) {
+          await pushBrian(`🔧 Debug (tijdelijk): ${final.debug}`, 300);
+        }
         return;
       }
 
+      const data = final.data;
       setResult(data);
       setPhase("success");
       await pushBrian(BRIAN_COPY.successLead, 500);
@@ -190,7 +237,7 @@ export function BrianChat({
       }
       await pushBrian(BRIAN_COPY.finalCta, 600);
     } catch {
-      finish();
+      stop();
       setPhase("error");
       await pushBrian(BRIAN_COPY.errorFallback, 400);
     }

@@ -1,6 +1,6 @@
 import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
 import { logInfo } from "../logger";
-import type { GeoAnalysisProvider } from "./provider";
+import type { GeoAnalysisOpts, GeoAnalysisProvider } from "./provider";
 import { MockAnalysisProvider } from "./providers/mock";
 import { ClaudeAnalysisProvider } from "./providers/claude";
 import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
@@ -58,12 +58,13 @@ export interface RunAnalysisOutcome {
  */
 export async function runGeoAnalysis(
   input: GeoAnalysisInput,
+  opts?: GeoAnalysisOpts,
 ): Promise<RunAnalysisOutcome> {
   const provider = selectProvider();
   logInfo("analysis", `using provider "${provider.id}"`);
 
   try {
-    const { result, usage } = await provider.analyze(input);
+    const { result, usage } = await provider.analyze(input, opts);
     return { result, usage, providerId: provider.id, degraded: false };
   } catch {
     if (provider.id === "mock") throw new Error("analysis_failed");

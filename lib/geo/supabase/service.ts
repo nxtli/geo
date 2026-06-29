@@ -6,6 +6,7 @@ import type {
 } from "../types";
 import { buildReportRecord } from "../report/service";
 import { logError } from "../logger";
+import { canonicalUrl } from "../validation";
 import { isDbConfigured, query } from "./db";
 
 /**
@@ -184,11 +185,14 @@ export async function insertReport(params: {
 }
 
 /**
- * Abuse protection: find this email's most recent COMPLETED scan (if any), so
- * we can return the earlier result instead of burning credits on a re-scan.
+ * Abuse protection: find this email's most recent COMPLETED scan FOR THE SAME
+ * PAGE (if any), so we can return the earlier result instead of burning credits
+ * on a re-scan. Scoped by homepage_url so scanning a *different* page with the
+ * same email runs a fresh scan instead of returning the old report.
  */
 export async function findCompletedScanByEmail(
   email: string,
+  homepageUrl: string,
 ): Promise<{ id: string; analysis_result: unknown } | null> {
   if (!isDbConfigured()) return null;
   try {
@@ -197,11 +201,12 @@ export async function findCompletedScanByEmail(
          from public.geo_scan_requests r
          join public.geo_leads l on l.id = r.lead_id
         where l.email = $1
+          and lower(regexp_replace(r.homepage_url, '/+$', '')) = $2
           and r.status = 'completed'
           and r.analysis_result is not null
         order by r.created_at desc
         limit 1`,
-      [email],
+      [email, canonicalUrl(homepageUrl)],
     );
     return rows[0] ?? null;
   } catch (error) {

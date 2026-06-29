@@ -91,9 +91,10 @@ export async function POST(request: Request): Promise<Response> {
         await ensureSchemaOnce();
         progress(5, 0);
 
-        // 0a. One scan per email — re-use the earlier report (guarded).
+        // 0a. One scan per email *per page* — re-use the earlier report for the
+        // same URL, but let a different page run a fresh scan (guarded).
         try {
-          const prior = await findCompletedScanByEmail(lead.email);
+          const prior = await findCompletedScanByEmail(lead.email, lead.homepage_url);
           if (prior?.analysis_result) {
             const priorAnalysis = parseAnalysisResult(prior.analysis_result);
             const priorUrl = `/api/geo/report/${prior.id}`;

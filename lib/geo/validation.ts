@@ -97,3 +97,13 @@ export function normalizeUrl(value: string): string {
   if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`;
   return trimmed;
 }
+
+/**
+ * Canonical form used to decide whether two scans target the SAME page, so the
+ * "one scan per email" reuse only kicks in for the same URL. Lower-cased and
+ * with trailing slashes stripped, so "https://Site.nl/" and "site.nl" match.
+ * Must stay in sync with the SQL canonicalization in findCompletedScanByEmail.
+ */
+export function canonicalUrl(value: string): string {
+  return normalizeUrl(value).toLowerCase().replace(/\/+$/, "");
+}

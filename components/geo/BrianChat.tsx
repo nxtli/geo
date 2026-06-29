@@ -227,11 +227,15 @@ export function BrianChat({
       const data = final.data;
       setResult(data);
       setPhase("success");
-      await pushBrian(BRIAN_COPY.successLead, 500);
-      if (data.email_queued) {
-        await pushBrian(BRIAN_COPY.emailNote(payload.email), 500);
+      // Surface the server's user-safe message when present (account-level gate,
+      // degraded run); otherwise the standard "scan is klaar" copy.
+      await pushBrian(data.message ?? BRIAN_COPY.successLead, 500);
+      if (!data.blocked) {
+        if (data.email_queued) {
+          await pushBrian(BRIAN_COPY.emailNote(payload.email), 500);
+        }
+        await pushBrian(BRIAN_COPY.finalCta, 600);
       }
-      await pushBrian(BRIAN_COPY.finalCta, 600);
     } catch {
       stop();
       setPhase("error");

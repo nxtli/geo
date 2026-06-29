@@ -30,11 +30,10 @@ const phoneSchema = z
   .string()
   .trim()
   .min(1, "Vul je telefoonnummer in.")
-  .refine((value) => {
-    const digits = value.replace(/[\s().-]/g, "");
-    // NL mobiel/vast: 06… of +31… of 0…, minstens 9 cijfers.
-    return /^(\+?\d{8,15})$/.test(digits);
-  }, "Dat telefoonnummer klopt niet helemaal. Bijvoorbeeld: 06 12345678");
+  .refine(
+    (value) => normalizePhone(value) !== null,
+    "Vul een geldig Nederlands 06-nummer in van 10 cijfers. Bijvoorbeeld: 06 12345678",
+  );
 
 export const geoLeadSchema = z.object({
   name: z.string().trim().min(2, "Vul je naam in.").max(120),
@@ -84,7 +83,7 @@ export const fieldValidators = {
     const r = phoneSchema.safeParse(value);
     return r.success
       ? null
-      : "Dat telefoonnummer klopt niet helemaal. Bijvoorbeeld: 06 12345678";
+      : "Vul een geldig 06-nummer in van 10 cijfers. Bijvoorbeeld: 06 12345678";
   },
   required(value: string): string | null {
     return value.trim().length >= 2 ? null : "Dit veld mag niet leeg zijn.";
@@ -99,11 +98,19 @@ export function normalizeUrl(value: string): string {
 }
 
 /**
- * Canonical form used to decide whether two scans target the SAME page, so the
- * "one scan per email" reuse only kicks in for the same URL. Lower-cased and
- * with trailing slashes stripped, so "https://Site.nl/" and "site.nl" match.
- * Must stay in sync with the SQL canonicalization in findCompletedScanByEmail.
+ * Normalize a Dutch mobile number to its canonical `06xxxxxxxx` form (10
+ * digits). Accepts spacing/punctuation and the international `+31` / `0031`
+ * prefixes (with an optional trunk `0`, e.g. `+31 (0)6…`). Returns null when the
+ * input isn't a valid NL mobile number — landlines and foreign numbers fail.
+ *
+ * Single source of truth for both the form validation (phoneSchema) and the
+ * value we persist, so stored numbers are always consistent.
  */
-export function canonicalUrl(value: string): string {
-  return normalizeUrl(value).toLowerCase().replace(/\/+$/, "");
+export function normalizePhone(value: string): string | null {
+  // Keep digits and a leading plus only.
+  let d = value.replace(/[^\d+]/g, "");
+  // International → national: collapse +31 / 0031 (with optional trunk 0) to 0.
+  d = d.replace(/^(?:\+31|0031)0?/, "0");
+  // Must be a NL mobile: starts with 06 and is exactly 10 digits.
+  return /^06\d{8}$/.test(d) ? d : null;
 }

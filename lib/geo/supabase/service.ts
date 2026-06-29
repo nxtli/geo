@@ -6,7 +6,6 @@ import type {
 } from "../types";
 import { buildReportRecord } from "../report/service";
 import { logError } from "../logger";
-import { canonicalUrl } from "../validation";
 import { isDbConfigured, query } from "./db";
 
 /**
@@ -185,28 +184,30 @@ export async function insertReport(params: {
 }
 
 /**
- * Abuse protection: find this email's most recent COMPLETED scan FOR THE SAME
- * PAGE (if any), so we can return the earlier result instead of burning credits
- * on a re-scan. Scoped by homepage_url so scanning a *different* page with the
- * same email runs a fresh scan instead of returning the old report.
+ * Account-level gate: one free scan per email address. Returns this email's most
+ * recent COMPLETED scan (across ANY page) if it has one, so the scan endpoint
+ * can block a second scan and surface the earlier report instead of burning
+ * credits — and instead of confusingly returning an unrelated page's report.
  */
 export async function findCompletedScanByEmail(
   email: string,
-  homepageUrl: string,
-): Promise<{ id: string; analysis_result: unknown } | null> {
+): Promise<{ id: string; analysis_result: unknown; homepage_url: string } | null> {
   if (!isDbConfigured()) return null;
   try {
-    const rows = await query<{ id: string; analysis_result: unknown }>(
-      `select r.id, r.analysis_result
+    const rows = await query<{
+      id: string;
+      analysis_result: unknown;
+      homepage_url: string;
+    }>(
+      `select r.id, r.analysis_result, r.homepage_url
          from public.geo_scan_requests r
          join public.geo_leads l on l.id = r.lead_id
         where l.email = $1
-          and lower(regexp_replace(r.homepage_url, '/+$', '')) = $2
           and r.status = 'completed'
           and r.analysis_result is not null
         order by r.created_at desc
         limit 1`,
-      [email, canonicalUrl(homepageUrl)],
+      [email],
     );
     return rows[0] ?? null;
   } catch (error) {

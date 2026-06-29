@@ -190,6 +190,11 @@ export interface GeoScanResponse {
   };
   report_url?: string | null;
   email_queued?: boolean;
+  /**
+   * True when the scan was blocked by the one-scan-per-email gate. The preview /
+   * report_url then point to the user's EARLIER scan, and `message` explains it.
+   */
+  blocked?: boolean;
   /** User-safe message. Never contains technical/internal detail. */
   message?: string;
 }

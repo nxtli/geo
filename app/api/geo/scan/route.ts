@@ -1,4 +1,4 @@
-import { geoLeadSchema } from "@/lib/geo/validation";
+import { geoLeadSchema, normalizePhone } from "@/lib/geo/validation";
 import type { GeoLeadInput } from "@/lib/geo/types";
 import { fetchHomepage } from "@/lib/geo/scrape";
 import { runGeoAnalysis } from "@/lib/geo/analysis";
@@ -74,7 +74,8 @@ export async function POST(request: Request): Promise<Response> {
       const lead: GeoLeadInput = {
         name: parsed.data.name,
         email: parsed.data.email.toLowerCase(),
-        phone: parsed.data.phone,
+        // Store the canonical 06xxxxxxxx form (validation already guaranteed it).
+        phone: normalizePhone(parsed.data.phone) ?? parsed.data.phone,
         job_title: parsed.data.job_title,
         company_name: parsed.data.company_name,
         homepage_url: parsed.data.homepage_url,
@@ -91,10 +92,12 @@ export async function POST(request: Request): Promise<Response> {
         await ensureSchemaOnce();
         progress(5, 0);
 
-        // 0a. One scan per email *per page* — re-use the earlier report for the
-        // same URL, but let a different page run a fresh scan (guarded).
+        // 0a. Account-level gate: one free scan per email address. If this email
+        // already completed a scan (for ANY page), block this new scan and show
+        // their earlier report instead of burning credits — and instead of
+        // confusingly returning an unrelated page's result.
         try {
-          const prior = await findCompletedScanByEmail(lead.email, lead.homepage_url);
+          const prior = await findCompletedScanByEmail(lead.email);
           if (prior?.analysis_result) {
             const priorAnalysis = parseAnalysisResult(prior.analysis_result);
             const priorUrl = `/api/geo/report/${prior.id}`;
@@ -106,6 +109,14 @@ export async function POST(request: Request): Promise<Response> {
               repeat: true,
             });
             progress(100, 5);
+            const priorHost = safeHost(prior.homepage_url);
+            const differentPage =
+              !!priorHost && safeHost(lead.homepage_url) !== priorHost;
+            const message = differentPage
+              ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
+                  priorHost ? ` (voor ${priorHost})` : ""
+                }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
+              : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport — wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
             send({
               type: "result",
               data: {
@@ -115,8 +126,8 @@ export async function POST(request: Request): Promise<Response> {
                 preview: buildPreview(priorAnalysis),
                 report_url: priorUrl,
                 email_queued: false,
-                message:
-                  "Je hebt met dit e-mailadres al een gratis scan gedaan. Hier is je eerdere rapport — wil je een nieuwe analyse? Plan dan even een sessie met NXTLI.",
+                blocked: true,
+                message,
               },
             });
             return close();
@@ -283,6 +294,15 @@ function resolveBaseUrl(request: Request): string | null {
 
 function cryptoRandomId(): string {
   return `local-${globalThis.crypto?.randomUUID?.() ?? Math.abs(hash(String(Date.now())))}`;
+}
+
+/** Hostname for user-facing copy (e.g. "tui.nl"); null if unparseable. */
+function safeHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }
 
 function hash(s: string): number {

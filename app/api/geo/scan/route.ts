@@ -15,6 +15,7 @@ import {
   findCompletedScanByEmail,
   insertLead,
   insertReport,
+  isSupabaseConfigured,
   updateScanRequest,
 } from "@/lib/geo/supabase/service";
 import { logError } from "@/lib/geo/logger";
@@ -96,44 +97,66 @@ export async function POST(request: Request): Promise<Response> {
         // already completed a scan (for ANY page), block this new scan and show
         // their earlier report instead of burning credits — and instead of
         // confusingly returning an unrelated page's result.
+        let prior: Awaited<ReturnType<typeof findCompletedScanByEmail>> = null;
         try {
-          const prior = await findCompletedScanByEmail(lead.email);
-          if (prior?.analysis_result) {
-            const priorAnalysis = parseAnalysisResult(prior.analysis_result);
-            const priorUrl = `/api/geo/report/${prior.id}`;
-            await notifySlackNewLead({
-              lead,
-              status: "completed",
-              analysis: priorAnalysis,
-              reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
-              repeat: true,
-            });
-            progress(100, 5);
-            const priorHost = safeHost(prior.homepage_url);
-            const differentPage =
-              !!priorHost && safeHost(lead.homepage_url) !== priorHost;
-            const message = differentPage
-              ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
-                  priorHost ? ` (voor ${priorHost})` : ""
-                }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
-              : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport — wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
-            send({
-              type: "result",
-              data: {
-                ok: true,
-                scan_request_id: prior.id,
-                status: "completed",
-                preview: buildPreview(priorAnalysis),
-                report_url: priorUrl,
-                email_queued: false,
-                blocked: true,
-                message,
-              },
-            });
-            return close();
-          }
+          prior = await findCompletedScanByEmail(lead.email);
         } catch (dedupError) {
+          // DB is configured but the gate lookup failed — fail CLOSED so we
+          // don't spend AI credits on a scan we couldn't verify as a first one.
           logError("api.geo.scan.dedup", dedupError);
+          send({
+            type: "error",
+            message:
+              "We konden je aanvraag op dit moment niet verifiëren. Probeer het over een paar minuten opnieuw.",
+          });
+          return close();
+        }
+        if (prior?.analysis_result) {
+          const priorAnalysis = parseAnalysisResult(prior.analysis_result);
+          const priorUrl = `/api/geo/report/${prior.id}`;
+          await notifySlackNewLead({
+            lead,
+            status: "completed",
+            analysis: priorAnalysis,
+            reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
+            repeat: true,
+          });
+          progress(100, 5);
+          const priorHost = safeHost(prior.homepage_url);
+          const differentPage =
+            !!priorHost && safeHost(lead.homepage_url) !== priorHost;
+          const message = differentPage
+            ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
+                priorHost ? ` (voor ${priorHost})` : ""
+              }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
+            : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport — wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
+          send({
+            type: "result",
+            data: {
+              ok: true,
+              scan_request_id: prior.id,
+              status: "completed",
+              preview: buildPreview(priorAnalysis),
+              report_url: priorUrl,
+              email_queued: false,
+              blocked: true,
+              message,
+            },
+          });
+          return close();
+        }
+
+        // Best-effort per-instance backstop when NO DB is configured (the gate
+        // above is then a no-op): throttle repeat emails so a missing DB can't
+        // enable unlimited paid scans. Configure Postgres for an authoritative,
+        // cross-instance gate.
+        if (!isSupabaseConfigured() && wasRecentlyScanned(lead.email)) {
+          send({
+            type: "error",
+            message:
+              "Je hebt recent al een gratis GEO-scan met dit e-mailadres gedaan. Voor een nieuwe analyse plan je even een korte sessie met NXTLI.",
+          });
+          return close();
         }
 
         // 0b. Optional global daily cap (credit backstop).
@@ -150,13 +173,27 @@ export async function POST(request: Request): Promise<Response> {
           }
         }
 
-        // 1. Persist lead + scan request.
+        // 1. Persist lead + scan request. The scan-request insert is also the
+        // race-safe reservation: a concurrent scan for the same email trips the
+        // DB's unique index and comes back as a conflict, so we block instead of
+        // running a second paid analysis. (The in-memory throttle is only needed
+        // — and only pruned — in the no-DB fallback, so only record there.)
+        if (!isSupabaseConfigured()) markScanned(lead.email);
         const persistedLead = await insertLead(lead);
         const scan = await createScanRequest({
           leadId: persistedLead?.id ?? null,
+          email: lead.email,
           homepageUrl: lead.homepage_url,
           rawInput: lead,
         });
+        if (scan && "conflict" in scan) {
+          send({
+            type: "error",
+            message:
+              "Er loopt al een scan voor dit e-mailadres. Een momentje — probeer het zo opnieuw.",
+          });
+          return close();
+        }
         scanRequestId = scan?.id ?? cryptoRandomId();
         if (scan) await updateScanRequest(scan.id, { status: "scanning" });
         progress(10, 0);
@@ -294,6 +331,28 @@ function resolveBaseUrl(request: Request): string | null {
 
 function cryptoRandomId(): string {
   return `local-${globalThis.crypto?.randomUUID?.() ?? Math.abs(hash(String(Date.now())))}`;
+}
+
+/**
+ * Best-effort per-instance throttle, used only as a backstop when no DB is
+ * configured (the authoritative gate lives in Postgres). Process-local, so it
+ * does not span serverless instances — it just limits trivial repeat credit
+ * burn within one warm instance.
+ */
+const RECENT_SCAN_TTL_MS = 10 * 60 * 1000;
+const recentScanEmails = new Map<string, number>();
+
+function wasRecentlyScanned(email: string): boolean {
+  const key = email.toLowerCase();
+  const now = Date.now();
+  for (const [k, ts] of recentScanEmails) {
+    if (now - ts > RECENT_SCAN_TTL_MS) recentScanEmails.delete(k);
+  }
+  return recentScanEmails.has(key);
+}
+
+function markScanned(email: string): void {
+  recentScanEmails.set(email.toLowerCase(), Date.now());
 }
 
 /** Hostname for user-facing copy (e.g. "tui.nl"); null if unparseable. */

@@ -12,7 +12,7 @@ const STAT = "Al 200+ ondernemers ontdekten hoe AI hun website beoordeelt.";
 const TESTIMONIALS = [
   {
     quote:
-      "In 10 minuten wist ik precies wat er mis was. Had ik jaren eerder willen weten.",
+      "Binnen een minuut wist ik precies wat er mis was. Had ik jaren eerder willen weten.",
     name: "Lisa van den Berg",
     org: "eigenaar Studio Vorm",
   },

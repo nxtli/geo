@@ -42,6 +42,30 @@ export function selectProvider(): GeoAnalysisProvider {
   return registry["mock"];
 }
 
+/**
+ * Hard wall-clock budget for the analysis step, kept under the route's
+ * maxDuration (120s). If a provider blows past this we abandon it and fall back
+ * to the mock, so the request always reaches a terminal state (and the scan row
+ * is never left stuck on "scanning") well before the platform kills the function.
+ */
+const ANALYSIS_DEADLINE_MS = 95_000;
+
+function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("analysis_timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export interface RunAnalysisOutcome {
   result: GeoAnalysisResult;
   providerId: string;
@@ -64,11 +88,16 @@ export async function runGeoAnalysis(
   logInfo("analysis", `using provider "${provider.id}"`);
 
   try {
-    const { result, usage } = await provider.analyze(input, opts);
+    const { result, usage } = await withDeadline(
+      provider.analyze(input, opts),
+      ANALYSIS_DEADLINE_MS,
+    );
     return { result, usage, providerId: provider.id, degraded: false };
   } catch {
     if (provider.id === "mock") throw new Error("analysis_failed");
-    logInfo("analysis", `provider "${provider.id}" failed — falling back to mock`);
+    // Real provider failed or exceeded the deadline — fall back to the mock so
+    // the visitor still gets a (flagged degraded) report within the time budget.
+    logInfo("analysis", `provider "${provider.id}" failed/timed out — falling back to mock`);
     const { result } = await registry["mock"].analyze(input);
     return { result, providerId: "mock", degraded: true };
   }

@@ -29,7 +29,7 @@ export function GeoHowItWorks() {
       <Container>
         <SectionHeading
           eyebrow="Hoe het werkt"
-          title="Binnen 5 minuten weet je hoe goed AI jou vindt"
+          title="Binnen een minuut weet je hoe goed AI jou vindt"
         />
 
         <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">

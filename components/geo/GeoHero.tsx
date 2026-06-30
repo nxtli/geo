@@ -45,7 +45,7 @@ export function GeoHero() {
             </div>
 
             <p className="mt-4 text-sm text-subtle">
-              Gratis scan. Binnen enkele minuten inzicht. Geen verplichtingen.
+              Gratis scan. Binnen een minuut inzicht. Geen verplichtingen.
             </p>
             <p className="mt-1.5 max-w-md text-sm text-subtle">
               Geen technische kennis nodig. Je ontvangt direct concrete

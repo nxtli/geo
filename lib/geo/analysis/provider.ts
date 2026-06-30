@@ -1,5 +1,34 @@
 import { z } from "zod";
 import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
+import { GEO_CATEGORIES, GEO_MAX_SCORE } from "./rubric";
+
+type CategoryScore = GeoAnalysisResult["category_scores"][number];
+
+/**
+ * Force the returned breakdown onto the canonical rubric (six categories whose
+ * maxes sum to GEO_MAX_SCORE = 100), so the headline is ALWAYS a true /100 and
+ * the displayed breakdown always sums to it. A model that returns a different
+ * category set, wrong maxes, or a different count can no longer silently shift
+ * the scale. Scores are matched by key, then by label, then by position, and
+ * rescaled if the model used a different max for a category.
+ */
+function reconcileToRubric(returned: CategoryScore[]): CategoryScore[] {
+  const byKey = new Map(returned.map((c) => [c.key, c]));
+  const byLabel = new Map(returned.map((c) => [c.label.trim().toLowerCase(), c]));
+  return GEO_CATEGORIES.map((cat, i) => {
+    const match =
+      byKey.get(cat.key) ??
+      byLabel.get(cat.label.toLowerCase()) ??
+      (returned.length === GEO_CATEGORIES.length ? returned[i] : undefined);
+    let score = match ? match.score : 0;
+    // Rescale if the model scored this category against a different max.
+    if (match && match.max && match.max !== cat.max) {
+      score = Math.round((score / match.max) * cat.max);
+    }
+    score = Math.max(0, Math.min(cat.max, score));
+    return { key: cat.key, label: cat.label, max: cat.max, score, summary: match?.summary ?? "" };
+  });
+}
 
 /** What a provider returns: the result plus optional token usage for costing. */
 export interface GeoAnalysisOutcome {
@@ -82,12 +111,15 @@ export const geoAnalysisResultSchema = z.object({
 
 export function parseAnalysisResult(value: unknown): GeoAnalysisResult {
   const parsed = geoAnalysisResultSchema.parse(value) as GeoAnalysisResult;
-  // Guarantee the total equals the sum of the breakdown (clamped to each max),
-  // so "hoe de score is opgebouwd" always adds up to the headline number.
+  // Normalize the breakdown onto the canonical rubric and derive the headline
+  // from it, so the total ALWAYS equals the sum of the breakdown AND is a true
+  // /100 ("hoe de score is opgebouwd" can never contradict or mislabel the
+  // headline). Only when no breakdown is supplied do we keep the model's
+  // already-clamped (0..100) visibility_score as-is.
   if (parsed.category_scores.length > 0) {
-    for (const c of parsed.category_scores) c.score = Math.min(c.score, c.max);
+    parsed.category_scores = reconcileToRubric(parsed.category_scores);
     const sum = parsed.category_scores.reduce((s, c) => s + c.score, 0);
-    parsed.visibility_score = Math.max(0, Math.min(100, sum));
+    parsed.visibility_score = Math.max(0, Math.min(GEO_MAX_SCORE, sum));
   }
   return parsed;
 }

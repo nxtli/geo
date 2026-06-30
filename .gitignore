@@ -15,8 +15,10 @@ next-env.d.ts
 # misc
 .DS_Store
 
-# env files
-.env*.local
+# env files — ignore every .env variant (incl. a bare .env) but keep the example
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel

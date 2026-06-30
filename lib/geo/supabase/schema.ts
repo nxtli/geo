@@ -51,8 +51,24 @@ alter table public.geo_scan_requests add column if not exists visibility_score i
 alter table public.geo_scan_requests add column if not exists model text;
 alter table public.geo_scan_requests add column if not exists input_tokens integer;
 alter table public.geo_scan_requests add column if not exists output_tokens integer;
+-- Denormalized email so the one-scan-per-email gate doesn't depend on the
+-- lead JOIN (a failed lead insert would otherwise make a completed scan invisible).
+alter table public.geo_scan_requests add column if not exists email text;
+update public.geo_scan_requests r set email = lower(l.email)
+  from public.geo_leads l where r.email is null and r.lead_id = l.id;
 create index if not exists geo_scan_requests_lead_idx on public.geo_scan_requests (lead_id);
 create index if not exists geo_scan_requests_status_idx on public.geo_scan_requests (status);
+create index if not exists geo_scan_requests_email_idx on public.geo_scan_requests (lower(email));
+-- Race-safety: at most one ACTIVE (non-failed) scan per email. Created tolerantly
+-- so a table that already contains duplicates still migrates (the gate then stays
+-- best-effort until the duplicates are cleaned up).
+do $$ begin
+  create unique index if not exists geo_scan_requests_email_active_uidx
+    on public.geo_scan_requests (lower(email))
+    where email is not null and status <> 'failed';
+exception when others then
+  raise notice 'geo: skipped email-active unique index (pre-existing duplicates)';
+end $$;
 
 create table if not exists public.geo_scan_reports (
   id               uuid primary key default gen_random_uuid(),

@@ -7,6 +7,7 @@ import {
   type GeoAnalysisProvider,
 } from "../provider";
 import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
+import { ANALYSIS_REQUEST_TIMEOUT_MS } from "./claude";
 import { logError, logInfo } from "../../logger";
 
 /**
@@ -48,7 +49,11 @@ export class GeoSkillAnalysisProvider implements GeoAnalysisProvider {
     const version = process.env.GEO_SKILL_VERSION || "latest";
     const model = process.env.GEO_ANALYSIS_MODEL || "claude-opus-4-8";
 
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({
+      apiKey,
+      timeout: ANALYSIS_REQUEST_TIMEOUT_MS,
+      maxRetries: 1,
+    });
 
     const params = {
       model,

@@ -70,7 +70,7 @@ voorbereid). Voor productie:
 | `SUPABASE_URL` | Opslag | |
 | `SUPABASE_SERVICE_ROLE_KEY` | Opslag | **SERVER ONLY** — nooit client-side |
 | `ANTHROPIC_API_KEY` | `geo-skill` + `claude` | SERVER ONLY — org die de skill bezit |
-| `GEO_ANALYSIS_MODEL` | optioneel | default `claude-opus-4-8` |
+| `GEO_ANALYSIS_MODEL` | optioneel | default `claude-sonnet-4-6` |
 | `GEO_ANALYSIS_PROVIDER` | optioneel | `geo-skill` \| `claude` \| `mock` |
 | `GEO_SKILL_NAME` | optioneel | default `geo-page-checker` |
 | `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
@@ -125,7 +125,7 @@ server-side opgehaald (`scrape.ts`) en meegegeven; de output wordt op het
 
 Aanzetten: zet **`ANTHROPIC_API_KEY`** (server-side) van de org/workspace met
 toegang. Klaar — de `claude`-provider wordt dan automatisch gekozen. Optioneel:
-`GEO_ANALYSIS_MODEL` (default `claude-opus-4-8`). Zonder key valt alles terug op
+`GEO_ANALYSIS_MODEL` (default `claude-sonnet-4-6`). Zonder key valt alles terug op
 de mock, zodat de flow nooit breekt.
 
 ### Waarom niet de skill zélf via de Skills-API?
@@ -161,8 +161,8 @@ uit de opgeslagen token-usage per scan (Anthropic-prijs × tokens, omgerekend
 naar €). Auth via `middleware.ts`; credentials uit env:
 
 ```
-ADMIN_USERNAME=nxtli
-ADMIN_PASSWORD=geochecker2026
+ADMIN_USERNAME=CHANGE_ME   # kies een eigen gebruikersnaam
+ADMIN_PASSWORD=CHANGE_ME   # kies een sterk, uniek wachtwoord — nooit een waarde uit de repo hergebruiken
 # ADMIN_EUR_PER_USD=0.92   # USD→EUR koers voor de kostenweergave
 ```
 

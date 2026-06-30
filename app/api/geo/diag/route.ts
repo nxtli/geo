@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { selectProvider } from "@/lib/geo/analysis";
+import { DEFAULT_ANALYSIS_MODEL } from "@/lib/geo/analysis/providers/claude";
 import { isSupabaseConfigured } from "@/lib/geo/supabase/service";
 import { logError } from "@/lib/geo/logger";
 
@@ -34,7 +35,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
   const wantedName = (process.env.GEO_SKILL_NAME || "geo-page-checker").toLowerCase();
-  const model = process.env.GEO_ANALYSIS_MODEL || "claude-opus-4-8";
+  const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_ANALYSIS_MODEL;
 
   const skill = await inspectSkill(hasKey, wantedName);
 

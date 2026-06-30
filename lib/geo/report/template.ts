@@ -201,6 +201,15 @@ export function renderReportHtml(params: {
   }
 
   ${
+    a.recommended_pages.length
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Aanbevolen pagina's om te maken</h2><span class="section-sub">vergroot je AI-vindbaarheid</span></div>
+          ${ilist(a.recommended_pages, "gap", "")}
+        </div></section>`
+      : ""
+  }
+
+  ${
     a.suggested_homepage_copy_improvements.length
       ? `<section class="section"><div class="card">
           <div class="section-head"><h2>Verbetervoorstellen voor je homepage-copy</h2></div>

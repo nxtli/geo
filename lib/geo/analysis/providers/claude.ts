@@ -11,11 +11,27 @@ import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
 import { logError } from "../../logger";
 
 /**
+ * Default analysis model. Sonnet is the deliberate choice: a public scan must
+ * finish well within the serverless timeout and this scoring task doesn't need
+ * Opus depth. Override with GEO_ANALYSIS_MODEL. Exported so the diagnostics
+ * endpoint reports the model that will ACTUALLY run (no drift between code/docs).
+ */
+export const DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-6";
+
+/**
+ * Per-request Anthropic timeout. Kept well under the route's maxDuration (120s)
+ * so a slow model call fails inside the budget and the runGeoAnalysis deadline
+ * can fall back to the mock — instead of the platform killing the function
+ * mid-stream and leaving the scan row stuck on "scanning".
+ */
+export const ANALYSIS_REQUEST_TIMEOUT_MS = 80_000;
+
+/**
  * Direct Claude API analysis provider.
  *
  * Uses the Anthropic Messages API with structured outputs so the model is
  * constrained to the GEO analysis JSON schema. Default model is
- * claude-opus-4-8; override with GEO_ANALYSIS_MODEL.
+ * DEFAULT_ANALYSIS_MODEL (Sonnet); override with GEO_ANALYSIS_MODEL.
  *
  * Requires ANTHROPIC_API_KEY (server-side only — never expose to the client).
  *
@@ -34,12 +50,15 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     input: GeoAnalysisInput,
     opts?: GeoAnalysisOpts,
   ): Promise<GeoAnalysisOutcome> {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    // Default to the fast Sonnet model: a public scan must finish well within
-    // the serverless timeout, and this scoring task doesn't need Opus depth.
-    // Override with GEO_ANALYSIS_MODEL. No extended thinking + low effort keeps
-    // latency low; streaming avoids SDK request timeouts.
-    const model = process.env.GEO_ANALYSIS_MODEL || "claude-sonnet-4-6";
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: ANALYSIS_REQUEST_TIMEOUT_MS,
+      maxRetries: 1,
+    });
+    // Default to the fast Sonnet model (see DEFAULT_ANALYSIS_MODEL). Override
+    // with GEO_ANALYSIS_MODEL. No extended thinking + low effort keeps latency
+    // low; streaming avoids SDK request timeouts.
+    const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_ANALYSIS_MODEL;
 
     const params = {
       model,

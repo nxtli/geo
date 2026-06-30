@@ -6,12 +6,14 @@ import { NextResponse, type NextRequest } from "next/server";
  * Credentials come from env (ADMIN_USERNAME / ADMIN_PASSWORD) — set them in
  * Vercel. If unset, /admin is locked (503) rather than open. Not linked
  * anywhere and excluded from indexing (see app/admin/page.tsx metadata).
+ *
+ * Uses the Next 16 `proxy` file convention (the successor to `middleware`).
  */
 export const config = {
   matcher: ["/admin", "/admin/:path*"],
 };
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const user = process.env.ADMIN_USERNAME;
   const pass = process.env.ADMIN_PASSWORD;
 

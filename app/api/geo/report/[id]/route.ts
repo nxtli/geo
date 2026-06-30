@@ -15,9 +15,9 @@ export const runtime = "nodejs";
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse | Response> {
-  const id = params.id;
+  const { id } = await params;
 
   let html = getReportHtml(id);
   if (!html) {

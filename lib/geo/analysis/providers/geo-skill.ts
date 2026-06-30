@@ -32,6 +32,13 @@ import { logError, logInfo } from "../../logger";
 const SKILL_BETAS = ["code-execution-2025-08-25", "skills-2025-10-02"];
 const ANTHROPIC_VERSION = "2023-06-01";
 
+/**
+ * Default model for the geo-skill provider (the heavier interactive skill,
+ * hence Opus). Exported so the diagnostics endpoint can report the model that
+ * will actually run when this provider is selected.
+ */
+export const DEFAULT_GEO_SKILL_MODEL = "claude-opus-4-8";
+
 let cachedSkillId: string | null = null;
 
 export class GeoSkillAnalysisProvider implements GeoAnalysisProvider {
@@ -47,7 +54,7 @@ export class GeoSkillAnalysisProvider implements GeoAnalysisProvider {
 
     const skillId = await resolveSkillId(apiKey);
     const version = process.env.GEO_SKILL_VERSION || "latest";
-    const model = process.env.GEO_ANALYSIS_MODEL || "claude-opus-4-8";
+    const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_GEO_SKILL_MODEL;
 
     const client = new Anthropic({
       apiKey,

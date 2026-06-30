@@ -59,16 +59,6 @@ update public.geo_scan_requests r set email = lower(l.email)
 create index if not exists geo_scan_requests_lead_idx on public.geo_scan_requests (lead_id);
 create index if not exists geo_scan_requests_status_idx on public.geo_scan_requests (status);
 create index if not exists geo_scan_requests_email_idx on public.geo_scan_requests (lower(email));
--- Race-safety: at most one ACTIVE (non-failed) scan per email. Created tolerantly
--- so a table that already contains duplicates still migrates (the gate then stays
--- best-effort until the duplicates are cleaned up).
-do $$ begin
-  create unique index if not exists geo_scan_requests_email_active_uidx
-    on public.geo_scan_requests (lower(email))
-    where email is not null and status <> 'failed';
-exception when others then
-  raise notice 'geo: skipped email-active unique index (pre-existing duplicates)';
-end $$;
 
 -- The structured report ----------------------------------------------------
 create table if not exists public.geo_scan_reports (

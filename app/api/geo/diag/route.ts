@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { selectProvider } from "@/lib/geo/analysis";
 import { DEFAULT_ANALYSIS_MODEL } from "@/lib/geo/analysis/providers/claude";
+import { DEFAULT_GEO_SKILL_MODEL } from "@/lib/geo/analysis/providers/geo-skill";
 import { isSupabaseConfigured } from "@/lib/geo/supabase/service";
 import { logError } from "@/lib/geo/logger";
 
@@ -35,13 +36,18 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
   const wantedName = (process.env.GEO_SKILL_NAME || "geo-page-checker").toLowerCase();
-  const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_ANALYSIS_MODEL;
+  // Report the model the SELECTED provider will actually use (geo-skill defaults
+  // to Opus, claude/mock to Sonnet) so diag never names the wrong model.
+  const selected = selectProvider();
+  const model =
+    process.env.GEO_ANALYSIS_MODEL ||
+    (selected.id === "geo-skill" ? DEFAULT_GEO_SKILL_MODEL : DEFAULT_ANALYSIS_MODEL);
 
   const skill = await inspectSkill(hasKey, wantedName);
 
   return NextResponse.json({
     ok: true,
-    provider_selected: selectProvider().id,
+    provider_selected: selected.id,
     provider_override: process.env.GEO_ANALYSIS_PROVIDER ?? null,
     anthropic_api_key: hasKey,
     model,

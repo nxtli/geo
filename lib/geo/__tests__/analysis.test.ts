@@ -72,6 +72,26 @@ describe("parseAnalysisResult", () => {
     expect(r.visibility_score).toBe(GEO_CATEGORIES[0].max);
   });
 
+  it("does not double-count: blank keys with partial label matches map each entry once", () => {
+    // 6 entries, all blank keys; two carry rubric labels, four are generic.
+    const category_scores = [
+      { key: "", label: "Vraaggerichte structuur", score: 18, max: 20, summary: "" },
+      { key: "", label: "Concrete feiten", score: 12, max: 15, summary: "" },
+      { key: "", label: "Other A", score: 10, max: 20, summary: "" },
+      { key: "", label: "Other B", score: 10, max: 20, summary: "" },
+      { key: "", label: "Other C", score: 10, max: 20, summary: "" },
+      { key: "", label: "Other D", score: 10, max: 20, summary: "" },
+    ];
+    const r = parseAnalysisResult(base({ category_scores }));
+    const get = (k: string) => r.category_scores.find((c) => c.key === k)!;
+    // Exact label matches are preserved, not stolen by the positional fallback.
+    expect(get("vraaggerichte_structuur").score).toBe(18);
+    expect(get("concrete_feiten").score).toBe(12);
+    // Invariant holds and nothing is inflated past /100.
+    expect(r.visibility_score).toBe(sumScores(r.category_scores));
+    expect(r.visibility_score).toBeLessThanOrEqual(GEO_MAX_SCORE);
+  });
+
   it("clamps the raw headline 0..100 when no breakdown is supplied", () => {
     expect(parseAnalysisResult(base({ visibility_score: 150 })).visibility_score).toBe(100);
     expect(parseAnalysisResult(base({ visibility_score: -5 })).visibility_score).toBe(0);

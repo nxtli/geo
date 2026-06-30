@@ -97,19 +97,14 @@ export async function POST(request: Request): Promise<Response> {
         // already completed a scan (for ANY page), block this new scan and show
         // their earlier report instead of burning credits — and instead of
         // confusingly returning an unrelated page's result.
+        // Fail OPEN on a gate-lookup error: a transient DB hiccup (or schema
+        // drift before the email column exists) must NOT take the whole scan
+        // endpoint down. The global daily cap is the hard credit backstop.
         let prior: Awaited<ReturnType<typeof findCompletedScanByEmail>> = null;
         try {
           prior = await findCompletedScanByEmail(lead.email);
         } catch (dedupError) {
-          // DB is configured but the gate lookup failed — fail CLOSED so we
-          // don't spend AI credits on a scan we couldn't verify as a first one.
           logError("api.geo.scan.dedup", dedupError);
-          send({
-            type: "error",
-            message:
-              "We konden je aanvraag op dit moment niet verifiëren. Probeer het over een paar minuten opnieuw.",
-          });
-          return close();
         }
         if (prior?.analysis_result) {
           const priorAnalysis = parseAnalysisResult(prior.analysis_result);
@@ -173,12 +168,7 @@ export async function POST(request: Request): Promise<Response> {
           }
         }
 
-        // 1. Persist lead + scan request. The scan-request insert is also the
-        // race-safe reservation: a concurrent scan for the same email trips the
-        // DB's unique index and comes back as a conflict, so we block instead of
-        // running a second paid analysis. (The in-memory throttle is only needed
-        // — and only pruned — in the no-DB fallback, so only record there.)
-        if (!isSupabaseConfigured()) markScanned(lead.email);
+        // 1. Persist lead + scan request.
         const persistedLead = await insertLead(lead);
         const scan = await createScanRequest({
           leadId: persistedLead?.id ?? null,
@@ -186,14 +176,6 @@ export async function POST(request: Request): Promise<Response> {
           homepageUrl: lead.homepage_url,
           rawInput: lead,
         });
-        if (scan && "conflict" in scan) {
-          send({
-            type: "error",
-            message:
-              "Er loopt al een scan voor dit e-mailadres. Een momentje — probeer het zo opnieuw.",
-          });
-          return close();
-        }
         scanRequestId = scan?.id ?? cryptoRandomId();
         if (scan) await updateScanRequest(scan.id, { status: "scanning" });
         progress(10, 0);
@@ -274,6 +256,11 @@ export async function POST(request: Request): Promise<Response> {
           degraded,
           providerId,
         });
+
+        // Record the throttle only on a SUCCESSFUL scan, and only in the no-DB
+        // fallback (mirrors the DB path, where a failed scan never blocks a
+        // retry). Doing it here means a failed attempt doesn't lock the email.
+        if (!isSupabaseConfigured()) markScanned(lead.email);
 
         progress(100, 5);
         send({

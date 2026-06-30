@@ -13,13 +13,43 @@ type CategoryScore = GeoAnalysisResult["category_scores"][number];
  * rescaled if the model used a different max for a category.
  */
 function reconcileToRubric(returned: CategoryScore[]): CategoryScore[] {
-  const byKey = new Map(returned.map((c) => [c.key, c]));
-  const byLabel = new Map(returned.map((c) => [c.label.trim().toLowerCase(), c]));
-  return GEO_CATEGORIES.map((cat, i) => {
-    const match =
-      byKey.get(cat.key) ??
-      byLabel.get(cat.label.toLowerCase()) ??
-      (returned.length === GEO_CATEGORIES.length ? returned[i] : undefined);
+  // Consume each returned entry AT MOST ONCE so no model category is counted in
+  // two rubric slots (which would inflate the total / misattribute scores).
+  const used = new Array(returned.length).fill(false);
+  const take = (pred: (c: CategoryScore) => boolean): number => {
+    for (let i = 0; i < returned.length; i++) {
+      if (!used[i] && pred(returned[i])) {
+        used[i] = true;
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const matchIdx = GEO_CATEGORIES.map(() => -1);
+  // Pass 1: exact key match for ALL categories first (so a real match always
+  // wins over a positional fallback for some other category).
+  GEO_CATEGORIES.forEach((cat, gi) => {
+    matchIdx[gi] = take((c) => !!c.key && c.key === cat.key);
+  });
+  // Pass 2: label match for the still-unmatched categories.
+  GEO_CATEGORIES.forEach((cat, gi) => {
+    if (matchIdx[gi] < 0) {
+      matchIdx[gi] = take(
+        (c) => !!c.label && c.label.trim().toLowerCase() === cat.label.toLowerCase(),
+      );
+    }
+  });
+  // Pass 3: positional fallback only when the count matches — assign each
+  // leftover model entry (in order) to a leftover rubric slot.
+  if (returned.length === GEO_CATEGORIES.length) {
+    GEO_CATEGORIES.forEach((_, gi) => {
+      if (matchIdx[gi] < 0) matchIdx[gi] = take(() => true);
+    });
+  }
+
+  return GEO_CATEGORIES.map((cat, gi) => {
+    const match = matchIdx[gi] >= 0 ? returned[matchIdx[gi]] : undefined;
     let score = match ? match.score : 0;
     // Rescale if the model scored this category against a different max.
     if (match && match.max && match.max !== cat.max) {

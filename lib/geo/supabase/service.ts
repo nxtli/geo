@@ -65,27 +65,12 @@ export async function insertLead(
   }
 }
 
-/** True for a Postgres unique-violation (SQLSTATE 23505). */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    (error as { code?: string }).code === "23505"
-  );
-}
-
-/**
- * Create the scan-request reservation row. Returns `{ conflict: true }` when the
- * DB's partial unique index (one active, non-failed scan per email) rejects the
- * insert — i.e. a concurrent scan for the same email is already in flight — so
- * the caller can block instead of running a second paid analysis (race-safe gate).
- */
 export async function createScanRequest(params: {
   leadId: string | null;
   email: string;
   homepageUrl: string;
   rawInput: GeoLeadInput;
-}): Promise<{ id: string } | { conflict: true } | null> {
+}): Promise<{ id: string } | null> {
   if (!isDbConfigured()) return null;
   try {
     const rows = await query<{ id: string }>(
@@ -102,7 +87,6 @@ export async function createScanRequest(params: {
     );
     return rows[0] ? { id: rows[0].id } : null;
   } catch (error) {
-    if (isUniqueViolation(error)) return { conflict: true };
     logError("supabase.createScanRequest", error);
     return null;
   }
@@ -208,29 +192,35 @@ export async function insertReport(params: {
  * credits — and instead of confusingly returning an unrelated page's report.
  *
  * Matches on the denormalized `email` column (not a lead JOIN), so a completed
- * scan is still found even when its lead row failed to persist. Returns null
- * only for "no DB configured" or "no prior scan"; a real DB error is RETHROWN so
- * the caller can fail closed rather than silently letting a paid scan through.
+ * scan is still found even when its lead row failed to persist. Fails OPEN
+ * (returns null, logs) on a DB error or schema drift: the gate is best-effort
+ * credit protection and must never take the scan endpoint down. The global
+ * daily cap is the hard backstop.
  */
 export async function findCompletedScanByEmail(
   email: string,
 ): Promise<{ id: string; analysis_result: unknown; homepage_url: string } | null> {
   if (!isDbConfigured()) return null;
-  const rows = await query<{
-    id: string;
-    analysis_result: unknown;
-    homepage_url: string;
-  }>(
-    `select id, analysis_result, homepage_url
-       from public.geo_scan_requests
-      where lower(email) = lower($1)
-        and status = 'completed'
-        and analysis_result is not null
-      order by created_at desc
-      limit 1`,
-    [email],
-  );
-  return rows[0] ?? null;
+  try {
+    const rows = await query<{
+      id: string;
+      analysis_result: unknown;
+      homepage_url: string;
+    }>(
+      `select id, analysis_result, homepage_url
+         from public.geo_scan_requests
+        where lower(email) = lower($1)
+          and status = 'completed'
+          and analysis_result is not null
+        order by created_at desc
+        limit 1`,
+      [email],
+    );
+    return rows[0] ?? null;
+  } catch (error) {
+    logError("supabase.findCompletedScanByEmail", error);
+    return null;
+  }
 }
 
 /** Count completed scans since a timestamp — for the global daily cap. */

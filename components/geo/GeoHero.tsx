@@ -29,7 +29,7 @@ export function GeoHero() {
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
               Elke dag beantwoorden AI-tools vragen van jouw klanten. De vraag
-              is: noemen ze jou — of je concurrent?
+              is: noemen ze jou, of je concurrent?
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -49,7 +49,7 @@ export function GeoHero() {
             </p>
             <p className="mt-1.5 max-w-md text-sm text-subtle">
               Geen technische kennis nodig. Je ontvangt direct concrete
-              verbeterpunten — of je nu verder gaat met NXTLI of niet.
+              verbeterpunten, of je nu verder gaat met NXTLI of niet.
             </p>
           </div>
 

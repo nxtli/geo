@@ -47,7 +47,7 @@ export function GeoSocialProof() {
                 “{t.quote}”
               </blockquote>
               <figcaption className="mt-4 text-sm text-muted">
-                <span className="font-semibold text-ink">{t.name}</span> — {t.org}
+                <span className="font-semibold text-ink">{t.name}</span>, {t.org}
               </figcaption>
             </figure>
           ))}

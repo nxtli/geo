@@ -49,7 +49,7 @@ export interface BrianStep {
 export const BRIAN_STEPS: BrianStep[] = [
   {
     key: "name",
-    prompt: "Laten we beginnen — wat is je naam?",
+    prompt: "Laten we beginnen. Wat is je naam?",
     placeholder: "Bijv. Sanne",
     validate: fieldValidators.required,
     ack: (v) => `Leuk je te ontmoeten, ${v.split(" ")[0]}.`,
@@ -123,7 +123,7 @@ export const BRIAN_STEPS: BrianStep[] = [
   {
     key: "competitors",
     prompt:
-      "Zijn er concurrenten of voorbeeldsites die je vaak tegenkomt? (optioneel — sla gerust over)",
+      "Zijn er concurrenten of voorbeeldsites die je vaak tegenkomt? (optioneel, sla gerust over)",
     placeholder: "Bijv. concurrent.nl, voorbeeld.com",
     multiline: true,
     optional: true,

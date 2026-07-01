@@ -105,7 +105,7 @@ export function BrianChat({
 
     setInputError(null);
     setInput("");
-    const displayed = value || "— overslaan";
+    const displayed = value || "overgeslagen";
     setMessages((m) => [...m, { id: nextId(), from: "user", text: displayed }]);
     setAnswers((a) => ({ ...a, [step.key]: value || null }));
 
@@ -457,7 +457,7 @@ const AskingInput = React.forwardRef<
         <p className="mt-1.5 px-1 text-xs font-medium text-danger">{error}</p>
       ) : (
         <p className="mt-1.5 px-1 text-[11px] text-subtle">
-          {step.optional ? "Optioneel — druk op Enter om over te slaan" : "Druk op Enter om te versturen"}
+          {step.optional ? "Optioneel, druk op Enter om over te slaan" : "Druk op Enter om te versturen"}
         </p>
       )}
     </div>

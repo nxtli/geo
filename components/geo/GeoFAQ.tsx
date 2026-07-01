@@ -6,7 +6,7 @@ import { Container, SectionHeading } from "./primitives";
 const FAQS = [
   {
     q: "Wat is AI-vindbaarheid (GEO) precies?",
-    a: "GEO staat voor Generative Engine Optimization. Het gaat erom dat je website begrepen, samengevat en aanbevolen wordt door AI-tools zoals ChatGPT, Claude, Perplexity en Google AI Overviews — niet alleen dat je in Google rankt.",
+    a: "GEO staat voor Generative Engine Optimization. Het gaat erom dat je website begrepen, samengevat en aanbevolen wordt door AI-tools zoals ChatGPT, Claude, Perplexity en Google AI Overviews, niet alleen dat je in Google rankt.",
   },
   {
     q: "Is de scan echt gratis?",
@@ -26,7 +26,7 @@ const FAQS = [
   },
   {
     q: "Is dit rapport een opmaat naar een verkoopgesprek?",
-    a: "Nee. Je krijgt een volledig rapport met concrete verbeterpunten — ook als je daarna niks met NXTLI doet. We geloven dat je eerst waarde moet ervaren voordat je ook maar één beslissing neemt.",
+    a: "Nee. Je krijgt een volledig rapport met concrete verbeterpunten, ook als je daarna niks met NXTLI doet. We geloven dat je eerst waarde moet ervaren voordat je ook maar één beslissing neemt.",
   },
 ];
 
@@ -38,7 +38,7 @@ export function GeoFAQ() {
       <Container>
         <SectionHeading
           eyebrow="Veelgestelde vragen"
-          title="Veelgestelde vragen — eerlijk beantwoord"
+          title="Veelgestelde vragen, eerlijk beantwoord"
         />
 
         <div className="mx-auto mt-10 max-w-2xl divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">

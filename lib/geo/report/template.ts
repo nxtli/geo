@@ -25,7 +25,7 @@ export function renderReportHtml(params: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NXTLI GEO Scan — ${esc(lead.company_name)}</title>
+<title>NXTLI GEO Scan: ${esc(lead.company_name)}</title>
 <style>
   :root { --brand:#5850ec; --accent:#0ea5e9; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#eef0ff; --bg:#f7f8fb; }
   * { box-sizing: border-box; }

@@ -18,7 +18,7 @@ export function GeoCTA() {
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/70">
               De vraag is niet óf AI jouw concurrenten noemt. De vraag is of ze
-              jou ook noemen. Binnen 5 minuten weet je waar je staat — en wat je
+              jou ook noemen. Binnen een minuut weet je waar je staat, en wat je
               kunt verbeteren.
             </p>
 
@@ -34,7 +34,7 @@ export function GeoCTA() {
 
             <p className="mt-4 text-sm text-white/55">
               Gratis. Geen technische kennis nodig. Je ontvangt direct concrete
-              verbeterpunten — of je nu verder gaat met NXTLI of niet.
+              verbeterpunten, of je nu verder gaat met NXTLI of niet.
             </p>
           </div>
         </div>

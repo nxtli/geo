@@ -67,7 +67,7 @@ export function GeoReportPreview() {
             </ReportBlock>
 
             <div className="sm:col-span-2">
-              <ReportBlock title="Prioriteiten — komende 30 dagen">
+              <ReportBlock title="Prioriteiten voor de komende 30 dagen">
                 <ol className="space-y-2">
                   {[
                     "Herschrijf je homepage-intro naar een concreet aanbod-statement",
@@ -94,7 +94,7 @@ export function GeoReportPreview() {
             website negeerde.”
           </blockquote>
           <figcaption className="mt-3 text-sm text-muted">
-            <span className="font-semibold text-ink">Thomas Visser</span> — Visser
+            <span className="font-semibold text-ink">Thomas Visser</span>, Visser
             Consultancy
           </figcaption>
         </figure>

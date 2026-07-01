@@ -19,7 +19,7 @@ const STEPS = [
   {
     n: "04",
     title: "Je krijgt direct concrete verbeterpunten",
-    body: "Met concrete verbeterpunten — in de chat, als download én in je inbox.",
+    body: "Met concrete verbeterpunten: in de chat, als download én in je inbox.",
   },
 ];
 

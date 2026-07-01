@@ -17,13 +17,13 @@ export function WhyNxtli() {
               Waarom NXTLI
             </div>
             <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Jouw website begrijpelijk voor mensen én AI — zo bouw je aan
+              Jouw website begrijpelijk voor mensen én AI, zo bouw je aan
               blijvende vindbaarheid
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
               NXTLI is een AI-first studio en automation-partner. We helpen
               ondernemers en marketeers met AI-first websites, automations,
-              contentstructuur en slimme systemen — niet alleen mooi, maar ook
+              contentstructuur en slimme systemen, niet alleen mooi, maar ook
               begrijpelijk voor mensen én AI.
             </p>
 

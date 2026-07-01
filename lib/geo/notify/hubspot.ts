@@ -56,6 +56,7 @@ export async function upsertHubspotContact(
       logError("hubspot.upsert", `hubspot responded ${res.status} ${detail.slice(0, 200)}`);
       return { sent: false };
     }
+    logInfo("hubspot", `contact upserted (${params.lead.email})`);
     return { sent: true };
   } catch (error) {
     logError("hubspot.upsert", error);

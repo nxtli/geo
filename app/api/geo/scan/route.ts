@@ -117,6 +117,9 @@ export async function POST(request: Request): Promise<Response> {
             reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
             repeat: true,
           });
+          // Upsert on repeats too (idempotent by email): a returning lead stays
+          // updated in HubSpot, and re-testing with the same email still syncs.
+          await upsertHubspotContact({ lead, analysis: priorAnalysis }).catch(() => undefined);
           progress(100, 5);
           const priorHost = safeHost(prior.homepage_url);
           const differentPage =
@@ -125,7 +128,7 @@ export async function POST(request: Request): Promise<Response> {
             ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
                 priorHost ? ` (voor ${priorHost})` : ""
               }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
-            : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport — wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
+            : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport. Wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
           send({
             type: "result",
             data: {

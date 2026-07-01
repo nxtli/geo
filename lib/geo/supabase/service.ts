@@ -323,6 +323,34 @@ export async function listScansForAdmin(limit = 500): Promise<AdminScanList> {
   }
 }
 
+/**
+ * Fetch the stored analysis + lead input for a scan, so the report route can
+ * re-render the HTML live from the CURRENT template (existing report links then
+ * pick up design changes instead of serving frozen, scan-time HTML).
+ */
+export async function getScanForReport(
+  scanRequestId: string,
+): Promise<{ analysis_result: unknown; raw_input: unknown; created_at: unknown } | null> {
+  if (!isDbConfigured()) return null;
+  try {
+    const rows = await query<{
+      analysis_result: unknown;
+      raw_input: unknown;
+      created_at: unknown;
+    }>(
+      `select analysis_result, raw_input, created_at
+         from public.geo_scan_requests
+        where id = $1
+        limit 1`,
+      [scanRequestId],
+    );
+    return rows[0] ?? null;
+  } catch (error) {
+    logError("supabase.getScanForReport", error);
+    return null;
+  }
+}
+
 /** Read a stored report (used by the report/PDF route). */
 export async function getReportByScanRequest(
   scanRequestId: string,

@@ -9,17 +9,23 @@ import { logError, logInfo } from "../logger";
  * scope, server-side only). Without it this is a no-op, so the scan flow never
  * depends on HubSpot being set up.
  *
- * Create the token: HubSpot → Settings → Integrations → Private Apps → Create,
- * add the `crm.objects.contacts.write` scope, copy the token into HUBSPOT_TOKEN.
+ * Besides the standard contact properties (email/name/phone/company/jobtitle/
+ * website/lifecyclestage) it writes three GEO-specific CUSTOM properties — create
+ * these once in HubSpot → Settings → Properties → Contact:
+ *   - geoscore          (Number)            the AI Visibility Score
+ *   - geoscore_rapport  (Single-line text)  link to the report
+ *   - geoscanpagina     (Single-line text)  the URL that was scanned
  *
- * Upsert is by email (CRM v3 batch upsert, idProperty=email), so re-submissions
- * update the same contact instead of creating duplicates. Only standard contact
- * properties are sent by default; set HUBSPOT_SCORE_PROPERTY to the internal name
- * of a custom number property to also push the AI Visibility Score.
+ * Upsert is by email (CRM v3 batch upsert, idProperty=email) so re-submissions
+ * update the same contact. If a custom property is missing/misnamed HubSpot
+ * rejects the whole call, so we retry once with only the standard properties —
+ * a bad custom-property name can never block the core lead sync.
  */
 export interface HubspotUpsertParams {
   lead: GeoLeadInput;
   analysis?: GeoAnalysisResult | null;
+  /** Absolute URL to the report, stored on the contact (geoscore_rapport). */
+  reportUrl?: string | null;
 }
 
 export async function upsertHubspotContact(
@@ -31,24 +37,23 @@ export async function upsertHubspotContact(
     return { sent: false };
   }
 
-  const scoreProp = process.env.HUBSPOT_SCORE_PROPERTY;
-  const hasScore =
-    !!scoreProp && typeof params.analysis?.visibility_score === "number";
+  const { lead } = params;
+  const standard = buildStandardProperties(lead);
+  const geo = buildGeoProperties(params);
+  const hasGeo = Object.keys(geo).length > 0;
 
   try {
-    const properties = buildProperties(params);
-    let res = await upsert(token, params.lead.email, properties);
+    let res = await upsert(token, lead.email, { ...standard, ...geo });
 
-    // If the optional score property is misconfigured (unknown property name),
-    // don't lose the lead: retry once with just the standard properties.
-    if (!res.ok && hasScore && scoreProp) {
+    // If a GEO custom property is misconfigured (unknown name/type → HubSpot
+    // rejects the request), don't lose the lead: retry with standard fields only.
+    if (!res.ok && hasGeo) {
       const detail = await res.text().catch(() => "");
       logError(
         "hubspot.upsert",
-        `retrying without "${scoreProp}" after ${res.status} ${detail.slice(0, 160)}`,
+        `retrying without GEO properties after ${res.status} ${detail.slice(0, 160)}`,
       );
-      const { [scoreProp]: _drop, ...standard } = properties;
-      res = await upsert(token, params.lead.email, standard);
+      res = await upsert(token, lead.email, standard);
     }
 
     if (!res.ok) {
@@ -56,7 +61,7 @@ export async function upsertHubspotContact(
       logError("hubspot.upsert", `hubspot responded ${res.status} ${detail.slice(0, 200)}`);
       return { sent: false };
     }
-    logInfo("hubspot", `contact upserted (${params.lead.email})`);
+    logInfo("hubspot", `contact upserted (${lead.email})`);
     return { sent: true };
   } catch (error) {
     logError("hubspot.upsert", error);
@@ -79,8 +84,8 @@ function upsert(
   });
 }
 
-function buildProperties(params: HubspotUpsertParams): Record<string, string> {
-  const { lead, analysis } = params;
+/** Standard HubSpot contact properties (always exist). */
+function buildStandardProperties(lead: GeoLeadInput): Record<string, string> {
   const parts = lead.name.trim().split(/\s+/);
   const firstname = parts[0] ?? "";
   const lastname = parts.slice(1).join(" ");
@@ -95,12 +100,17 @@ function buildProperties(params: HubspotUpsertParams): Record<string, string> {
     lifecyclestage: "lead",
   };
   if (lastname) properties.lastname = lastname;
+  return properties;
+}
 
-  // Optional: push the score into a custom number property when configured.
-  const scoreProp = process.env.HUBSPOT_SCORE_PROPERTY;
-  if (scoreProp && typeof analysis?.visibility_score === "number") {
-    properties[scoreProp] = String(analysis.visibility_score);
+/** GEO-specific custom properties (must exist in HubSpot; see file header). */
+function buildGeoProperties(params: HubspotUpsertParams): Record<string, string> {
+  const { lead, analysis, reportUrl } = params;
+  const properties: Record<string, string> = {};
+  if (typeof analysis?.visibility_score === "number") {
+    properties.geoscore = String(analysis.visibility_score);
   }
-
+  if (reportUrl) properties.geoscore_rapport = reportUrl;
+  if (lead.homepage_url) properties.geoscanpagina = lead.homepage_url;
   return properties;
 }

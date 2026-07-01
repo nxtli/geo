@@ -53,7 +53,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     model,
     supabase_configured: isSupabaseConfigured(),
     hubspot_configured: Boolean(process.env.HUBSPOT_TOKEN),
-    hubspot_score_property: process.env.HUBSPOT_SCORE_PROPERTY ?? null,
+    hubspot_geo_properties: ["geoscore", "geoscore_rapport", "geoscanpagina"],
     skill,
   });
 }

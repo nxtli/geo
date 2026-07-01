@@ -119,7 +119,11 @@ export async function POST(request: Request): Promise<Response> {
           });
           // Upsert on repeats too (idempotent by email): a returning lead stays
           // updated in HubSpot, and re-testing with the same email still syncs.
-          await upsertHubspotContact({ lead, analysis: priorAnalysis }).catch(() => undefined);
+          await upsertHubspotContact({
+            lead,
+            analysis: priorAnalysis,
+            reportUrl: baseUrl ? `${baseUrl}${priorUrl}` : priorUrl,
+          }).catch(() => undefined);
           progress(100, 5);
           const priorHost = safeHost(prior.homepage_url);
           const differentPage =
@@ -261,7 +265,11 @@ export async function POST(request: Request): Promise<Response> {
           degraded,
           providerId,
         });
-        await upsertHubspotContact({ lead, analysis }).catch(() => undefined);
+        await upsertHubspotContact({
+          lead,
+          analysis,
+          reportUrl: baseUrl ? `${baseUrl}${reportUrl}` : reportUrl,
+        }).catch(() => undefined);
 
         // Record the throttle only on a SUCCESSFUL scan, and only in the no-DB
         // fallback (mirrors the DB path, where a failed scan never blocks a

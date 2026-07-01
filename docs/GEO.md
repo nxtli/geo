@@ -197,13 +197,40 @@ Deze repo is een **standalone Next.js app**, bedoeld als het eigen project voor
 
 1. **Vercel-project**: koppel deze repo. Root Directory = `./` (de
    `package.json` staat in de root). Framework = Next.js (auto-detect).
-2. **Env vars**: zet bovenstaande variabelen in het Vercel-project
-   (Production + Preview).
+2. **Env vars**: zet onderstaande variabelen in het Vercel-project
+   (Production + Preview) — zie de secrets-checklist.
 3. **Domein**: voeg `geo.nxtli.com` toe als custom domain in het Vercel-project.
-4. **DNS** (bij je DNS-provider voor `nxtli.com`): voeg een **CNAME** toe:
-   `geo` → `cname.vercel-dns.com` (Vercel toont de exacte waarde). Of een
-   A/ALIAS-record als je provider geen CNAME op subdomeinen toestaat.
-5. Wacht op DNS-propagatie + automatisch SSL-certificaat van Vercel.
+4. **Web-DNS** (bij de DNS-provider voor `nxtli.com`, bijv. YourHosting):
+
+   | Type | Naam | Waarde |
+   |------|------|--------|
+   | CNAME | `geo` | `cname.vercel-dns.com` (neem de exacte waarde die Vercel toont) |
+
+   Staat je provider geen CNAME op een subdomein toe → A-record `geo` →
+   `76.76.21.21`. Achter Cloudflare: zet het record op **DNS only** (geen proxy).
+5. **E-mail-DNS** (Resend, nodig omdat rapporten van `brian@geo.nxtli.com`
+   komen): voeg `geo.nxtli.com` toe in Resend → Domains en neem de getoonde
+   records exact over. Ze hebben deze vorm:
+
+   | Type | Naam | Waarde |
+   |------|------|--------|
+   | TXT (SPF) | `send.geo` | `v=spf1 include:amazonses.com ~all` |
+   | MX | `send.geo` | `feedback-smtp.<regio>.amazonses.com` (prio 10) |
+   | TXT (DKIM) | `resend._domainkey.geo` | `p=…` (lange sleutel uit Resend) |
+   | TXT (DMARC, aanbevolen) | `_dmarc.geo` | `v=DMARC1; p=none;` |
+
+6. Wacht op DNS-propagatie + automatisch SSL van Vercel; klik "Verify" in Resend.
+
+### Secrets-checklist (Vercel env vars)
+
+| Variabele | Verplicht? | Let op |
+|-----------|-----------|--------|
+| `ANTHROPIC_API_KEY` | ja | zonder key draait elke scan op de mock |
+| Postgres-connectie (`POSTGRES_URL` e.d.) | ja | via de Vercel↔Supabase-integratie |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | ja | **sterk & uniek** — nooit de `CHANGE_ME`/repo-waarde |
+| `RESEND_API_KEY` + `GEO_EMAIL_FROM` | voor e-mail | anders wordt de mail alleen voorbereid |
+| `NEXT_PUBLIC_SITE_URL` | aanbevolen | `https://geo.nxtli.com` |
+| `SLACK_WEBHOOK_URL`, `GEO_MAX_SCANS_PER_DAY`, `MIGRATE_SECRET`, `GEO_DIAG_SECRET` | optioneel | zie `.env.example` |
 
 > Als geo.nxtli.com later tóch binnen een bestaande NXTLI-app moet draaien via
 > subdomain-routing, kan dat met Next.js middleware (rewrite op

@@ -27,7 +27,7 @@ export function renderReportHtml(params: {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NXTLI GEO Scan: ${esc(lead.company_name)}</title>
 <style>
-  :root { --brand:#5850ec; --accent:#0ea5e9; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#eef0ff; --bg:#f7f8fb; }
+  :root { --brand:#0c90a1; --accent:#03b2b8; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#e0f6f7; --bg:#f7f8fb; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); line-height:1.6; }
   .page { max-width: 800px; margin: 0 auto; padding: 40px 22px 64px; }

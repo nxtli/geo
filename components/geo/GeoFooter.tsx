@@ -8,7 +8,7 @@ export function GeoFooter() {
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <Logo
-              className="h-7 w-auto"
+              className="h-8 w-auto"
               fallbackClassName="font-display text-lg font-bold tracking-tight text-ink"
             />
             <span className="text-sm text-subtle">· GEO Scan</span>

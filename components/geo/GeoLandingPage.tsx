@@ -21,7 +21,7 @@ function NavBar() {
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
         <a href="#top" className="flex items-center gap-2">
-          <Logo className="h-8 w-auto" />
+          <Logo className="h-9 w-auto" />
           <span className="hidden text-sm font-medium text-subtle sm:inline">
             GEO Scan
           </span>

@@ -78,8 +78,8 @@ voorbereid). Voor productie:
 | `RESEND_API_KEY` + `GEO_EMAIL_FROM` | E-mail versturen | anders alleen voorbereid |
 | `HUBSPOT_TOKEN` | Lead → HubSpot CRM | Private App token (`crm.objects.contacts.write`); anders overgeslagen. Schrijft ook de custom properties `geoscore` (Number), `geoscore_rapport` (tekst) en `geoscanpagina` (tekst) — maak die aan in HubSpot |
 | `GEO_PDF_STRATEGY` | Echte PDF | default `none` (HTML-rapport) |
-| `NEXT_PUBLIC_GEO_STRATEGY_CALL_URL` | CTA-link (client) | |
-| `GEO_STRATEGY_CALL_URL` | CTA-link in e-mail | |
+| `NEXT_PUBLIC_GEO_STRATEGY_CALL_URL` | "Plan een sessie"-knoppen (chat) | default `…/michiel-schoonhoven-agenda/` |
+| `GEO_STRATEGY_CALL_URL` | CTA-link in rapport + e-mail | default `…/michiel-schoonhoven-agenda/` |
 
 ## Supabase
 

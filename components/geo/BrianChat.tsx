@@ -17,7 +17,8 @@ import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons
 type Phase = "asking" | "consent" | "scanning" | "success" | "error";
 
 const STRATEGY_URL =
-  process.env.NEXT_PUBLIC_GEO_STRATEGY_CALL_URL || "https://nxtli.com";
+  process.env.NEXT_PUBLIC_GEO_STRATEGY_CALL_URL ||
+  "https://nxtli.com/michiel-schoonhoven-agenda/";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let msgSeq = 0;

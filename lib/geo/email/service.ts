@@ -81,7 +81,10 @@ async function deliver(opts: {
 }
 
 function strategyUrl(): string {
-  return process.env.GEO_STRATEGY_CALL_URL || "https://nxtli.com";
+  return (
+    process.env.GEO_STRATEGY_CALL_URL ||
+    "https://nxtli.com/michiel-schoonhoven-agenda/"
+  );
 }
 
 function renderEmailText(p: SendReportParams): string {
@@ -108,16 +111,16 @@ function renderEmailHtml(p: SendReportParams): string {
   const link = p.reportUrl ?? strategyUrl();
   return `<!doctype html><html lang="nl"><body style="margin:0;background:#f6f7fa;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a">
   <div style="max-width:560px;margin:0 auto;padding:32px 20px">
-    <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#5850ec">NXTLI GEO Scan</div>
+    <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#0c90a1">NXTLI GEO Scan</div>
     <h1 style="font-size:22px;margin:8px 0 16px">Je rapport is klaar, ${escapeHtml(p.name)}</h1>
     <p style="color:#475569;line-height:1.6">Brian heeft je homepage van <strong>${escapeHtml(p.companyName)}</strong> geanalyseerd op AI-vindbaarheid.</p>
     <div style="border:1px solid #e4e7ed;border-radius:14px;padding:18px;margin:16px 0;background:#fff">
       <div style="font-size:13px;color:#475569">AI Visibility Score</div>
-      <div style="font-size:40px;font-weight:800;color:#5850ec">${p.analysis.visibility_score}<span style="font-size:16px;color:#94a3b8">/100</span></div>
+      <div style="font-size:40px;font-weight:800;color:#0c90a1">${p.analysis.visibility_score}<span style="font-size:16px;color:#94a3b8">/100</span></div>
       <p style="color:#475569;margin:8px 0 0;line-height:1.6">${escapeHtml(p.analysis.short_summary)}</p>
     </div>
-    <a href="${escapeHtml(link)}" style="display:inline-block;background:#5850ec;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Bekijk je volledige rapport</a>
-    <p style="color:#475569;line-height:1.6;margin-top:24px">Wil je dat we met je meekijken? <a href="${escapeHtml(strategyUrl())}" style="color:#5850ec">Plan een korte GEO-strategiesessie</a>.</p>
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:#0c90a1;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Bekijk je volledige rapport</a>
+    <p style="color:#475569;line-height:1.6;margin-top:24px">Wil je dat we met je meekijken? <a href="${escapeHtml(strategyUrl())}" style="color:#0c90a1">Plan een korte GEO-strategiesessie</a>.</p>
     <p style="color:#94a3b8;font-size:12px;margin-top:28px">Groet,<br/>NXTLI</p>
   </div></body></html>`;
 }

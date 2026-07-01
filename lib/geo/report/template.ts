@@ -21,6 +21,9 @@ export function renderReportHtml(params: {
   const bandColor = score >= 70 ? "#16a34a" : score >= 45 ? "#d97706" : "#dc2626";
 
   const a = analysis;
+  const strategyUrl =
+    process.env.GEO_STRATEGY_CALL_URL ||
+    "https://nxtli.com/michiel-schoonhoven-agenda/";
 
   const hasBlocker = a.technical_checks.some((t) => t.status === "blokker");
   // Blockers jump to the top; everyone else keeps their original order.
@@ -294,7 +297,8 @@ export function renderReportHtml(params: {
 
   <div class="cta">
     <strong>Wil je dat NXTLI dit voor je uitwerkt?</strong>
-    <p style="margin:.5em 0 0">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI. <a href="https://nxtli.com">nxtli.com</a></p>
+    <p style="margin:.5em 0 14px">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI.</p>
+    <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">Plan een sessie →</a>
   </div>
 
   <div class="foot">

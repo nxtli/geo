@@ -31,23 +31,27 @@ export async function upsertHubspotContact(
     return { sent: false };
   }
 
+  const scoreProp = process.env.HUBSPOT_SCORE_PROPERTY;
+  const hasScore =
+    !!scoreProp && typeof params.analysis?.visibility_score === "number";
+
   try {
     const properties = buildProperties(params);
-    const res = await fetch(
-      "https://api.hubapi.com/crm/v3/objects/contacts/batch/upsert",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: [{ idProperty: "email", id: params.lead.email, properties }],
-        }),
-      },
-    );
+    let res = await upsert(token, params.lead.email, properties);
+
+    // If the optional score property is misconfigured (unknown property name),
+    // don't lose the lead: retry once with just the standard properties.
+    if (!res.ok && hasScore && scoreProp) {
+      const detail = await res.text().catch(() => "");
+      logError(
+        "hubspot.upsert",
+        `retrying without "${scoreProp}" after ${res.status} ${detail.slice(0, 160)}`,
+      );
+      const { [scoreProp]: _drop, ...standard } = properties;
+      res = await upsert(token, params.lead.email, standard);
+    }
+
     if (!res.ok) {
-      // Body may explain a bad property/scope; keep it server-side only.
       const detail = await res.text().catch(() => "");
       logError("hubspot.upsert", `hubspot responded ${res.status} ${detail.slice(0, 200)}`);
       return { sent: false };
@@ -57,6 +61,21 @@ export async function upsertHubspotContact(
     logError("hubspot.upsert", error);
     return { sent: false };
   }
+}
+
+function upsert(
+  token: string,
+  email: string,
+  properties: Record<string, string>,
+): Promise<Response> {
+  return fetch("https://api.hubapi.com/crm/v3/objects/contacts/batch/upsert", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ inputs: [{ idProperty: "email", id: email, properties }] }),
+  });
 }
 
 function buildProperties(params: HubspotUpsertParams): Record<string, string> {

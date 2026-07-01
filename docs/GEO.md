@@ -76,6 +76,8 @@ voorbereid). Voor productie:
 | `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
 | `GEO_SKILL_VERSION` | optioneel | default `latest` |
 | `RESEND_API_KEY` + `GEO_EMAIL_FROM` | E-mail versturen | anders alleen voorbereid |
+| `HUBSPOT_TOKEN` | Lead → HubSpot CRM | Private App token (`crm.objects.contacts.write`); anders overgeslagen |
+| `HUBSPOT_SCORE_PROPERTY` | optioneel | interne naam van een custom number-property voor de score |
 | `GEO_PDF_STRATEGY` | Echte PDF | default `none` (HTML-rapport) |
 | `NEXT_PUBLIC_GEO_STRATEGY_CALL_URL` | CTA-link (client) | |
 | `GEO_STRATEGY_CALL_URL` | CTA-link in e-mail | |

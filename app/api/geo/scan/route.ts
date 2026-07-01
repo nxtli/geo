@@ -8,6 +8,7 @@ import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
+import { upsertHubspotContact } from "@/lib/geo/notify/hubspot";
 import { ensureSchemaOnce } from "@/lib/geo/supabase/migrate";
 import {
   countCompletedScansSince,
@@ -247,7 +248,8 @@ export async function POST(request: Request): Promise<Response> {
           await updateScanRequest(scan.id, { email_sent_at: new Date().toISOString() });
         }
 
-        // 7. Slack.
+        // 7. Slack + HubSpot (both env-gated, non-blocking — a failure here must
+        // never break the scan the visitor already got).
         await notifySlackNewLead({
           lead,
           status: "completed",
@@ -256,6 +258,7 @@ export async function POST(request: Request): Promise<Response> {
           degraded,
           providerId,
         });
+        await upsertHubspotContact({ lead, analysis }).catch(() => undefined);
 
         // Record the throttle only on a SUCCESSFUL scan, and only in the no-DB
         // fallback (mirrors the DB path, where a failed scan never blocks a

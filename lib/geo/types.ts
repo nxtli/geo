@@ -164,6 +164,8 @@ export interface GeoAnalysisResult {
   short_summary: string;
   what_ai_understands: string;
   likely_ai_positioning: string;
+  /** Before/after of how an AI assistant would answer about the business. */
+  ai_answer_comparison: AiAnswerComparison;
   strengths: string[];
   weaknesses: string[];
   missing_signals: string[];
@@ -173,6 +175,21 @@ export interface GeoAnalysisResult {
   quick_wins: string[];
   thirty_day_action_plan: PriorityAction[];
   suggested_homepage_copy_improvements: string[];
+}
+
+/** One side of the AI-answer before/after (a quote + short labels). */
+export interface AiAnswerSide {
+  answer: string;
+  tags: string[];
+}
+
+/**
+ * How an AI assistant would answer about the business now (vague, based on the
+ * current page) versus how it could read with concrete, citeerbare facts.
+ */
+export interface AiAnswerComparison {
+  current: AiAnswerSide;
+  improved: AiAnswerSide;
 }
 
 /** What the /api/geo/scan endpoint returns to the chat client. */

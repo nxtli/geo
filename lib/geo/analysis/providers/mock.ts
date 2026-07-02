@@ -127,6 +127,16 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
         : `Op basis van je antwoorden heeft ${company} een duidelijk aanbod, maar we konden de homepage niet automatisch ophalen. De grootste kans ligt in het concreter en gestructureerder maken van je content zodat AI-systemen je expertise herkennen.`,
       what_ai_understands: `AI-systemen kunnen waarschijnlijk afleiden dat ${company} actief is rond "${truncate(input.offer_description, 80)}", maar de koppeling met je doelgroep en de concrete vragen die zij stellen is nog niet expliciet genoeg.`,
       likely_ai_positioning: `Op dit moment word je waarschijnlijk gezien als een algemene speler in je categorie, niet als hét antwoord op specifieke vragen van ${truncate(input.target_audience, 60)}.`,
+      ai_answer_comparison: {
+        current: {
+          answer: `Op basis van je huidige homepage vat een AI ${company} waarschijnlijk vaag samen als "een aanbieder in je categorie", zonder concrete feiten of onderscheid.`,
+          tags: ["geen feiten", "geen cijfers", "niet citeerbaar"],
+        },
+        improved: {
+          answer: `Met concrete feiten kan datzelfde AI-antwoord luiden: "${company} biedt ${truncate(input.offer_description, 80)} voor ${truncate(input.target_audience, 50)}, met [prijs, locatie en capaciteit]."`,
+          tags: ["feitelijk", "citeerbaar", "onderscheidend"],
+        },
+      },
       strengths: [
         "Er is een helder kernaanbod om op voort te bouwen.",
         fetched

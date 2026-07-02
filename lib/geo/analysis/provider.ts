@@ -100,6 +100,16 @@ const faqSchema = z.object({
   why: z.string().default(""),
 });
 
+const aiAnswerSideSchema = z.object({
+  answer: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+});
+
+const emptyAnswerComparison = {
+  current: { answer: "", tags: [] as string[] },
+  improved: { answer: "", tags: [] as string[] },
+};
+
 /**
  * Validates and normalizes whatever a provider returns into the canonical
  * GeoAnalysisResult. Coerces loose shapes (string vs array) so a provider
@@ -128,6 +138,9 @@ export const geoAnalysisResultSchema = z.object({
   short_summary: z.string(),
   what_ai_understands: z.string().default(""),
   likely_ai_positioning: z.string().default(""),
+  ai_answer_comparison: z
+    .object({ current: aiAnswerSideSchema, improved: aiAnswerSideSchema })
+    .default(emptyAnswerComparison),
   strengths: z.array(z.string()).default([]),
   weaknesses: z.array(z.string()).default([]),
   missing_signals: z.array(z.string()).default([]),
@@ -196,6 +209,31 @@ export const geoAnalysisJsonSchema = {
     short_summary: { type: "string" },
     what_ai_understands: { type: "string" },
     likely_ai_positioning: { type: "string" },
+    ai_answer_comparison: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        current: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            answer: { type: "string" },
+            tags: { type: "array", items: { type: "string" } },
+          },
+          required: ["answer", "tags"],
+        },
+        improved: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            answer: { type: "string" },
+            tags: { type: "array", items: { type: "string" } },
+          },
+          required: ["answer", "tags"],
+        },
+      },
+      required: ["current", "improved"],
+    },
     strengths: { type: "array", items: { type: "string" } },
     weaknesses: { type: "array", items: { type: "string" } },
     missing_signals: { type: "array", items: { type: "string" } },
@@ -239,6 +277,7 @@ export const geoAnalysisJsonSchema = {
     "short_summary",
     "what_ai_understands",
     "likely_ai_positioning",
+    "ai_answer_comparison",
     "strengths",
     "weaknesses",
     "missing_signals",

@@ -48,6 +48,7 @@ ${CATEGORY_LIST}
 ${TECH_LIST}
   Snelheid wordt niet gemeten — laat die weg. Kun je iets niet verifiëren (bijv. schema zonder browser), gebruik status "onbekend" en trek er geen punten voor af.
 - what_ai_understands / likely_ai_positioning: wat een AI nu van de pagina begrijpt en hoe het je positioneert.
+- ai_answer_comparison: het verschil tussen hoe een AI-assistent NU over het bedrijf zou antwoorden (op basis van de huidige pagina — meestal vaag, wervend, zonder controleerbare feiten) en hoe dat antwoord zou KUNNEN luiden als de pagina de juiste feiten citeerbaar aanbood. Geef bij "current" een kort, realistisch citaat (1-2 zinnen) zoals AI het nu zou samenvatten + 3-4 korte labels wat eraan mankeert (bijv. "geen feiten", "geen locatie", "niet citeerbaar"). Geef bij "improved" een herschreven citaat (1-2 zinnen) met concrete, citeerbare feiten die je op de pagina zag (verzin geen nieuwe feiten; gebruik alleen wat er staat of markeer een voorbeeldwaarde duidelijk als voorbeeld) + 3-4 korte labels wat het sterk maakt (bijv. "feitelijk", "citeerbaar", "onderscheidend").
 - strengths/weaknesses: per rubriekcategorie, concreet.
 - missing_signals: ontbrekende vertrouwens-/bewijs-/entiteitssignalen.
 - content_gaps: ontbrekende vraaggerichte content (FAQ, antwoordpagina's).

@@ -4,6 +4,7 @@ import type { GeoAnalysisOpts, GeoAnalysisProvider } from "./provider";
 import { MockAnalysisProvider } from "./providers/mock";
 import { ClaudeAnalysisProvider } from "./providers/claude";
 import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
+import { runAiVisibilityProbe } from "./ai-visibility";
 
 /**
  * Analysis provider registry + selection.
@@ -87,11 +88,17 @@ export async function runGeoAnalysis(
   const provider = selectProvider();
   logInfo("analysis", `using provider "${provider.id}"`);
 
+  // Live AI-visibility probe runs ALONGSIDE the analysis (best-effort, time-boxed
+  // inside), so it never adds to the critical path — its real web-grounded answer
+  // is grafted onto the report's "hoe het nu staat" side afterwards.
+  const probe = runAiVisibilityProbe(input).catch(() => null);
+
   try {
     const { result, usage } = await withDeadline(
       provider.analyze(input, opts),
       ANALYSIS_DEADLINE_MS,
     );
+    await applyAiSearch(result, probe);
     return { result, usage, providerId: provider.id, degraded: false };
   } catch {
     if (provider.id === "mock") throw new Error("analysis_failed");
@@ -99,7 +106,36 @@ export async function runGeoAnalysis(
     // the visitor still gets a (flagged degraded) report within the time budget.
     logInfo("analysis", `provider "${provider.id}" failed/timed out — falling back to mock`);
     const { result } = await registry["mock"].analyze(input);
+    await applyAiSearch(result, probe);
     return { result, providerId: "mock", degraded: true };
+  }
+}
+
+/** Overwrite the "current" AI answer with the REAL web-grounded probe result. */
+async function applyAiSearch(
+  result: GeoAnalysisResult,
+  probePromise: Promise<Awaited<ReturnType<typeof runAiVisibilityProbe>>>,
+): Promise<void> {
+  try {
+    const probe = await probePromise;
+    if (!probe?.answer) return;
+    const cmp = result.ai_answer_comparison ?? {
+      current: { answer: "", tags: [] },
+      improved: { answer: "", tags: [] },
+    };
+    result.ai_answer_comparison = {
+      current: {
+        answer: probe.answer,
+        tags: cmp.current?.tags?.length
+          ? cmp.current.tags
+          : probe.found
+            ? ["mager", "weinig feiten", "niet onderscheidend"]
+            : ["niet gevonden", "onzichtbaar voor AI"],
+      },
+      improved: cmp.improved,
+    };
+  } catch {
+    /* best-effort — never break the scan on the probe */
   }
 }
 

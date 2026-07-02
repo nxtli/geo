@@ -89,6 +89,22 @@ export function renderReportHtml(params: {
   /* Highlighted (payoff) card */
   .card.highlight { border-color:var(--brand); background:linear-gradient(180deg,#fff,var(--soft)); }
 
+  /* AI-answer before/after */
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .cmp { border:1px solid; border-radius:16px; padding:20px; }
+  .cmp.now { background:#fff5f4; border-color:#fecaca; }
+  .cmp.goal { background:#f0fdf7; border-color:#bbf7d0; }
+  .cmp .h { text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:800; }
+  .cmp.now .h { color:#dc2626; }
+  .cmp.goal .h { color:#16a34a; }
+  .cmp blockquote { margin:12px 0 0; padding:2px 0 2px 14px; border-left:3px solid; font-style:italic; font-size:14.5px; color:var(--ink); }
+  .cmp.now blockquote { border-left-color:#fca5a5; }
+  .cmp.goal blockquote { border-left-color:#86efac; }
+  .cmp .tags { margin-top:14px; font-size:13px; font-weight:700; }
+  .cmp.now .tags { color:#dc2626; }
+  .cmp.goal .tags { color:#16a34a; }
+  @media (max-width:620px){ .compare{grid-template-columns:1fr;} }
+
   /* Score breakdown */
   .rowscore { display:grid; grid-template-columns: 1fr 120px 56px; gap:14px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
   .rowscore:last-child{ border-bottom:0; }
@@ -165,6 +181,26 @@ export function renderReportHtml(params: {
       </div>
     </div>
   </section>
+
+  ${
+    a.ai_answer_comparison?.current?.answer && a.ai_answer_comparison?.improved?.answer
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Zo ziet AI je nu — en zo zou het moeten</h2><span class="section-sub">een echte AI-zoekmachine, live bevraagd</span></div>
+          <div class="compare">
+            <div class="cmp now">
+              <div class="h">Hoe het nu staat</div>
+              <blockquote>${esc(clip(a.ai_answer_comparison.current.answer, 600))}</blockquote>
+              ${tagLine(a.ai_answer_comparison.current.tags, "✗")}
+            </div>
+            <div class="cmp goal">
+              <div class="h">Hoe het moet worden</div>
+              <blockquote>${esc(clip(a.ai_answer_comparison.improved.answer, 600))}</blockquote>
+              ${tagLine(a.ai_answer_comparison.improved.tags, "✓")}
+            </div>
+          </div>
+        </div></section>`
+      : ""
+  }
 
   <!-- QUICK WINS — also near the top -->
   <section class="section">
@@ -341,6 +377,18 @@ function numlist(items: string[], empty: string): string {
 function pct(score: number, max: number): number {
   if (!max) return 0;
   return Math.max(0, Math.min(100, Math.round((score / max) * 100)));
+}
+
+/** A "✗ label · label · label" / "✓ …" line for the before/after cards. */
+function tagLine(tags: string[] | undefined, mark: string): string {
+  if (!tags || !tags.length) return "";
+  return `<div class="tags">${mark} ${tags.map(esc).join(" · ")}</div>`;
+}
+
+/** Keep a (possibly long, web-grounded) answer tidy in its card. */
+function clip(s: string, n: number): string {
+  const t = String(s ?? "").trim();
+  return t.length > n ? `${t.slice(0, n).trim()}…` : t;
 }
 
 /** Colour a category bar by how well it scored (green ≥70%, amber ≥45%, red). */

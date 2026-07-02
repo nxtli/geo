@@ -338,7 +338,7 @@ export function renderReportHtml(params: {
   </div>
 
   <div class="foot">
-    Dit rapport is automatisch gegenereerd door Brian, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.
+    Dit rapport is automatisch gegenereerd door Charlie, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.
   </div>
 </div>
 </body>

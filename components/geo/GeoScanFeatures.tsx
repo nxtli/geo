@@ -51,7 +51,7 @@ export function GeoScanFeatures() {
         <SectionHeading
           eyebrow="Wat de scan analyseert"
           title="Dit bepaalt of AI jou noemt of overslaat"
-          intro="Brian beoordeelt je homepage op de criteria die bepalen of AI je begrijpt, vertrouwt en aanbeveelt."
+          intro="Charlie beoordeelt je homepage op de criteria die bepalen of AI je begrijpt, vertrouwt en aanbeveelt."
         />
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -2,28 +2,28 @@
 
 import * as React from "react";
 import { cn } from "./primitives";
-import { BrianAvatar } from "./BrianAvatar";
+import { CharlieAvatar } from "./CharlieAvatar";
 
 export interface ChatMessageData {
   id: string;
-  from: "brian" | "user";
+  from: "charlie" | "user";
   text: string;
 }
 
 export function ChatMessage({ message }: { message: ChatMessageData }) {
-  const isBrian = message.from === "brian";
+  const isCharlie = message.from === "charlie";
   return (
     <div
       className={cn(
         "flex w-full animate-fade-up items-end gap-2.5",
-        isBrian ? "justify-start" : "justify-end",
+        isCharlie ? "justify-start" : "justify-end",
       )}
     >
-      {isBrian && <BrianAvatar />}
+      {isCharlie && <CharlieAvatar />}
       <div
         className={cn(
           "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed",
-          isBrian
+          isCharlie
             ? "rounded-bl-md bg-elevated text-ink"
             : "rounded-br-md bg-brand text-brand-fg",
         )}
@@ -37,7 +37,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
 export function TypingIndicator() {
   return (
     <div className="flex animate-fade-in items-end gap-2.5">
-      <BrianAvatar />
+      <CharlieAvatar />
       <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-elevated px-4 py-3">
         {[0, 1, 2].map((i) => (
           <span

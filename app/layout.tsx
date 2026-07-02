@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "NXTLI GEO Scan: Word jij gevonden in AI-zoekresultaten?",
     description:
-      "Gratis AI-vindbaarheidsscan van je homepage, begeleid door Brian, de AI-analist van NXTLI.",
+      "Gratis AI-vindbaarheidsscan van je homepage, begeleid door Charlie, de AI-analist van NXTLI.",
     url: "https://geo.nxtli.com",
     siteName: "NXTLI GEO Scan",
     locale: "nl_NL",

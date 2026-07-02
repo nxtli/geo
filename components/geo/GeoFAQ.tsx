@@ -14,7 +14,7 @@ const FAQS = [
   },
   {
     q: "Wat heb ik nodig om te starten?",
-    a: "Alleen de URL van je homepage en een paar antwoorden over je aanbod en doelgroep. Brian leidt je er stap voor stap doorheen.",
+    a: "Alleen de URL van je homepage en een paar antwoorden over je aanbod en doelgroep. Charlie leidt je er stap voor stap doorheen.",
   },
   {
     q: "Hoe lang duurt het?",

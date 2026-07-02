@@ -2,7 +2,7 @@
 
 Standalone Next.js app voor **geo.nxtli.com** — een premium landingspagina waar
 ondernemers en marketeers een gratis AI-vindbaarheidsscan (Generative Engine
-Optimization) van hun homepage laten doen, begeleid door **Brian**, de
+Optimization) van hun homepage laten doen, begeleid door **Charlie**, de
 AI-analist van NXTLI, in een chatervaring.
 
 Zie **[`docs/GEO.md`](docs/GEO.md)** voor de volledige documentatie: stack,

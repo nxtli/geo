@@ -3,17 +3,17 @@ import { Container, SectionHeading } from "./primitives";
 const STEPS = [
   {
     n: "01",
-    title: "Start de chat met Brian",
-    body: "Klik op de knop en Brian, onze AI-analist, neemt je in een paar stappen mee.",
+    title: "Start de chat met Charlie",
+    body: "Klik op de knop en Charlie, onze AI-analist, neemt je in een paar stappen mee.",
   },
   {
     n: "02",
-    title: "Vertel Brian over je bedrijf en doelgroep",
+    title: "Vertel Charlie over je bedrijf en doelgroep",
     body: "Een paar korte vragen over je bedrijf, aanbod en de vragen waarop je gevonden wilt worden.",
   },
   {
     n: "03",
-    title: "Brian scant je homepage op AI-vindbaarheid",
+    title: "Charlie scant je homepage op AI-vindbaarheid",
     body: "We halen je homepage op, beoordelen de content en bepalen je AI Visibility Score.",
   },
   {

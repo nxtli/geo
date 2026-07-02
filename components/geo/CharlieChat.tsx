@@ -2,15 +2,15 @@
 
 import * as React from "react";
 import {
-  BRIAN,
-  BRIAN_COPY,
-  BRIAN_PROCESSING_STEPS,
-  BRIAN_STEPS,
+  CHARLIE,
+  CHARLIE_COPY,
+  CHARLIE_PROCESSING_STEPS,
+  CHARLIE_STEPS,
   TOTAL_PROGRESS_STEPS,
-} from "@/lib/geo/brian";
+} from "@/lib/geo/charlie";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
-import { BrianAvatar } from "./BrianAvatar";
+import { CharlieAvatar } from "./CharlieAvatar";
 import { Button, cn } from "./primitives";
 import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons";
 
@@ -24,7 +24,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let msgSeq = 0;
 const nextId = () => `m${++msgSeq}`;
 
-export function BrianChat({
+export function CharlieChat({
   isOpen,
   onClose,
 }: {
@@ -47,11 +47,11 @@ export function BrianChat({
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const pushBrian = React.useCallback(async (text: string, delay = 650) => {
+  const pushCharlie = React.useCallback(async (text: string, delay = 650) => {
     setTyping(true);
     await wait(delay);
     setTyping(false);
-    setMessages((m) => [...m, { id: nextId(), from: "brian", text }]);
+    setMessages((m) => [...m, { id: nextId(), from: "charlie", text }]);
   }, []);
 
   // Seed the intro + first question the first time the chat is opened.
@@ -59,10 +59,10 @@ export function BrianChat({
     if (!isOpen || initialized.current) return;
     initialized.current = true;
     (async () => {
-      await pushBrian(BRIAN.intro, 350);
-      await pushBrian(BRIAN_STEPS[0].prompt, 700);
+      await pushCharlie(CHARLIE.intro, 350);
+      await pushCharlie(CHARLIE_STEPS[0].prompt, 700);
     })();
-  }, [isOpen, pushBrian]);
+  }, [isOpen, pushCharlie]);
 
   // Keep the latest message in view.
   React.useEffect(() => {
@@ -89,7 +89,7 @@ export function BrianChat({
 
   async function handleSend() {
     if (phase !== "asking" || typing) return;
-    const step = BRIAN_STEPS[stepIndex];
+    const step = CHARLIE_STEPS[stepIndex];
     const value = input.trim();
 
     if (!value && !step.optional) {
@@ -110,16 +110,16 @@ export function BrianChat({
     setMessages((m) => [...m, { id: nextId(), from: "user", text: displayed }]);
     setAnswers((a) => ({ ...a, [step.key]: value || null }));
 
-    if (step.ack && value) await pushBrian(step.ack(value), 500);
+    if (step.ack && value) await pushCharlie(step.ack(value), 500);
 
     const next = stepIndex + 1;
-    if (next < BRIAN_STEPS.length) {
+    if (next < CHARLIE_STEPS.length) {
       setStepIndex(next);
-      await pushBrian(BRIAN_STEPS[next].prompt, 650);
+      await pushCharlie(CHARLIE_STEPS[next].prompt, 650);
     } else {
       setStepIndex(next);
       setPhase("consent");
-      await pushBrian(BRIAN_COPY.reviewLead, 600);
+      await pushCharlie(CHARLIE_COPY.reviewLead, 600);
     }
   }
 
@@ -128,9 +128,9 @@ export function BrianChat({
     setPhase("scanning");
     setProcessingIndex(0);
     setScanProgress(0);
-    await pushBrian(BRIAN_COPY.scanningLead, 300);
+    await pushCharlie(CHARLIE_COPY.scanningLead, 300);
 
-    const stepCount = BRIAN_PROCESSING_STEPS.length;
+    const stepCount = CHARLIE_PROCESSING_STEPS.length;
 
     // The server streams real progress events (fetch → analyse-token-stream →
     // report). We ease the displayed bar toward the latest real target so it
@@ -221,7 +221,7 @@ export function BrianChat({
 
       if (!final || !final.ok) {
         setPhase("error");
-        await pushBrian(final?.message ?? BRIAN_COPY.errorFallback, 500);
+        await pushCharlie(final?.message ?? CHARLIE_COPY.errorFallback, 500);
         return;
       }
 
@@ -230,17 +230,17 @@ export function BrianChat({
       setPhase("success");
       // Surface the server's user-safe message when present (account-level gate,
       // degraded run); otherwise the standard "scan is klaar" copy.
-      await pushBrian(data.message ?? BRIAN_COPY.successLead, 500);
+      await pushCharlie(data.message ?? CHARLIE_COPY.successLead, 500);
       if (!data.blocked) {
         if (data.email_queued) {
-          await pushBrian(BRIAN_COPY.emailNote(payload.email), 500);
+          await pushCharlie(CHARLIE_COPY.emailNote(payload.email), 500);
         }
-        await pushBrian(BRIAN_COPY.finalCta, 600);
+        await pushCharlie(CHARLIE_COPY.finalCta, 600);
       }
     } catch {
       stop();
       setPhase("error");
-      await pushBrian(BRIAN_COPY.errorFallback, 400);
+      await pushCharlie(CHARLIE_COPY.errorFallback, 400);
     }
   }
 
@@ -251,7 +251,7 @@ export function BrianChat({
 
   if (!isOpen) return null;
 
-  const step = BRIAN_STEPS[stepIndex];
+  const step = CHARLIE_STEPS[stepIndex];
   const progress = Math.min(stepIndex + (phase === "asking" ? 1 : 0), TOTAL_PROGRESS_STEPS);
   const progressPct = Math.round(
     (Math.min(stepIndex + (phase === "consent" || phase === "success" ? 1 : 0), TOTAL_PROGRESS_STEPS) /
@@ -264,7 +264,7 @@ export function BrianChat({
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Chat met Brian, de AI-analist van NXTLI"
+      aria-label="Chat met Charlie, de AI-analist van NXTLI"
     >
       <div
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm animate-fade-in"
@@ -274,10 +274,10 @@ export function BrianChat({
         {/* Header */}
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
           <div className="flex items-center gap-3">
-            <BrianAvatar size="md" withStatus />
+            <CharlieAvatar size="md" withStatus />
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-ink">{BRIAN.name}</div>
-              <div className="text-xs text-muted">{BRIAN.role}</div>
+              <div className="text-sm font-semibold text-ink">{CHARLIE.name}</div>
+              <div className="text-xs text-muted">{CHARLIE.role}</div>
             </div>
           </div>
           <button
@@ -365,7 +365,7 @@ export function BrianChat({
 
           {phase === "scanning" && (
             <p className="px-1 py-2 text-center text-xs text-subtle">
-              {BRIAN_COPY.scanningSubtle}
+              {CHARLIE_COPY.scanningSubtle}
             </p>
           )}
 
@@ -409,7 +409,7 @@ export function BrianChat({
 const AskingInput = React.forwardRef<
   HTMLTextAreaElement,
   {
-    step: (typeof BRIAN_STEPS)[number];
+    step: (typeof CHARLIE_STEPS)[number];
     value: string;
     error: string | null;
     disabled: boolean;
@@ -483,7 +483,7 @@ function ConsentInput({
           onChange={onToggle}
           className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
         />
-        <span>{BRIAN_COPY.consentLabel}</span>
+        <span>{CHARLIE_COPY.consentLabel}</span>
       </label>
       <Button
         size="lg"
@@ -504,7 +504,7 @@ function ProcessingList({
   activeIndex: number;
   progress: number;
 }) {
-  const activeStep = BRIAN_PROCESSING_STEPS[Math.min(activeIndex, BRIAN_PROCESSING_STEPS.length - 1)];
+  const activeStep = CHARLIE_PROCESSING_STEPS[Math.min(activeIndex, CHARLIE_PROCESSING_STEPS.length - 1)];
   return (
     <div className="animate-fade-up rounded-2xl border border-border bg-elevated/60 p-4">
       {/* Overall progress bar */}
@@ -525,7 +525,7 @@ function ProcessingList({
       </div>
 
       <ul className="space-y-2.5">
-        {BRIAN_PROCESSING_STEPS.map((step, i) => {
+        {CHARLIE_PROCESSING_STEPS.map((step, i) => {
           const done = i < activeIndex;
           const active = i === activeIndex;
           return (

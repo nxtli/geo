@@ -2,7 +2,7 @@
 
 A standalone Next.js app for **geo.nxtli.com** — a premium landing page where
 ondernemers en marketeers een gratis AI-vindbaarheidsscan (Generative Engine
-Optimization) van hun homepage laten doen, begeleid door **Brian**, de
+Optimization) van hun homepage laten doen, begeleid door **Charlie**, de
 AI-analist van NXTLI, in een chatervaring.
 
 ## Stack
@@ -27,11 +27,11 @@ app/
   api/geo/
     scan/route.ts              # POST: hele scan-orchestratie
     report/[id]/route.ts       # GET: NXTLI-rapport als HTML (download)
-components/geo/                 # GeoHero, BrianChat, ChatMessage, ... (modulair)
+components/geo/                 # GeoHero, CharlieChat, ChatMessage, ... (modulair)
 lib/geo/
   types.ts                     # GeoLead, GeoScanRequest, GeoScanReport, GeoAnalysisResult
   validation.ts                # Zod-schema's
-  brian.ts                     # Brian-persona + chatflow (config, geen UI)
+  charlie.ts                     # Charlie-persona + chatflow (config, geen UI)
   logger.ts  scrape.ts
   analysis/                    # provider-registry + claude/mock/existing-skill
   report/                      # report-service, NXTLI-template, pdf-adapter, store
@@ -42,16 +42,16 @@ supabase/migrations/0001_geo_tables.sql
 
 ## Hoofdflow
 
-1. Bezoeker klikt op **"Ja, scan mijn website"** → de Brian-chat opent (modal,
+1. Bezoeker klikt op **"Ja, scan mijn website"** → de Charlie-chat opent (modal,
    blijft mounted zodat antwoorden behouden blijven bij sluiten/heropenen).
-2. Brian stelt één vraag per keer (naam, e-mail, bedrijf, homepage-URL, aanbod,
+2. Charlie stelt één vraag per keer (naam, e-mail, bedrijf, homepage-URL, aanbod,
    doelgroep, gewenste AI-zoekvragen, optioneel concurrenten). E-mail en URL
    worden gevalideerd; consent-checkbox als gate.
 3. `POST /api/geo/scan`: valideert → slaat lead + scan request op → haalt de
    homepage op → roept de AI-analyse aan → bouwt het NXTLI-rapport (HTML, PDF
    via adapter) → slaat het rapport op → verstuurt de e-mail → geeft een
    preview + downloadlink terug.
-4. Brian toont live de stappen (Website ophalen → Content analyseren →
+4. Charlie toont live de stappen (Website ophalen → Content analyseren →
    AI-vindbaarheid beoordelen → Verbeterpunten formuleren → Rapport genereren),
    daarna een preview (score + samenvatting + quick wins), een downloadknop en
    een zachte CTA voor een GEO-strategiesessie.
@@ -209,7 +209,7 @@ Deze repo is een **standalone Next.js app**, bedoeld als het eigen project voor
 
    Staat je provider geen CNAME op een subdomein toe → A-record `geo` →
    `76.76.21.21`. Achter Cloudflare: zet het record op **DNS only** (geen proxy).
-5. **E-mail-DNS** (Resend, nodig omdat rapporten van `brian@geo.nxtli.com`
+5. **E-mail-DNS** (Resend, nodig omdat rapporten van `charlie@geo.nxtli.com`
    komen): voeg `geo.nxtli.com` toe in Resend → Domains en neem de getoonde
    records exact over. Ze hebben deze vorm:
 

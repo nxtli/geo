@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BrianChat } from "./BrianChat";
+import { CharlieChat } from "./CharlieChat";
 
 interface GeoChatContextValue {
   open: () => void;
@@ -18,7 +18,7 @@ export function useGeoChat(): GeoChatContextValue {
 }
 
 /**
- * Provides the "open Brian" action to the whole landing page and keeps the
+ * Provides the "open Charlie" action to the whole landing page and keeps the
  * chat component permanently mounted (just hidden) so the visitor never loses
  * their answers when they close and reopen it.
  */
@@ -36,7 +36,7 @@ export function GeoChatProvider({ children }: { children: React.ReactNode }) {
   return (
     <GeoChatContext.Provider value={value}>
       {children}
-      <BrianChat isOpen={isOpen} onClose={close} />
+      <CharlieChat isOpen={isOpen} onClose={close} />
     </GeoChatContext.Provider>
   );
 }

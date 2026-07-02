@@ -2,7 +2,7 @@ import { fieldValidators } from "./validation";
 import type { GeoLeadInput } from "./types";
 
 /**
- * Brian — the NXTLI AI-analist persona and the scripted chat flow.
+ * Charlie — the NXTLI AI-analist persona and the scripted chat flow.
  * Kept as a standalone, declarative config so the chat component stays dumb
  * and the persona/copy can be tuned without touching UI logic.
  *
@@ -10,12 +10,12 @@ import type { GeoLeadInput } from "./types";
  * Geen overdreven AI-hype, geen jargon zonder uitleg.
  */
 
-export const BRIAN = {
-  name: "Brian",
+export const CHARLIE = {
+  name: "Charlie",
   role: "AI-analist bij NXTLI",
-  avatarInitial: "B",
+  avatarInitial: "C",
   intro:
-    "Tof! Ik ben Brian, AI-analist bij NXTLI. Ik ga in een paar stappen bekijken hoe goed jouw homepage vindbaar is in AI-antwoorden. Laten we beginnen.",
+    "Tof! Ik ben Charlie, AI-analist bij NXTLI. Ik ga in een paar stappen bekijken hoe goed jouw homepage vindbaar is in AI-antwoorden. Laten we beginnen.",
 };
 
 /** The key on GeoLeadInput each step writes to. */
@@ -31,9 +31,9 @@ export type GeoFieldKey =
   | "desired_queries"
   | "competitors";
 
-export interface BrianStep {
+export interface CharlieStep {
   key: GeoFieldKey;
-  /** Brian's question, shown one at a time. */
+  /** Charlie's question, shown one at a time. */
   prompt: string;
   placeholder: string;
   /** Multi-line answer field for the longer, open questions. */
@@ -42,11 +42,11 @@ export interface BrianStep {
   inputType?: "text" | "email" | "url";
   /** Returns an error string, or null when valid. */
   validate?: (value: string) => string | null;
-  /** Brian's short, warm acknowledgement, optionally using the answer. */
+  /** Charlie's short, warm acknowledgement, optionally using the answer. */
   ack?: (value: string) => string;
 }
 
-export const BRIAN_STEPS: BrianStep[] = [
+export const CHARLIE_STEPS: CharlieStep[] = [
   {
     key: "name",
     prompt: "Laten we beginnen. Wat is je naam?",
@@ -131,13 +131,13 @@ export const BRIAN_STEPS: BrianStep[] = [
   },
 ];
 
-/** Steps Brian shows while the scan runs (label + a short "what I'm doing"). */
-export interface BrianProcessingStep {
+/** Steps Charlie shows while the scan runs (label + a short "what I'm doing"). */
+export interface CharlieProcessingStep {
   label: string;
   detail: string;
 }
 
-export const BRIAN_PROCESSING_STEPS: BrianProcessingStep[] = [
+export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   {
     label: "Website ophalen",
     detail: "Ik haal je homepage op, plus robots.txt en llms.txt.",
@@ -160,7 +160,7 @@ export const BRIAN_PROCESSING_STEPS: BrianProcessingStep[] = [
   },
 ];
 
-export const BRIAN_COPY = {
+export const CHARLIE_COPY = {
   consentLabel:
     "Ik ga akkoord dat NXTLI mijn gegevens gebruikt om de scan uit te voeren en het rapport toe te sturen.",
   reviewLead: "Mooi, ik heb alles. Klopt dit zo?",
@@ -177,7 +177,7 @@ export const BRIAN_COPY = {
 };
 
 /** A consent step is appended after the scripted questions. */
-export const TOTAL_PROGRESS_STEPS = BRIAN_STEPS.length + 1; // + consent
+export const TOTAL_PROGRESS_STEPS = CHARLIE_STEPS.length + 1; // + consent
 
 export function emptyLead(): Partial<GeoLeadInput> {
   return {};

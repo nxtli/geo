@@ -4,8 +4,8 @@ import * as React from "react";
 import { Button, Container, Eyebrow } from "./primitives";
 import { ArrowRightIcon, SparkIcon } from "./icons";
 import { useGeoChat } from "./chat-context";
-import { BrianAvatar } from "./BrianAvatar";
-import { BRIAN } from "@/lib/geo/brian";
+import { CharlieAvatar } from "./CharlieAvatar";
+import { CHARLIE } from "@/lib/geo/charlie";
 
 export function GeoHero() {
   const { open } = useGeoChat();
@@ -68,21 +68,21 @@ function HeroChatPreview({ onStart }: { onStart: () => void }) {
       <div className="pointer-events-none absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-tr from-brand/15 to-accent/10 blur-2xl" />
       <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-lift">
         <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
-          <BrianAvatar size="md" withStatus />
+          <CharlieAvatar size="md" withStatus />
           <div className="leading-tight">
-            <div className="text-sm font-semibold text-ink">{BRIAN.name}</div>
+            <div className="text-sm font-semibold text-ink">{CHARLIE.name}</div>
             <div className="text-xs text-muted">AI-analist · online</div>
           </div>
         </div>
 
         <div className="space-y-3 px-5 py-5">
-          <Bubble from="brian">
-            Tof! Ik ben Brian. Ik bekijk in een paar stappen hoe goed jouw
+          <Bubble from="charlie">
+            Tof! Ik ben Charlie. Ik bekijk in een paar stappen hoe goed jouw
             homepage vindbaar is in AI-antwoorden.
           </Bubble>
-          <Bubble from="brian">Wat is de URL van je homepage?</Bubble>
+          <Bubble from="charlie">Wat is de URL van je homepage?</Bubble>
           <Bubble from="user">jouwbedrijf.nl</Bubble>
-          <Bubble from="brian">Mooi, ik heb je website. ✨</Bubble>
+          <Bubble from="charlie">Mooi, ik heb je website. ✨</Bubble>
 
           <div className="rounded-2xl border border-border bg-elevated/60 p-3">
             <div className="flex items-center justify-between text-xs">
@@ -112,15 +112,15 @@ function Bubble({
   from,
   children,
 }: {
-  from: "brian" | "user";
+  from: "charlie" | "user";
   children: React.ReactNode;
 }) {
-  const isBrian = from === "brian";
+  const isCharlie = from === "charlie";
   return (
-    <div className={isBrian ? "flex justify-start" : "flex justify-end"}>
+    <div className={isCharlie ? "flex justify-start" : "flex justify-end"}>
       <div
         className={
-          isBrian
+          isCharlie
             ? "max-w-[85%] rounded-2xl rounded-bl-md bg-elevated px-3.5 py-2 text-[13px] leading-relaxed text-ink"
             : "max-w-[85%] rounded-2xl rounded-br-md bg-brand px-3.5 py-2 text-[13px] leading-relaxed text-brand-fg"
         }

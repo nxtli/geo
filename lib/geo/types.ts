@@ -11,7 +11,7 @@ export type GeoScanStatus =
   | "completed"
   | "failed";
 
-/** A lead captured by Brian during the chat. Maps to `geo_leads`. */
+/** A lead captured by Charlie during the chat. Maps to `geo_leads`. */
 export interface GeoLead {
   id: string;
   created_at: string;
@@ -29,7 +29,7 @@ export interface GeoLead {
   source: string;
 }
 
-/** Everything Brian collected, before persistence. */
+/** Everything Charlie collected, before persistence. */
 export interface GeoLeadInput {
   name: string;
   email: string;
@@ -197,7 +197,7 @@ export interface GeoScanResponse {
   ok: boolean;
   scan_request_id?: string;
   status: GeoScanStatus;
-  /** Short preview Brian shows in the chat. */
+  /** Short preview Charlie shows in the chat. */
   preview?: {
     visibility_score: number;
     category_scores: CategoryScore[];

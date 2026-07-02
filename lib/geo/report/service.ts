@@ -43,7 +43,7 @@ export function buildReportRecord(params: {
   };
 }
 
-/** The compact summary Brian shows in the chat. */
+/** The compact summary Charlie shows in the chat. */
 export function buildPreview(
   analysis: GeoAnalysisResult,
 ): NonNullable<GeoScanResponse["preview"]> {

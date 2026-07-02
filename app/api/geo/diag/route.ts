@@ -45,6 +45,16 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const skill = await inspectSkill(hasKey, wantedName);
 
+  // Multi-LLM visibility probe: which engines will actually run (key present)
+  // and with which model. Reports presence only — never the key or a live call.
+  const aiSearchOff = process.env.GEO_AI_SEARCH === "off";
+  const llmEngines = [
+    { engine: "ChatGPT (OpenAI)", configured: Boolean(process.env.OPENAI_API_KEY), model: process.env.GEO_OPENAI_MODEL || "gpt-4o-mini" },
+    { engine: "Gemini (Google)", configured: Boolean(process.env.GEMINI_API_KEY), model: process.env.GEO_GEMINI_MODEL || "gemini-1.5-flash" },
+    { engine: "Perplexity", configured: Boolean(process.env.PERPLEXITY_API_KEY), model: process.env.GEO_PERPLEXITY_MODEL || "sonar" },
+    { engine: "Claude (Anthropic)", configured: hasKey, model },
+  ];
+
   return NextResponse.json({
     ok: true,
     provider_selected: selected.id,
@@ -54,6 +64,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     supabase_configured: isSupabaseConfigured(),
     hubspot_configured: Boolean(process.env.HUBSPOT_TOKEN),
     hubspot_geo_properties: ["geoscore", "geoscore_rapport", "geoscanpagina"],
+    llm_visibility: {
+      probe_enabled: !aiSearchOff,
+      note: aiSearchOff
+        ? "GEO_AI_SEARCH=off — de multi-LLM probe staat volledig uit."
+        : "Alleen engines met configured:true draaien mee in de tabel.",
+      engines: llmEngines,
+      active_count: aiSearchOff ? 0 : llmEngines.filter((e) => e.configured).length,
+    },
     skill,
   });
 }

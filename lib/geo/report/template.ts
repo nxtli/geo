@@ -89,21 +89,24 @@ export function renderReportHtml(params: {
   /* Highlighted (payoff) card */
   .card.highlight { border-color:var(--brand); background:linear-gradient(180deg,#fff,var(--soft)); }
 
-  /* AI-answer before/after */
-  .compare { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-  .cmp { border:1px solid; border-radius:16px; padding:20px; }
-  .cmp.now { background:#fff5f4; border-color:#fecaca; }
-  .cmp.goal { background:#f0fdf7; border-color:#bbf7d0; }
-  .cmp .h { text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:800; }
-  .cmp.now .h { color:#dc2626; }
-  .cmp.goal .h { color:#16a34a; }
-  .cmp blockquote { margin:12px 0 0; padding:2px 0 2px 14px; border-left:3px solid; font-style:italic; font-size:14.5px; color:var(--ink); }
-  .cmp.now blockquote { border-left-color:#fca5a5; }
-  .cmp.goal blockquote { border-left-color:#86efac; }
-  .cmp .tags { margin-top:14px; font-size:13px; font-weight:700; }
-  .cmp.now .tags { color:#dc2626; }
-  .cmp.goal .tags { color:#16a34a; }
-  @media (max-width:620px){ .compare{grid-template-columns:1fr;} }
+  /* What AI says — multi-LLM comparison table + ideal answer */
+  .llmwrap { overflow-x:auto; }
+  table.llm { width:100%; border-collapse:collapse; font-size:14px; }
+  table.llm th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--subtle); font-weight:800; padding:0 10px 8px; border-bottom:2px solid var(--border); }
+  table.llm td { padding:12px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  table.llm tr:last-child td { border-bottom:0; }
+  table.llm .eng { font-weight:700; white-space:nowrap; }
+  table.llm .ans { color:var(--muted); line-height:1.5; }
+  table.llm .fnd { white-space:nowrap; text-align:right; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:800; }
+  .pill.yes { background:#dcfce7; color:#15803d; }
+  .pill.no { background:#fee2e2; color:#b91c1c; }
+  .ideal { margin-top:20px; border:1px solid #bbf7d0; background:#f0fdf7; border-radius:16px; padding:20px; }
+  .ideal .h { text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:800; color:#16a34a; }
+  .ideal blockquote { margin:12px 0 0; padding:2px 0 2px 14px; border-left:3px solid #86efac; font-style:italic; font-size:14.5px; color:var(--ink); }
+  .ideal .tags { margin-top:14px; font-size:13px; font-weight:700; color:#16a34a; }
+  .ideal .idealnote { margin:12px 0 0; color:var(--muted); font-size:13px; }
+  @media (max-width:620px){ table.llm .eng { white-space:normal; } }
 
   /* Score breakdown */
   .rowscore { display:grid; grid-template-columns: 1fr 120px 56px; gap:14px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
@@ -183,21 +186,35 @@ export function renderReportHtml(params: {
   </section>
 
   ${
-    a.ai_answer_comparison?.current?.answer && a.ai_answer_comparison?.improved?.answer
+    a.llm_visibility?.length || a.ai_answer_comparison?.improved?.answer
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Zo ziet AI je nu — en zo zou het moeten</h2><span class="section-sub">een echte AI-zoekmachine, live bevraagd</span></div>
-          <div class="compare">
-            <div class="cmp now">
-              <div class="h">Hoe het nu staat</div>
-              <blockquote>${esc(clip(a.ai_answer_comparison.current.answer, 600))}</blockquote>
-              ${tagLine(a.ai_answer_comparison.current.tags, "✗")}
-            </div>
-            <div class="cmp goal">
-              <div class="h">Hoe het moet worden</div>
-              <blockquote>${esc(clip(a.ai_answer_comparison.improved.answer, 600))}</blockquote>
-              ${tagLine(a.ai_answer_comparison.improved.tags, "✓")}
-            </div>
-          </div>
+          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(lead.company_name)}, live gevraagd aan meerdere AI-systemen</span></div>
+          ${
+            a.llm_visibility?.length
+              ? `<div class="llmwrap"><table class="llm">
+                  <thead><tr><th>AI-systeem</th><th>Wat het teruggeeft</th><th>Gevonden?</th></tr></thead>
+                  <tbody>${a.llm_visibility
+                    .map(
+                      (r) => `<tr>
+                        <td class="eng">${esc(r.engine)}</td>
+                        <td class="ans">${esc(clip(r.answer, 400))}</td>
+                        <td class="fnd">${r.found ? `<span class="pill yes">Ja</span>` : `<span class="pill no">Nee</span>`}</td>
+                      </tr>`,
+                    )
+                    .join("")}</tbody>
+                </table></div>`
+              : `<p class="muted">Er zijn voor deze scan geen live AI-antwoorden opgehaald.</p>`
+          }
+          ${
+            a.ai_answer_comparison?.improved?.answer
+              ? `<div class="ideal">
+                  <div class="h">Zo zou het idealiter moeten klinken</div>
+                  <blockquote>${esc(clip(a.ai_answer_comparison.improved.answer, 600))}</blockquote>
+                  ${tagLine(a.ai_answer_comparison.improved.tags, "✓")}
+                  <p class="idealnote">Het antwoord dat je nastreeft: concreet, feitelijk en citeerbaar — opgesteld volgens de GEO-methodiek (duidelijke entiteit, bewijs en gestructureerde, op zichzelf staande antwoorden).</p>
+                </div>`
+              : ""
+          }
         </div></section>`
       : ""
   }

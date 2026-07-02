@@ -137,6 +137,31 @@ export class MockAnalysisProvider implements GeoAnalysisProvider {
           tags: ["feitelijk", "citeerbaar", "onderscheidend"],
         },
       },
+      // Sample rows so the report's LLM-comparison table renders in previews and
+      // when no LLM API keys are configured. In production these are replaced by
+      // the real answers from lib/geo/analysis/llm-visibility.ts.
+      llm_visibility: [
+        {
+          engine: "ChatGPT (OpenAI)",
+          answer: `${company} lijkt actief in je categorie, maar ik vind weinig concrete informatie over het aanbod of de doelgroep.`,
+          found: true,
+        },
+        {
+          engine: "Gemini (Google)",
+          answer: `Ik heb geen betrouwbare informatie over ${company} kunnen vinden.`,
+          found: false,
+        },
+        {
+          engine: "Perplexity",
+          answer: `${company} wordt genoemd als aanbieder, zonder duidelijke onderscheidende feiten of cijfers.`,
+          found: true,
+        },
+        {
+          engine: "Claude (Anthropic)",
+          answer: `Op basis van de beschikbare informatie kan ik ${company} niet met zekerheid plaatsen of beschrijven.`,
+          found: false,
+        },
+      ],
       strengths: [
         "Er is een helder kernaanbod om op voort te bouwen.",
         fetched

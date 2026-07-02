@@ -141,6 +141,17 @@ export const geoAnalysisResultSchema = z.object({
   ai_answer_comparison: z
     .object({ current: aiAnswerSideSchema, improved: aiAnswerSideSchema })
     .default(emptyAnswerComparison),
+  // Filled by our multi-LLM probe (not the analysis model), persisted with the
+  // result and re-read when a report is rendered live.
+  llm_visibility: z
+    .array(
+      z.object({
+        engine: z.string(),
+        answer: z.string().default(""),
+        found: z.boolean().catch(false),
+      }),
+    )
+    .default([]),
   strengths: z.array(z.string()).default([]),
   weaknesses: z.array(z.string()).default([]),
   missing_signals: z.array(z.string()).default([]),

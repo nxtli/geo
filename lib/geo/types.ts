@@ -166,6 +166,8 @@ export interface GeoAnalysisResult {
   likely_ai_positioning: string;
   /** Before/after of how an AI assistant would answer about the business. */
   ai_answer_comparison: AiAnswerComparison;
+  /** What each real LLM returns when asked about the business (the table). */
+  llm_visibility: LlmVisibilityRow[];
   strengths: string[];
   weaknesses: string[];
   missing_signals: string[];
@@ -190,6 +192,16 @@ export interface AiAnswerSide {
 export interface AiAnswerComparison {
   current: AiAnswerSide;
   improved: AiAnswerSide;
+}
+
+/** One row of the "what each LLM says about you" table. */
+export interface LlmVisibilityRow {
+  /** Human label, e.g. "ChatGPT (OpenAI)". */
+  engine: string;
+  /** What that system actually returned about the business. */
+  answer: string;
+  /** Whether the business appears to be known/found in that answer. */
+  found: boolean;
 }
 
 /** What the /api/geo/scan endpoint returns to the chat client. */

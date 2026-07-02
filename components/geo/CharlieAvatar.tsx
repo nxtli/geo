@@ -8,7 +8,7 @@ import { cn } from "./primitives";
  * Charlie's avatar. Two ways to set the photo (either works):
  *   1. Add the image to the repo as `public/charlie.jpg`, or
  *   2. Set NEXT_PUBLIC_CHARLIE_AVATAR_URL to any hosted image URL (no commit).
- * Falls back to the "B" monogram if neither is present, so the UI never breaks.
+ * Falls back to the "C" monogram if neither is present, so the UI never breaks.
  */
 const AVATAR_SRC =
   process.env.NEXT_PUBLIC_CHARLIE_AVATAR_URL || "/charlie.jpg";

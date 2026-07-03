@@ -17,7 +17,8 @@ export interface GeoLead {
   created_at: string;
   name: string;
   email: string;
-  phone: string;
+  /** No longer collected (phone step removed) — null for new leads. */
+  phone: string | null;
   job_title: string;
   company_name: string;
   homepage_url: string;
@@ -33,7 +34,6 @@ export interface GeoLead {
 export interface GeoLeadInput {
   name: string;
   email: string;
-  phone: string;
   job_title: string;
   company_name: string;
   homepage_url: string;

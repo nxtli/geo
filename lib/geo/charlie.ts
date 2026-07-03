@@ -22,7 +22,6 @@ export const CHARLIE = {
 export type GeoFieldKey =
   | "name"
   | "email"
-  | "phone"
   | "job_title"
   | "company_name"
   | "homepage_url"
@@ -62,14 +61,6 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     inputType: "email",
     validate: fieldValidators.email,
     ack: () => "Top, daar stuur ik je rapport straks naartoe.",
-  },
-  {
-    key: "phone",
-    prompt: "Wat is je telefoonnummer? Voor als we even willen sparren.",
-    placeholder: "06 12345678",
-    inputType: "text",
-    validate: fieldValidators.phone,
-    ack: () => "Genoteerd.",
   },
   {
     key: "company_name",

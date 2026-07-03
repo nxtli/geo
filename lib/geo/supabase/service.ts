@@ -38,15 +38,14 @@ export async function insertLead(
   try {
     const rows = await query<{ id: string }>(
       `insert into public.geo_leads
-         (name, email, phone, job_title, company_name, homepage_url,
+         (name, email, job_title, company_name, homepage_url,
           offer_description, target_audience, desired_queries, competitors,
           consent, source)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        returning id`,
       [
         input.name,
         input.email,
-        input.phone,
         input.job_title,
         input.company_name,
         input.homepage_url,

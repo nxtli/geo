@@ -9,7 +9,7 @@ import { logError, logInfo } from "../logger";
  * scope, server-side only). Without it this is a no-op, so the scan flow never
  * depends on HubSpot being set up.
  *
- * Besides the standard contact properties (email/name/phone/company/jobtitle/
+ * Besides the standard contact properties (email/name/company/jobtitle/
  * website/lifecyclestage) it writes three GEO-specific CUSTOM properties — create
  * these once in HubSpot → Settings → Properties → Contact:
  *   - geoscore          (Number)            the AI Visibility Score
@@ -93,7 +93,6 @@ function buildStandardProperties(lead: GeoLeadInput): Record<string, string> {
   const properties: Record<string, string> = {
     email: lead.email,
     firstname,
-    phone: lead.phone,
     company: lead.company_name,
     jobtitle: lead.job_title,
     website: lead.homepage_url,

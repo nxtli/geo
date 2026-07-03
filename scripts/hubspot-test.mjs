@@ -74,7 +74,6 @@ async function main() {
     email: testEmail,
     firstname: "GEO",
     lastname: "Scan Test",
-    phone: "0612345678",
     company: "NXTLI (test)",
     jobtitle: "Test lead",
     website: "https://voorbeeld.nl",

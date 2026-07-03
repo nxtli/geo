@@ -70,7 +70,6 @@ function buildMessage(p: SlackNotifyParams) {
   const fields = [
     field("Naam", lead.name),
     field("E-mail", lead.email),
-    field("Telefoon", lead.phone),
     field("Functie", lead.job_title),
     field("Bedrijf", lead.company_name),
     field("Homepage", `<${lead.homepage_url}|${lead.homepage_url}>`),

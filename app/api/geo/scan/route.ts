@@ -1,4 +1,4 @@
-import { geoLeadSchema, normalizePhone } from "@/lib/geo/validation";
+import { geoLeadSchema } from "@/lib/geo/validation";
 import type { GeoLeadInput } from "@/lib/geo/types";
 import { fetchHomepage } from "@/lib/geo/scrape";
 import { runGeoAnalysis } from "@/lib/geo/analysis";
@@ -76,8 +76,6 @@ export async function POST(request: Request): Promise<Response> {
       const lead: GeoLeadInput = {
         name: parsed.data.name,
         email: parsed.data.email.toLowerCase(),
-        // Store the canonical 06xxxxxxxx form (validation already guaranteed it).
-        phone: normalizePhone(parsed.data.phone) ?? parsed.data.phone,
         job_title: parsed.data.job_title,
         company_name: parsed.data.company_name,
         homepage_url: parsed.data.homepage_url,

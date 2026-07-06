@@ -34,7 +34,7 @@ export function GeoCTA() {
 
             <p className="mt-4 text-sm text-white/55">
               Gratis. Geen technische kennis nodig. Je ontvangt direct concrete
-              verbeterpunten, of je nu verder gaat met NXTLI of niet.
+              verbeterpunten.
             </p>
           </div>
         </div>

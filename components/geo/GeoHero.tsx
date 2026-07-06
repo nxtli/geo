@@ -49,7 +49,7 @@ export function GeoHero() {
             </p>
             <p className="mt-1.5 max-w-md text-sm text-subtle">
               Geen technische kennis nodig. Je ontvangt direct concrete
-              verbeterpunten, of je nu verder gaat met NXTLI of niet.
+              verbeterpunten.
             </p>
           </div>
 

@@ -24,10 +24,6 @@ const FAQS = [
     q: "Wat gebeurt er met mijn gegevens?",
     a: "We gebruiken je gegevens alleen om de scan uit te voeren en je rapport toe te sturen. Geen spam.",
   },
-  {
-    q: "Is dit rapport een opmaat naar een verkoopgesprek?",
-    a: "Nee. Je krijgt een volledig rapport met concrete verbeterpunten, ook als je daarna niks met NXTLI doet. We geloven dat je eerst waarde moet ervaren voordat je ook maar één beslissing neemt.",
-  },
 ];
 
 export function GeoFAQ() {

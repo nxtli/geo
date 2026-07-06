@@ -85,7 +85,7 @@ async function probeOpenAI(input: GeoAnalysisInput): Promise<LlmVisibilityRow | 
 async function probeGemini(input: GeoAnalysisInput): Promise<LlmVisibilityRow | null> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
-  const model = process.env.GEO_GEMINI_MODEL || "gemini-1.5-flash";
+  const model = process.env.GEO_GEMINI_MODEL || "gemini-2.5-flash";
   try {
     const res = await timedFetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
@@ -94,12 +94,15 @@ async function probeGemini(input: GeoAnalysisInput): Promise<LlmVisibilityRow | 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildPrompt(input) }] }],
-          generationConfig: { maxOutputTokens: 320 },
+          // Disable "thinking" — the 2.5 Flash models otherwise spend the token
+          // budget on reasoning and can return empty text for a task this small.
+          generationConfig: { maxOutputTokens: 800, thinkingConfig: { thinkingBudget: 0 } },
         }),
       },
     );
     if (!res.ok) {
-      logError("llm.gemini", `responded ${res.status}`);
+      const body = await res.text().catch(() => "");
+      logError("llm.gemini", `responded ${res.status} ${body.slice(0, 200)}`);
       return null;
     }
     const json = await res.json();

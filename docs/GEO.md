@@ -76,7 +76,7 @@ voorbereid). Voor productie:
 | `GEMINI_API_KEY` | Multi-LLM tabel | Gemini-rij; anders overgeslagen |
 | `PERPLEXITY_API_KEY` | Multi-LLM tabel | Perplexity-rij; anders overgeslagen |
 | `GEO_AI_SEARCH` | optioneel | `off` = zet de HELE multi-LLM probe uit |
-| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` | optioneel | defaults `gpt-4o-mini` / `gemini-1.5-flash` / `sonar` |
+| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` | optioneel | defaults `gpt-4o-mini` / `gemini-2.5-flash` / `sonar` |
 | `GEO_SKILL_NAME` | optioneel | default `geo-page-checker` |
 | `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
 | `GEO_SKILL_VERSION` | optioneel | default `latest` |

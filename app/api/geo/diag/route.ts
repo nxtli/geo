@@ -50,7 +50,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const aiSearchOff = process.env.GEO_AI_SEARCH === "off";
   const llmEngines = [
     { engine: "ChatGPT (OpenAI)", configured: Boolean(process.env.OPENAI_API_KEY), model: process.env.GEO_OPENAI_MODEL || "gpt-4o-mini" },
-    { engine: "Gemini (Google)", configured: Boolean(process.env.GEMINI_API_KEY), model: process.env.GEO_GEMINI_MODEL || "gemini-1.5-flash" },
+    { engine: "Gemini (Google)", configured: Boolean(process.env.GEMINI_API_KEY), model: process.env.GEO_GEMINI_MODEL || "gemini-2.5-flash" },
     { engine: "Perplexity", configured: Boolean(process.env.PERPLEXITY_API_KEY), model: process.env.GEO_PERPLEXITY_MODEL || "sonar" },
     { engine: "Claude (Anthropic)", configured: hasKey, model },
   ];

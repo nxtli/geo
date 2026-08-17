@@ -15,6 +15,9 @@ next-env.d.ts
 # misc
 .DS_Store
 
+# local prospect store (file-driver van de radio prospect-tool)
+/.data/
+
 # env files — ignore every .env variant (incl. a bare .env) but keep the example
 .env
 .env.*

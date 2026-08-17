@@ -6,7 +6,7 @@ import {
   type ResearchOutcome,
   type ResearchProvider,
 } from "../provider";
-import { RESEARCH_SYSTEM_PROMPT, buildResearchPrompt } from "../prompt";
+import { researchSystemPrompt, buildResearchPrompt } from "../prompt";
 import { fetchedUrls } from "../fetch";
 import { logError } from "../../../geo/logger";
 
@@ -53,7 +53,16 @@ export class ClaudeResearchProvider implements ResearchProvider {
         effort: "low",
         format: { type: "json_schema", schema: researchJsonSchema },
       },
-      system: RESEARCH_SYSTEM_PROMPT,
+      // De instructie is bij elk bedrijf identiek (~3.000 tokens) en staat daarom
+      // in de systeemprompt met een cache-breakpoint. Vanaf het tweede bedrijf
+      // kost dat deel een tiende van de normale inputprijs in plaats van vol.
+      system: [
+        {
+          type: "text",
+          text: researchSystemPrompt(),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [{ role: "user", content: buildResearchPrompt(input) }],
     };
 
@@ -92,8 +101,13 @@ export class ClaudeResearchProvider implements ResearchProvider {
       rejected_sources,
       usage: {
         model: typeof response?.model === "string" ? response.model : model,
+        // `input_tokens` is bij een cache-hit alleen het ONGECACHTE deel; samen met
+        // de twee cache-velden vormt dat de volledige prompt. Apart houden, want
+        // ze zijn anders geprijsd.
         input_tokens: Number(response?.usage?.input_tokens ?? 0),
         output_tokens: Number(response?.usage?.output_tokens ?? 0),
+        cache_creation_input_tokens: Number(response?.usage?.cache_creation_input_tokens ?? 0),
+        cache_read_input_tokens: Number(response?.usage?.cache_read_input_tokens ?? 0),
       },
     };
   }

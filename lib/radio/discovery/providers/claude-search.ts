@@ -5,7 +5,10 @@ import type {
   DiscoveryProvider,
 } from "../provider";
 import { discoveryJsonSchema, parseDiscoveryResult } from "../provider";
+import type { ResearchUsage } from "../../types";
 import { segmentPromptList } from "../../segments";
+import { citiesForProvinces, provincesLabel } from "../../provinces";
+import { sizeBandLabel, MKB_MAX_EMPLOYEES, MKB_BANDS } from "../../company-size";
 import { logError, logInfo } from "../../../geo/logger";
 
 /**
@@ -30,18 +33,36 @@ import { logError, logInfo } from "../../../geo/logger";
  * citeren; daarna handhaaft `parseDiscoveryResult` dat nog eens in code.
  */
 
-/** Model voor de zoekstap: dit vraagt commercieel inzicht, niet alleen samenvatten. */
-export const DEFAULT_DISCOVERY_MODEL = "claude-opus-5";
+/**
+ * Model voor de zoekstap.
+ *
+ * Sonnet, niet Opus. De zoekstap doet geen diepe analyse: hij voert
+ * zoekopdrachten uit en schrijft op wat er in de resultaten staat. Het
+ * commerciële oordeel zit in de scoring-engine (deterministisch) en in de
+ * research-stap, niet hier. Opus kostte hier meer dan tien keer zoveel voor
+ * hetzelfde lijstje. Override met RADIO_DISCOVERY_MODEL.
+ */
+export const DEFAULT_DISCOVERY_MODEL = "claude-sonnet-5";
 /** Model voor de normalisatiestap: puur tekst → JSON. */
 export const DEFAULT_DISCOVERY_FORMAT_MODEL = "claude-sonnet-5";
+/**
+ * Denkbudget van de zoekstap. Laag, en dat is een kostenkeuze: elk
+ * thinking-token is een outputtoken, en outputtokens zijn het duurste deel van
+ * een zoekronde. Zoeken-en-opschrijven heeft geen hoog denkbudget nodig.
+ */
+const DISCOVERY_EFFORT = "low";
 
 /**
- * Maximaal aantal webzoekopdrachten per zoekrichting, meeschalend met hoeveel
- * bedrijven er gevraagd zijn. Wie de lijst wil vullen heeft meer zoekopdrachten
- * nodig dan wie een handvol wil; wie een handvol wil, betaalt niet voor twaalf.
+ * Maximaal aantal webzoekopdrachten per zoekrichting.
+ *
+ * Elke zoekopdracht kost $0,01 en is daarmee — nu het model Sonnet is — de
+ * grootste kostenpost van een zoekronde. Krap gehouden: één goed
+ * overzichtsartikel levert tientallen bedrijven, dus meer zoekopdrachten
+ * betekent niet automatisch meer bedrijven. Schaalt wel mee met de gevraagde
+ * hoeveelheid, zodat een kleine vraag ook klein betaalt.
  */
-function searchBudget(limit: number): number {
-  return Math.min(12, Math.max(4, Math.ceil(limit / 3)));
+export function searchBudget(limit: number): number {
+  return Math.min(8, Math.max(3, Math.ceil(limit / 5)));
 }
 /** Hoe vaak we een `pause_turn` mogen hervatten voordat we stoppen. */
 const MAX_CONTINUATIONS = 4;
@@ -69,7 +90,14 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
     const foundUrls: string[] = [];
     let searchesRun = 0;
     let findings = "";
-    const usage = { model: searchModel, input_tokens: 0, output_tokens: 0 };
+    const usage: ResearchUsage = {
+      model: searchModel,
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      web_searches: 0,
+    };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const messages: any[] = [{ role: "user", content: buildSearchPrompt(input) }];
@@ -78,9 +106,9 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
     for (let round = 0; round <= MAX_CONTINUATIONS; round++) {
       const params = {
         model: searchModel,
-        max_tokens: 32000,
-        output_config: { effort: "high" },
-        system: DISCOVERY_SYSTEM_PROMPT,
+        max_tokens: 16000,
+        output_config: { effort: DISCOVERY_EFFORT },
+        system: buildDiscoverySystemPrompt(input),
         tools: [
           {
             type: "web_search_20260209",
@@ -96,8 +124,7 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response: any = await stream.finalMessage();
 
-      usage.input_tokens += Number(response?.usage?.input_tokens ?? 0);
-      usage.output_tokens += Number(response?.usage?.output_tokens ?? 0);
+      addUsage(usage, response?.usage);
 
       // Een geweigerd verzoek geeft HTTP 200 met stop_reason "refusal" — eerst
       // checken, want `content` kan dan leeg zijn.
@@ -116,6 +143,7 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
       const harvest = harvestSearchResults(blocks);
       foundUrls.push(...harvest.urls);
       searchesRun += harvest.searchCount;
+      usage.web_searches = searchesRun;
       findings += textOf(blocks);
 
       // De server-side zoeklus heeft haar iteratielimiet geraakt: assistant-turn
@@ -175,8 +203,12 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formatResponse: any = await formatStream.finalMessage();
 
-    usage.input_tokens += Number(formatResponse?.usage?.input_tokens ?? 0);
-    usage.output_tokens += Number(formatResponse?.usage?.output_tokens ?? 0);
+    const formatUsage: ResearchUsage = {
+      model: formatModel,
+      input_tokens: 0,
+      output_tokens: 0,
+    };
+    addUsage(formatUsage, formatResponse?.usage);
 
     if (formatResponse?.stop_reason === "refusal") {
       throw new Error("discovery_format_refused");
@@ -196,8 +228,26 @@ export class ClaudeSearchDiscoveryProvider implements DiscoveryProvider {
       },
     );
 
-    return { candidates, rejected_sources, searches_run: searchesRun, usage };
+    return {
+      candidates,
+      rejected_sources,
+      searches_run: searchesRun,
+      usage,
+      format_usage: formatUsage,
+    };
   }
+}
+
+/** Tel het verbruik van één response bij de lopende telling op. */
+function addUsage(total: ResearchUsage, raw: unknown): void {
+  const u = (raw ?? {}) as Record<string, unknown>;
+  const n = (key: string) => Number(u[key] ?? 0) || 0;
+  total.input_tokens += n("input_tokens");
+  total.output_tokens += n("output_tokens");
+  const created = n("cache_creation_input_tokens");
+  const read = n("cache_read_input_tokens");
+  if (created) total.cache_creation_input_tokens = (total.cache_creation_input_tokens ?? 0) + created;
+  if (read) total.cache_read_input_tokens = (total.cache_read_input_tokens ?? 0) + read;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -258,6 +308,61 @@ function stripCodeFence(text: string): string {
 /* Prompts                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Systeemprompt van de zoekstap: de vaste opdracht plus het doelprofiel van deze
+ * ronde (regio, grootte, aanleiding). Het profiel stuurt alleen het ZOEKEN —
+ * of een bedrijf echt in de regio zit en echt die omvang heeft, stelt de
+ * research-stap vast op basis van de eigen website. Wat hier staat is een
+ * zoekrichting, geen vastgesteld feit.
+ */
+function buildDiscoverySystemPrompt(input: DiscoveryInput): string {
+  return `${DISCOVERY_SYSTEM_PROMPT}\n\n${buildTargetProfile(input)}`;
+}
+
+function buildTargetProfile(input: DiscoveryInput): string {
+  const parts: string[] = ["## Doelprofiel van deze ronde"];
+
+  const provinces = input.provinces ?? [];
+  if (provinces.length > 0) {
+    const cities = citiesForProvinces(provinces);
+    parts.push(
+      `**Regio.** Zoek bedrijven die klanten hebben in: ${provincesLabel(provinces)}. Gebruik plaatsnamen uit die regio in je zoektermen (bijvoorbeeld: ${cities
+        .slice(0, 8)
+        .join(", ")}). Een landelijke keten mag, mits die daar ook vestigingen of klanten heeft.`,
+    );
+  }
+
+  const bands = input.size_bands ?? [];
+  if (bands.length > 0) {
+    const onlyMkb =
+      bands.length === MKB_BANDS.length && bands.every((b) => MKB_BANDS.includes(b as never));
+    parts.push(
+      onlyMkb
+        ? `**Omvang.** MKB: bedrijven tot ongeveer ${MKB_MAX_EMPLOYEES} medewerkers. Dus geen landelijke grootbedrijven of beursgenoteerde ketens — die hebben hun eigen mediabureau. Denk aan regionale ketens, lokale marktleiders en groeiende ondernemingen.`
+        : `**Omvang.** Mik op: ${bands.map(sizeBandLabel).join(", ")}. Weet je de omvang niet, dan mag het bedrijf mee — de research stelt het later vast.`,
+    );
+  }
+
+  switch (input.trigger_mode) {
+    case "required":
+      parts.push(
+        "**Aanleiding verplicht.** Alleen bedrijven waarbij het zoekresultaat een CONCRETE, recente aanleiding noemt: nieuwe vestiging, overname, investering, uitbreiding, veel vacatures, campagne of lancering. Geen aanleiding in de bron = niet rapporteren.",
+      );
+      break;
+    case "none":
+      parts.push(
+        "**Aanleiding niet nodig.** Beoordeel op profiel: consumentgericht, genoeg schaal en klantwaarde voor paid media. Noem een aanleiding alleen als de bron er een noemt; verzin er geen om de lijst te vullen.",
+      );
+      break;
+    default:
+      parts.push(
+        "**Aanleiding welkom, niet verplicht.** Noem een aanleiding als de bron er een noemt. Zo niet, dan neem je het bedrijf op met alleen de reden waarom het past.",
+      );
+  }
+
+  return parts.join("\n\n");
+}
+
 const DISCOVERY_SYSTEM_PROMPT = `Je zoekt Nederlandse bedrijven voor "Adverteren op de Radio", een bureau dat radioreclame inkoopt en inzet (landelijk en regionaal).
 
 Je werkt voor accountmanager Eric. Hij wil geen lange lijst, maar bedrijven waarbij een gesprek over radio commercieel logisch is: bedrijven die CONSUMENTEN willen bereiken, met genoeg schaal en klantwaarde om paid media te rechtvaardigen. Denk aan merkbekendheid, productintroducties, acties, seizoenscampagnes, vestigingsopeningen en recruitmentcampagnes.
@@ -283,7 +388,9 @@ Zoek met de web-search tool en rapporteer de bedrijven die je vindt. Per bedrijf
 
 ## Hoeveel
 
-Lever er zoveel als je kunt onderbouwen tot het gevraagde maximum. Overzichts- en ranglijstartikelen ("grootste ketens van Nederland", "top 50 webshops") zijn goud: daar staan tientallen bedrijven in die allemaal een echte bron hebben. Blijf zoeken tot je het maximum haalt of je bronnen uitgeput zijn — maar rek de lijst niet met bedrijven waarvan je de website niet in een zoekresultaat hebt gezien.
+Lever er zoveel als je kunt onderbouwen tot het gevraagde maximum. Overzichts- en ranglijstartikelen ("grootste ketens van Nederland", "top 50 webshops", brancheverenigingen, regionale ondernemersprijzen) zijn goud: daar staan tientallen bedrijven in die allemaal een echte bron hebben.
+
+Je hebt een beperkt aantal zoekopdrachten. Zet ze dus in op zoekopdrachten die een LIJST opleveren in plaats van één bedrijf, en haal uit elk resultaat alles wat erin zit voordat je een nieuwe zoekopdracht doet. Rek de lijst niet met bedrijven waarvan je de website niet in een zoekresultaat hebt gezien.
 
 Schrijf zakelijk en concreet in het Nederlands. Geen marketingtaal.`;
 

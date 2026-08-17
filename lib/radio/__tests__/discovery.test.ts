@@ -7,6 +7,10 @@ import {
   timingQueries,
 } from "../discovery/queries";
 import { RADIO_SEGMENTS } from "../segments";
+import { describeDiscoverySettings } from "../discovery";
+import { searchBudget, DEFAULT_DISCOVERY_MODEL } from "../discovery/providers/claude-search";
+import { MKB_BANDS } from "../company-size";
+import { NATIONWIDE } from "../provinces";
 
 const ALLOWED = [
   "https://www.retailtrends.nl/nieuws/keten-opent-vestiging",
@@ -202,5 +206,61 @@ describe("kandidaat-normalisatie", () => {
     expect(
       parseDiscoveryResult({}, { allowedUrls: ALLOWED, knownCompanies: [], limit: 5 }).candidates,
     ).toEqual([]);
+  });
+});
+
+describe("zoekbudget", () => {
+  it("schaalt mee met de gevraagde hoeveelheid, binnen een krappe grens", () => {
+    // Elke zoekopdracht kost geld én zet resultaten in de context die bij elke
+    // volgende modelturn opnieuw als input meetellen. Daarom een harde bovengrens.
+    expect(searchBudget(1)).toBe(3);
+    expect(searchBudget(25)).toBe(5);
+    expect(searchBudget(40)).toBe(8);
+    expect(searchBudget(1000)).toBe(8);
+  });
+
+  it("gebruikt Sonnet voor de zoekstap, niet Opus", () => {
+    // De zoekstap schrijft op wat er in de zoekresultaten staat; het commerciële
+    // oordeel zit in de scoring-engine. Opus kostte hier een veelvoud.
+    expect(DEFAULT_DISCOVERY_MODEL).toBe("claude-sonnet-5");
+  });
+});
+
+describe("beschrijving van de zoekinstellingen", () => {
+  const base = {
+    segment: null,
+    provinces: [],
+    sizeBands: [],
+    triggerMode: "any" as const,
+    perQuery: 25,
+  };
+
+  it("beschrijft een ronde zonder beperkingen", () => {
+    const text = describeDiscoverySettings(base);
+    expect(text).toContain("alle segmenten");
+    expect(text).toContain("heel Nederland");
+    expect(text).toContain("alle groottes");
+    expect(text).toContain("aanleiding optioneel");
+  });
+
+  it("noemt de drie MKB-banden bij hun naam", () => {
+    expect(describeDiscoverySettings({ ...base, sizeBands: [...MKB_BANDS] })).toContain("MKB");
+  });
+
+  it("noemt provincies en een verplichte aanleiding", () => {
+    const text = describeDiscoverySettings({
+      ...base,
+      provinces: ["limburg", "noord_brabant"],
+      triggerMode: "required",
+      segment: "retail",
+    });
+    expect(text).toContain("Limburg");
+    expect(text).toContain("Noord-Brabant");
+    expect(text).toContain("aanleiding verplicht");
+    expect(text).toContain("segment retail");
+  });
+
+  it("vat landelijk samen als landelijk", () => {
+    expect(describeDiscoverySettings({ ...base, provinces: [NATIONWIDE] })).toContain("Landelijk");
   });
 });

@@ -227,12 +227,70 @@ open tool deployt.
 ## 8. Bouwvolgorde
 
 1. Architectuur + datamodel ✅
-2. Storage + CRUD
-3. Scoring engine (+ unit tests)
-4. Research/AI-laag
-5. Dashboard + tabel + detail
-6. CSV/batch import
-7. Waalaxy-export
-8. Evidence/confidence in UI
-9. Auth, tests, foutafhandeling
-10. README
+2. Storage + CRUD ✅
+3. Scoring engine (+ unit tests) ✅
+4. Research/AI-laag ✅
+5. Dashboard + tabel + detail ✅
+6. CSV/batch import ✅
+7. Waalaxy-export ✅
+8. Evidence/confidence in UI ✅
+9. Auth, tests, foutafhandeling ✅
+10. README ✅
+
+---
+
+## 9. Na de eerste run: kosten, regio en grootte
+
+De eerste echte scan kostte ~$4,50. Dat kwam door drie configuratiekeuzes, niet
+door de opzet:
+
+1. **Opus 5 met `effort: "high"` voor de zoekstap.** Die stap schrijft op wat er in
+   de zoekresultaten staat — extractiewerk. Het commerciële oordeel zit in de
+   scoring-engine, die deterministisch is. → Sonnet 5, `effort: "low"`.
+2. **Te ruim paginabudget** in de fetcher (6 pagina's × 6.000 tekens). → 4 × 3.500.
+   Wat een radio-fit bepaalt staat op de homepage, over-ons en vacaturepagina; de
+   staart voegt tokens toe, geen inzicht.
+3. **De vaste instructie stond ná de variabele paginatekst.** Caching is
+   prefix-matching, dus die ~3.000 tokens waren per bedrijf niet te cachen. →
+   volledige instructie naar de systeemprompt met een cache-breakpoint, alleen
+   bedrijfsnaam + paginatekst in het bericht. Vanaf het tweede bedrijf kost dat
+   deel een tiende.
+
+De grootste post bleek niet het model maar de **zoekresultaten**: die komen als
+tekst in de context en tellen bij élke volgende modelturn opnieuw als input mee.
+Daarom staat het zoekbudget krap (max 8 per richting) en is het model geïnstrueerd
+om te zoeken op wat een *lijst* oplevert.
+
+**Kostenmeter.** `lib/geo/pricing.ts` kende alleen input/output. Uitgebreid met
+cache-write (1,25×), cache-read (0,1×) en webzoekopdrachten ($0,01). Kosten worden
+**per call** berekend en daarna opgeteld, niet uit de totalen herleid — de stappen
+gebruiken verschillende modellen, en cache-tokens zijn anders geprijsd.
+
+**Run-historie.** Twee methodes op de storage-driver (`appendRun`, `listRuns`), een
+`radio_runs`-tabel voor Postgres en een `runs`-array in hetzelfde JSON-bestand voor
+de file-driver. Append-only. Het vastleggen faalt zacht: het logboek mag de net
+gevonden prospects niet ongeldig maken.
+
+### Regio en grootte: filters, geen scoreweging
+
+`coverage_provinces` is het **verzorgingsgebied** (waar de klanten zitten), niet de
+vestigingsplaats — voor radio koop je zenders in op waar het publiek zit. `city`
+blijft er los naast staan: dat is een hard feit van de contactpagina, het
+verzorgingsgebied is een inschatting en wordt in de UI ook zo gelabeld.
+
+`size_band` is een grove klasse die de research mág inschatten, met de herkomst
+erbij. De MKB-grens staat op 99 medewerkers — strakker dan de officiële 250, omdat
+bij die omvang de eigenaar of één marketeer beslist.
+
+**Beide zijn filters en wegen niet mee in de score.** De Fit-rubric uit de briefing
+belóónt schaal (component D en J), terwijl de doelgroep juist MKB is. Die spanning
+is echt en hoort niet stil opgelost te worden: als de rubric verbouwd wordt,
+verandert de betekenis van de Fit Score zonder dat iemand dat besloot. Wil je dat
+MKB ook hóger scoort, dan is dat een aparte, expliciete beslissing.
+
+### Aanleiding optioneel
+
+Drie standen bij het zoeken: *verplicht* (alleen bedrijven met een concrete
+aanleiding), *mag maar hoeft niet* (default) en *fit is genoeg*. Bij "verplicht"
+wordt een kandidaat zonder aanleiding in **code** weggegooid, niet alleen in de
+prompt gevraagd.

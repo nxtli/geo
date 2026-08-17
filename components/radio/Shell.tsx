@@ -37,6 +37,7 @@ export function Shell({
               <NavLink href="/radio">Dashboard</NavLink>
               <NavLink href="/radio/zoeken">Zoeken</NavLink>
               <NavLink href="/radio/import">Toevoegen</NavLink>
+              <NavLink href="/radio/historie">Historie</NavLink>
             </nav>
           </div>
         </div>

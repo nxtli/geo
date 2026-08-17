@@ -23,6 +23,12 @@ import { normalizeTriggerKind } from "../scoring/triggers";
 import { normalizeRole } from "../roles";
 import { normalizeSegment } from "../segments";
 import { canonicalUrl, normalizeDate, truncate } from "../validation";
+import { normalizeProvinces } from "../provinces";
+import {
+  bandForEmployeeCount,
+  employeeCountFromText,
+  normalizeSizeBand,
+} from "../company-size";
 import { logInfo } from "../../geo/logger";
 
 /** Wat een provider teruggeeft. */
@@ -104,7 +110,9 @@ export const researchResultSchema = z.object({
   description: z.string().nullable().default(null),
   city: z.string().nullable().default(null),
   country: z.string().nullable().default(null),
+  coverage_provinces: claim(z.array(z.string())).default({ value: [], basis: "unknown" }),
   company_size: claim(z.string().nullable()).default({ value: null, basis: "unknown" }),
+  size_band: claim(z.string().nullable()).default({ value: null, basis: "unknown" }),
   number_of_locations: claim(z.coerce.number().nullable()).default({
     value: null,
     basis: "unknown",
@@ -278,6 +286,28 @@ export function parseResearchResult(value: unknown, options: ParseOptions): Pars
     basis: locations.basis,
   };
 
+  /* Verzorgingsgebied en grootteband -------------------------------------- */
+  const provinces = normalizeProvinces(raw.coverage_provinces.value);
+  const coverage_provinces = {
+    value: provinces,
+    // Geen enkele geldige provincie herkend? Dan is het verzorgingsgebied
+    // onbekend, ongeacht wat het model als herkomst opgaf.
+    basis: provinces.length > 0 ? raw.coverage_provinces.basis : ("unknown" as ClaimKind),
+  };
+
+  // Staat er een hard aantal medewerkers in company_size, dan leiden we de band
+  // daaruit af — een getal is betrouwbaarder dan een gevoel, ook dat van het model.
+  const employeeCount =
+    raw.company_size.basis === "fact" ? employeeCountFromText(raw.company_size.value) : null;
+  const derivedBand = employeeCount !== null ? bandForEmployeeCount(employeeCount) : null;
+  const reportedBand = normalizeSizeBand(raw.size_band.value);
+  const size_band = derivedBand
+    ? { value: derivedBand, basis: "fact" as ClaimKind }
+    : {
+        value: reportedBand,
+        basis: reportedBand ? raw.size_band.basis : ("unknown" as ClaimKind),
+      };
+
   const result: ResearchResult = {
     company_name: raw.company_name.trim() || options.fallbackCompanyName,
     industry: raw.industry?.trim() || null,
@@ -285,7 +315,9 @@ export function parseResearchResult(value: unknown, options: ParseOptions): Pars
     description: raw.description?.trim() ? truncate(raw.description.trim(), 600) : null,
     city: raw.city?.trim() || null,
     country: raw.country?.trim() || null,
+    coverage_provinces,
     company_size,
+    size_band,
     number_of_locations,
     appears_active: raw.appears_active,
     serves_dutch_market: raw.serves_dutch_market,
@@ -352,7 +384,9 @@ export const researchJsonSchema = {
     description: { type: ["string", "null"] },
     city: { type: ["string", "null"] },
     country: { type: ["string", "null"] },
+    coverage_provinces: claimSchema({ type: "array", items: { type: "string" } }),
     company_size: claimSchema({ type: ["string", "null"] }),
+    size_band: claimSchema({ type: ["string", "null"] }),
     number_of_locations: claimSchema({ type: ["integer", "null"] }),
     appears_active: claimSchema({ type: ["boolean", "null"] }),
     serves_dutch_market: claimSchema({ type: ["boolean", "null"] }),
@@ -450,7 +484,9 @@ export const researchJsonSchema = {
     "description",
     "city",
     "country",
+    "coverage_provinces",
     "company_size",
+    "size_band",
     "number_of_locations",
     "appears_active",
     "serves_dutch_market",

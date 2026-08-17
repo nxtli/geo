@@ -7,7 +7,7 @@
  *   3. anders het JSON-bestand, zodat de tool altijd werkt.
  */
 
-import type { Prospect, ProspectInput, ProspectStatus } from "../types";
+import type { Prospect, ProspectInput, ProspectStatus, RunRecord } from "../types";
 import type { RadioStoreDriver } from "./driver";
 import { FileStoreDriver } from "./file-driver";
 import { PostgresStoreDriver } from "./postgres-driver";
@@ -190,4 +190,37 @@ export async function deleteProspect(id: string): Promise<boolean> {
   const store = getStore();
   await store.init();
   return store.remove(id);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Run-historie                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Leg een afgeronde ronde vast.
+ *
+ * Faalt bewust ZACHT: de historie is een logboek, geen onderdeel van de ronde
+ * zelf. Als het vastleggen misgaat mag dat de net gevonden prospects niet
+ * ongeldig maken.
+ */
+export async function recordRun(run: RunRecord): Promise<void> {
+  try {
+    const store = getStore();
+    await store.init();
+    await store.appendRun(run);
+  } catch (error) {
+    logError("radio.store.recordRun", error);
+  }
+}
+
+/** De laatste runs, nieuwste eerst. */
+export async function listRuns(limit = 50): Promise<RunRecord[]> {
+  try {
+    const store = getStore();
+    await store.init();
+    return await store.listRuns(limit);
+  } catch (error) {
+    logError("radio.store.listRuns", error);
+    return [];
+  }
 }

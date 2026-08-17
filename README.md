@@ -35,7 +35,11 @@ npm run dev          # http://localhost:3000/radio
 Met een `ANTHROPIC_API_KEY` erbij kan de tool op `/radio/zoeken` **zelf
 Nederlandse bedrijven vinden** (web search), hun website verifiëren, ze
 onderzoeken en op prioriteit zetten — bedoeld om de lijst te vullen, niet om er
-tien te vinden.
+tien te vinden. Je kiest daar het verzorgingsgebied (provincies), de
+bedrijfsgrootte (MKB staat standaard aan) en of er een aanleiding moet zijn.
+
+Elke ronde kost API-credits, dus dat staat in beeld: een schatting in euro's vóór
+de scan, en het werkelijke bedrag per ronde op **`/radio/historie`**.
 
 Werkt ook direct zonder configuratie: een JSON-bestand als database en een
 trefwoord-heuristiek als research-engine. Klik op **Demo-data laden** om de tool

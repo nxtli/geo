@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listProspects } from "@/lib/radio/store";
 import { researchMany } from "@/lib/radio/research";
+import { formatCost } from "@/lib/radio/cost";
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
@@ -45,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (ids.length === 0) {
     return NextResponse.json({
       ok: true,
-      summary: { researched: 0, failed: 0, results: [], totalUsage: null },
+      summary: { researched: 0, failed: 0, results: [], totalUsage: null, costUsd: 0 },
       remaining: 0,
       message: "Er was niets om te onderzoeken.",
     });
@@ -56,14 +57,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const summary = await researchMany(batch);
+    const cost = formatCost(summary.costUsd);
     return NextResponse.json({
       ok: true,
       summary,
+      cost: { usd: summary.costUsd, label: cost },
       remaining,
       message:
         remaining > 0
-          ? `${summary.researched} bedrijven onderzocht. Nog ${remaining} te gaan.`
-          : `${summary.researched} bedrijven onderzocht.`,
+          ? `${summary.researched} bedrijven onderzocht (${cost}). Nog ${remaining} te gaan.`
+          : `${summary.researched} bedrijven onderzocht (${cost}).`,
     });
   } catch (error) {
     logError("radio.api.research.batch", error);

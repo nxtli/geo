@@ -29,6 +29,7 @@ import type {
 import type { ResearchOutcome, ResearchProvider } from "../provider";
 import { FIT_COMPONENTS } from "../../scoring/rubric";
 import { findSegment, RADIO_SEGMENTS } from "../../segments";
+import { NATIONWIDE } from "../../provinces";
 import { defaultRoleFor } from "../../roles";
 import { truncate } from "../../validation";
 
@@ -137,7 +138,9 @@ export class HeuristicResearchProvider implements ResearchProvider {
           description: null,
           city: input.hints?.city ?? null,
           country: null,
+          coverage_provinces: { value: [], basis: "unknown" },
           company_size: { value: null, basis: "unknown" },
+          size_band: { value: null, basis: "unknown" },
           number_of_locations: { value: null, basis: "unknown" },
           appears_active: { value: null, basis: "unknown" },
           serves_dutch_market: { value: null, basis: "unknown" },
@@ -497,8 +500,18 @@ export class HeuristicResearchProvider implements ResearchProvider {
         description: truncate(homepage.text.replace(/\n+/g, " ").trim(), 300) || null,
         city: input.hints?.city ?? null,
         country: signals.nationwide.hits > 0 ? "Nederland" : null,
-        // Heuristiek stelt nooit aantallen vast.
+        // Landelijke dekking is het enige verzorgingsgebied dat je met
+        // trefwoorden kunt onderbouwen ("door heel Nederland"). Een provincie
+        // uit een plaatsnaam afleiden vraagt om interpretatie die deze provider
+        // niet kan leveren, dus dan blijft het onbekend.
+        coverage_provinces:
+          signals.nationwide.hits > 0
+            ? { value: [NATIONWIDE], basis: "inference" as ClaimKind }
+            : { value: [], basis: "unknown" as ClaimKind },
+        // Heuristiek stelt nooit aantallen of een grootteband vast: trefwoorden
+        // zeggen niets over hoeveel mensen er werken.
         company_size: { value: null, basis: "unknown" },
+        size_band: { value: null, basis: "unknown" },
         number_of_locations: { value: null, basis: "unknown" },
         appears_active: { value: true, basis: "inference" },
         serves_dutch_market: {

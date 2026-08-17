@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PROSPECT_STATUSES } from "@/lib/radio/types";
 import { RADIO_SEGMENTS } from "@/lib/radio/segments";
+import { PROVINCES, NATIONWIDE } from "@/lib/radio/provinces";
+import { SIZE_BANDS } from "@/lib/radio/company-size";
 import { Button } from "./primitives";
 
 /**
@@ -45,6 +47,8 @@ export function Filters({ resultCount, totalCount }: { resultCount: number; tota
     "industry",
     "angle",
     "location",
+    "province",
+    "size",
     "min_priority",
     "min_fit",
     "min_trigger",
@@ -139,6 +143,17 @@ export function Filters({ resultCount, totalCount }: { resultCount: number; tota
           }`}
         >
           ⚠ Lage confidence
+        </button>
+        <button
+          onClick={() => apply({ size: get("size") === "mkb" ? "" : "mkb" })}
+          title="Tot 99 medewerkers"
+          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+            get("size") === "mkb"
+              ? "border-brand bg-brand text-brand-fg"
+              : "border-border bg-background text-muted hover:text-ink"
+          }`}
+        >
+          MKB
         </button>
         <button
           onClick={() => apply({ hide_demo: get("hide_demo") ? "" : "1" })}
@@ -246,6 +261,42 @@ export function Filters({ resultCount, totalCount }: { resultCount: number; tota
               placeholder="bijv. recruitment"
               onCommit={(value) => apply({ angle: value })}
             />
+          </Field>
+
+          <Field label="Verzorgingsgebied">
+            <select
+              value={get("province")}
+              onChange={(event) => apply({ province: event.target.value })}
+              className={selectClass}
+            >
+              <option value="">Alle provincies</option>
+              <option value={NATIONWIDE}>Alleen landelijk actief</option>
+              {PROVINCES.map((province) => (
+                <option key={province.key} value={province.key}>
+                  {province.label}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-subtle">
+              Landelijke bedrijven matchen elke provincie. Prospects met een onbekend
+              verzorgingsgebied vallen weg.
+            </span>
+          </Field>
+
+          <Field label="Bedrijfsgrootte">
+            <select
+              value={get("size")}
+              onChange={(event) => apply({ size: event.target.value })}
+              className={selectClass}
+            >
+              <option value="">Alle groottes</option>
+              <option value="mkb">MKB (tot 99)</option>
+              {SIZE_BANDS.map((band) => (
+                <option key={band.key} value={band.key}>
+                  {band.label}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <Field label="Locatie bevat">

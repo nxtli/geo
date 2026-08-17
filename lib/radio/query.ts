@@ -10,6 +10,8 @@ import type { ProspectFilter, SortKey, SortSpec } from "./filters";
 import { DEFAULT_SORT } from "./filters";
 import { PROSPECT_STATUSES, type ProspectStatus, type Tier } from "./types";
 import { normalizeSegment } from "./segments";
+import { normalizeProvince } from "./provinces";
+import { normalizeSizeBand, MKB_BANDS } from "./company-size";
 
 /** Wat een Next.js server component als searchParams doorgeeft. */
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -59,6 +61,18 @@ export function filterFromSearchParams(params: SearchParams): ProspectFilter {
 
   const location = one(params, "location")?.trim();
   if (location) filter.location = location;
+
+  const province = normalizeProvince(one(params, "province"));
+  if (province) filter.provinces = [province];
+
+  // `size=mkb` is een snelkoppeling naar de drie MKB-banden; anders één band.
+  const size = one(params, "size")?.trim().toLowerCase();
+  if (size === "mkb") {
+    filter.sizeBands = [...MKB_BANDS];
+  } else {
+    const band = normalizeSizeBand(size);
+    if (band) filter.sizeBands = [band];
+  }
 
   const search = one(params, "q")?.trim();
   if (search) filter.search = search;

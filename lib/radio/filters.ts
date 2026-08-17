@@ -7,6 +7,8 @@
 import type { Prospect, ProspectStatus, Tier } from "./types";
 import { isLinkedInProfileUrl } from "./validation";
 import { LOW_CONFIDENCE_THRESHOLD } from "./scoring/confidence";
+import { coversProvince } from "./provinces";
+import { isMkb } from "./company-size";
 
 export interface ProspectFilter {
   tiers?: Tier[];
@@ -18,6 +20,17 @@ export interface ProspectFilter {
   angle?: string;
   /** Vrije tekst op stad/land. */
   location?: string;
+  /**
+   * Verzorgingsgebied: houd alleen prospects over die in minstens één van deze
+   * provincies klanten hebben. Landelijk actieve bedrijven matchen altijd.
+   *
+   * Een prospect met een ONBEKEND verzorgingsgebied valt weg. Bewuste keuze: een
+   * bellijst voor Limburg mag niet vollopen met bedrijven waarvan we het niet
+   * weten. De UI zegt dat er ook bij.
+   */
+  provinces?: string[];
+  /** Grootteklassen (micro/klein/middel/groot/zeer_groot). Onbekend valt weg. */
+  sizeBands?: string[];
   minPriority?: number;
   minFit?: number;
   minTrigger?: number;
@@ -108,6 +121,15 @@ export function filterProspects(
     if (filter.location) {
       const location = [p.city, p.country].filter(Boolean).join(" ");
       if (!includesCI(location, filter.location)) return false;
+    }
+    if (filter.provinces?.length) {
+      const match = filter.provinces.some((province) =>
+        coversProvince(p.coverage_provinces, province),
+      );
+      if (!match) return false;
+    }
+    if (filter.sizeBands?.length) {
+      if (!p.size_band || !filter.sizeBands.includes(p.size_band)) return false;
     }
     if (typeof filter.minPriority === "number") {
       if ((p.priority_score ?? -1) < filter.minPriority) return false;
@@ -200,6 +222,10 @@ export interface DashboardStats {
   notResearched: number;
   lowConfidence: number;
   demo: number;
+  /** Prospects binnen de MKB-doelgroep (tot 99 medewerkers). */
+  mkb: number;
+  /** Prospects waarvan het verzorgingsgebied nog onbekend is. */
+  unknownCoverage: number;
 }
 
 function average(values: number[]): number | null {
@@ -224,5 +250,7 @@ export function computeStats(prospects: Prospect[]): DashboardStats {
     notResearched: prospects.filter((p) => p.fit_score === null).length,
     lowConfidence: prospects.filter(isLowConfidence).length,
     demo: prospects.filter((p) => p.demo).length,
+    mkb: prospects.filter((p) => isMkb(p.size_band)).length,
+    unknownCoverage: prospects.filter((p) => p.coverage_provinces.length === 0).length,
   };
 }

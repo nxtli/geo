@@ -14,16 +14,24 @@
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import type { Prospect } from "../types";
+import type { Prospect, RunRecord } from "../types";
 import type { RadioStoreDriver } from "./driver";
-import { toProspect } from "./serialize";
+import { toProspect, toRunRecord } from "./serialize";
 import { logError, logInfo } from "../../geo/logger";
 
 const DEFAULT_PATH = ".data/radio-prospects.json";
 
+/**
+ * Hoeveel runs we bewaren. Een run is een paar honderd bytes; met deze grens
+ * blijft de historie ruim een jaar bruikbaar zonder dat het bestand onbeperkt
+ * groeit.
+ */
+const MAX_RUNS = 250;
+
 interface FileShape {
   version: 1;
   prospects: Record<string, unknown>[];
+  runs: Record<string, unknown>[];
 }
 
 export class FileStoreDriver implements RadioStoreDriver {
@@ -105,6 +113,23 @@ export class FileStoreDriver implements RadioStoreDriver {
     });
   }
 
+  async appendRun(run: RunRecord): Promise<void> {
+    await this.mutate(async (data) => {
+      data.runs.push(run as unknown as Record<string, unknown>);
+      // Oudste eruit als de historie vol is; nieuwste staan achteraan.
+      if (data.runs.length > MAX_RUNS) data.runs = data.runs.slice(-MAX_RUNS);
+      return true;
+    });
+  }
+
+  async listRuns(limit = 50): Promise<RunRecord[]> {
+    const data = await this.readFile();
+    return data.runs
+      .map(toRunRecord)
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))
+      .slice(0, Math.max(1, limit));
+  }
+
   /**
    * Lees-wijzig-schrijf onder de schrijfketen. De callback krijgt de VERSE
    * inhoud en mag die muteren; daarna wordt er atomisch weggeschreven.
@@ -133,15 +158,22 @@ export class FileStoreDriver implements RadioStoreDriver {
         typeof parsed === "object" &&
         Array.isArray((parsed as FileShape).prospects)
       ) {
-        return { version: 1, prospects: (parsed as FileShape).prospects };
+        const shape = parsed as FileShape;
+        return {
+          version: 1,
+          prospects: shape.prospects,
+          // `runs` kwam er later bij: een bestand van vóór de run-historie mag
+          // niet zijn prospects verliezen omdat de sleutel ontbreekt.
+          runs: Array.isArray(shape.runs) ? shape.runs : [],
+        };
       }
-      return { version: 1, prospects: [] };
+      return { version: 1, prospects: [], runs: [] };
     } catch (error) {
       // Ontbrekend bestand is normaal (eerste run). Kapotte JSON is dat niet:
       // log het, maar geef een lege store terug zodat de app blijft werken.
       const code = (error as { code?: string }).code;
       if (code !== "ENOENT") logError("radio.store.file", error);
-      return { version: 1, prospects: [] };
+      return { version: 1, prospects: [], runs: [] };
     }
   }
 

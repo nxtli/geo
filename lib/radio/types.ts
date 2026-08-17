@@ -246,10 +246,23 @@ export interface Prospect {
   /** Segment uit de vaste, uitbreidbare lijst (lib/radio/segments.ts). */
   segment: string | null;
   description: string | null;
+  /** Vestigingsplaats — hard feit van de contactpagina. */
   city: string | null;
   country: string | null;
+  /**
+   * Verzorgingsgebied: waar dit bedrijf klanten heeft, als provincie-keys of
+   * `landelijk`. Dit is wat er voor radio uitmaakt — je koopt zenders in op waar
+   * het publiek zit, niet waar het hoofdkantoor staat. Meestal een inschatting.
+   */
+  coverage_provinces: string[];
   /** Alleen gevuld als `fact` — nooit een geschat aantal. */
   company_size: string | null;
+  /**
+   * Grove grootteband (micro/klein/middel/groot/zeer_groot). Mag geschat worden,
+   * anders dan `company_size` — vandaar de aparte herkomst hieronder.
+   */
+  size_band: string | null;
+  size_band_basis: ClaimKind | null;
   /** Alleen gevuld als `fact` — nooit een geschat aantal. */
   number_of_locations: number | null;
 
@@ -365,8 +378,15 @@ export interface ResearchResult {
   description: string | null;
   city: string | null;
   country: string | null;
+  /**
+   * Verzorgingsgebied als provincie-keys of `landelijk`. Mag een inschatting
+   * zijn — het is zelden ergens letterlijk opgeschreven.
+   */
+  coverage_provinces: { value: string[]; basis: ClaimKind };
   /** Met herkomst: alleen overgenomen als `fact`. */
   company_size: { value: string | null; basis: ClaimKind };
+  /** Grootteband; mag geschat worden, in tegenstelling tot company_size. */
+  size_band: { value: string | null; basis: ClaimKind };
   number_of_locations: { value: number | null; basis: ClaimKind };
   /** Lijkt het bedrijf nog actief? Voor de knock-outcheck. */
   appears_active: { value: boolean | null; basis: ClaimKind };
@@ -410,9 +430,61 @@ export interface ResearchContactPerson {
   confidence: Confidence;
 }
 
-/** Tokengebruik van een research-call, voor kostenrapportage. */
+/**
+ * Tokengebruik van een call, voor kostenrapportage.
+ *
+ * De cache-velden staan er los in omdat ze anders geprijsd zijn: een cache-write
+ * kost 1,25× de inputprijs, een cache-read 0,1×. Zonder die splitsing zou de
+ * kostenmeter een gecachte run veel te duur inschatten.
+ */
 export interface ResearchUsage {
   model: string;
   input_tokens: number;
   output_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  /** Aantal webzoekopdrachten (alleen bij discovery). */
+  web_searches?: number;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Run-historie                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Wat voor ronde er is gedraaid. */
+export type RunKind = "discovery" | "research";
+
+/**
+ * Eén uitgevoerde ronde: wat er gezocht of onderzocht is, wat het opleverde en
+ * wat het kostte.
+ *
+ * Append-only. Een run wordt vastgelegd NA afloop, met de cijfers die de ronde
+ * zelf rapporteerde — hij wordt nooit herberekend uit de huidige prospectlijst,
+ * want die verandert daarna nog.
+ */
+export interface RunRecord {
+  id: string;
+  kind: RunKind;
+  started_at: string;
+  finished_at: string;
+  /** Leesbare samenvatting van de instellingen ("Limburg · MKB · aanleiding verplicht"). */
+  settings: string;
+  /** Zoekrichtingen (discovery) of bedrijfsnamen (research), voor het detailoverzicht. */
+  targets: string[];
+  /** Nieuw toegevoegde prospects (discovery) of gescoorde prospects (research). */
+  added: number;
+  /** Kandidaten die al in de lijst stonden. */
+  duplicates: number;
+  /** Kandidaten die zijn afgewezen (website bestond niet, geen aanleiding, mislukt). */
+  skipped: number;
+  /** Aantal webzoekopdrachten. */
+  searches: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  /** Kosten in USD, opgeteld per call — euro's worden er in de UI van gemaakt. */
+  cost_usd: number;
+  /** Model(len) die de ronde gebruikte. */
+  model: string;
+  warnings: string[];
 }

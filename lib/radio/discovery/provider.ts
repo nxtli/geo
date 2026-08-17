@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import type { Confidence } from "../types";
+import type { Confidence, ResearchUsage } from "../types";
 import { normalizeSegment } from "../segments";
 import { canonicalUrl, normalizeWebsite, truncate } from "../validation";
 import { logInfo } from "../../geo/logger";
@@ -40,6 +40,15 @@ export interface DiscoveredCandidate {
   confidence: Confidence;
 }
 
+/**
+ * Wanneer een kandidaat een concrete aanleiding moet hebben.
+ *
+ * `required` = alleen bedrijven met een aanleiding (Eric wil "waarom nu"),
+ * `none` = fit is genoeg, `any` = beide mag. De filtering gebeurt in code
+ * (discovery/index.ts), niet alleen in de prompt.
+ */
+export type TriggerMode = "required" | "none" | "any";
+
 export interface DiscoveryInput {
   /** Menselijke omschrijving van de zoekrichting. */
   label: string;
@@ -51,6 +60,15 @@ export interface DiscoveryInput {
   known_companies: string[];
   /** Hoeveel kandidaten we maximaal willen. */
   limit: number;
+  /**
+   * Provincies waarin het bedrijf klanten moet hebben. Leeg = heel Nederland.
+   * Stuurt alleen het ZOEKEN; het echte verzorgingsgebied komt uit de research.
+   */
+  provinces?: string[];
+  /** Grootteklassen waar we op mikken. Leeg = geen voorkeur. */
+  size_bands?: string[];
+  /** Moet er een aanleiding zijn? Default `any`. */
+  trigger_mode?: TriggerMode;
 }
 
 export interface DiscoveryOutcome {
@@ -59,7 +77,13 @@ export interface DiscoveryOutcome {
   rejected_sources: string[];
   /** Aantal zoekopdrachten dat de provider daadwerkelijk uitvoerde. */
   searches_run: number;
-  usage?: { model: string; input_tokens: number; output_tokens: number };
+  /** Verbruik van de zoekstap. */
+  usage?: ResearchUsage;
+  /**
+   * Verbruik van de normalisatiestap. Apart, omdat het een ander (goedkoper)
+   * model kan zijn — samengevoegde tokens zouden de kostenberekening scheeftrekken.
+   */
+  format_usage?: ResearchUsage;
   /** Gebruikersveilige melding als er iets niet lukte. */
   warning?: string;
 }

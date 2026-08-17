@@ -7,12 +7,21 @@ import {
   addProspect,
   getProspect,
   listProspects,
+  listRuns,
+  recordRun,
   setStatusMany,
   setStoreForTesting,
   updateProspect,
   deleteProspect,
 } from "../store";
-import { createProspect, flattenProspect, FIT_SCORE_COLUMNS } from "../store/serialize";
+import {
+  createProspect,
+  flattenProspect,
+  flattenRun,
+  toRunRecord,
+  FIT_SCORE_COLUMNS,
+} from "../store/serialize";
+import type { RunRecord } from "../types";
 import { FIT_COMPONENTS } from "../scoring/rubric";
 import { RADIO_SCHEMA_SQL } from "../store/schema";
 
@@ -200,6 +209,93 @@ describe("flattenProspect", () => {
     const flat = flattenProspect(createProspect({ company_name: "X" }));
     for (const column of Object.keys(flat)) {
       expect(RADIO_SCHEMA_SQL, `kolom ${column} mist in het schema`).toMatch(
+        new RegExp(`\\n\\s+${column}\\s`),
+      );
+    }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Run-historie                                                               */
+/* -------------------------------------------------------------------------- */
+
+function run(overrides: Partial<RunRecord> = {}): RunRecord {
+  return {
+    id: crypto.randomUUID(),
+    kind: "discovery",
+    started_at: "2026-08-17T10:00:00.000Z",
+    finished_at: "2026-08-17T10:02:30.000Z",
+    settings: "alle segmenten \u00b7 Limburg \u00b7 MKB",
+    targets: ["Nieuwe vestigingen"],
+    added: 4,
+    duplicates: 1,
+    skipped: 2,
+    searches: 5,
+    input_tokens: 41_000,
+    output_tokens: 3_200,
+    cache_read_tokens: 0,
+    cost_usd: 0.176,
+    model: "claude-sonnet-5",
+    warnings: [],
+    ...overrides,
+  };
+}
+
+describe("run-historie", () => {
+  it("legt een ronde vast en geeft die terug", async () => {
+    await recordRun(run({ added: 7 }));
+    const runs = await listRuns();
+    expect(runs).toHaveLength(1);
+    expect(runs[0].added).toBe(7);
+    expect(runs[0].cost_usd).toBeCloseTo(0.176, 6);
+    expect(runs[0].settings).toContain("Limburg");
+  });
+
+  it("zet de nieuwste ronde vooraan", async () => {
+    await recordRun(run({ started_at: "2026-08-15T09:00:00.000Z", added: 1 }));
+    await recordRun(run({ started_at: "2026-08-17T09:00:00.000Z", added: 2 }));
+    await recordRun(run({ started_at: "2026-08-16T09:00:00.000Z", added: 3 }));
+    expect((await listRuns()).map((r) => r.added)).toEqual([2, 3, 1]);
+  });
+
+  it("respecteert de limiet", async () => {
+    for (let i = 0; i < 5; i++) {
+      await recordRun(run({ started_at: `2026-08-0${i + 1}T09:00:00.000Z` }));
+    }
+    expect(await listRuns(2)).toHaveLength(2);
+  });
+
+  it("raakt de prospects niet kwijt door een run op te slaan", async () => {
+    await addProspect({ company_name: "Blijft Bestaan BV" });
+    await recordRun(run());
+    expect(await listProspects()).toHaveLength(1);
+    expect(await listRuns()).toHaveLength(1);
+  });
+
+  it("leest een bestand van vóór de run-historie zonder de prospects te verliezen", async () => {
+    // Oude vorm: alleen `prospects`, geen `runs`.
+    await writeFile(
+      file,
+      JSON.stringify({ version: 1, prospects: [createProspect({ company_name: "Oud BV" })] }),
+      "utf8",
+    );
+    expect((await listProspects()).map((p) => p.company_name)).toEqual(["Oud BV"]);
+    expect(await listRuns()).toEqual([]);
+    await recordRun(run());
+    expect(await listProspects()).toHaveLength(1);
+  });
+
+  it("overleeft een kapotte run-regel met veilige defaults", async () => {
+    const restored = toRunRecord({ id: "x", kind: "onbekend", added: "niet-een-getal" });
+    expect(restored.kind).toBe("discovery");
+    expect(restored.added).toBe(0);
+    expect(restored.targets).toEqual([]);
+    expect(restored.cost_usd).toBe(0);
+  });
+
+  it("heeft voor elke gevlakte run-kolom ook een kolom in het SQL-schema", () => {
+    for (const column of Object.keys(flattenRun(run()))) {
+      expect(RADIO_SCHEMA_SQL, `kolom ${column} mist in radio_runs`).toMatch(
         new RegExp(`\\n\\s+${column}\\s`),
       );
     }

@@ -12,7 +12,7 @@
  * mee en laat de filterfuncties de rest doen.
  */
 
-import type { Prospect } from "../types";
+import type { Prospect, RunRecord } from "../types";
 
 export interface RadioStoreDriver {
   /** Stabiele identifier: "file" of "postgres". */
@@ -28,4 +28,12 @@ export interface RadioStoreDriver {
   /** Overschrijf een bestaande prospect volledig. Null als het id onbekend is. */
   save(prospect: Prospect): Promise<Prospect | null>;
   remove(id: string): Promise<boolean>;
+
+  /**
+   * Leg een afgeronde zoek- of researchronde vast. Append-only: een run wordt
+   * nooit bijgewerkt, zodat de historie een verslag blijft en geen momentopname.
+   */
+  appendRun(run: RunRecord): Promise<void>;
+  /** De laatste runs, nieuwste eerst. */
+  listRuns(limit?: number): Promise<RunRecord[]>;
 }

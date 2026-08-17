@@ -25,6 +25,10 @@ create table if not exists public.radio_prospects (
   city                     text,
   country                  text,
   company_size             text,
+  -- Afgeleide grootteband (micro/klein/middel/groot/zeer_groot) plus de
+  -- claim-basis. Alleen een filter: de band beïnvloedt de scores niet.
+  size_band                text,
+  size_band_basis          text,
   number_of_locations      integer,
 
   fit_score                integer,
@@ -68,6 +72,9 @@ create table if not exists public.radio_prospects (
   status                   text not null default 'New',
   notes                    text,
 
+  -- Verzorgingsgebied: provincies waar het bedrijf klanten heeft (of
+  -- ['landelijk']). Leeg = onbekend, niet "nergens".
+  coverage_provinces       jsonb not null default '[]'::jsonb,
   fit_components           jsonb not null default '[]'::jsonb,
   knockouts                jsonb not null default '[]'::jsonb,
   knockout_override        text,
@@ -78,20 +85,55 @@ create table if not exists public.radio_prospects (
   personalization          jsonb
 );
 
+-- Kolommen die na de eerste release zijn toegevoegd; los herhaald zodat een
+-- bestaande tabel zichzelf bijwerkt in plaats van te breken op de insert.
+alter table public.radio_prospects add column if not exists size_band text;
+alter table public.radio_prospects add column if not exists size_band_basis text;
+alter table public.radio_prospects
+  add column if not exists coverage_provinces jsonb not null default '[]'::jsonb;
+
 create index if not exists radio_prospects_priority_idx
   on public.radio_prospects (priority_score desc nulls last);
 create index if not exists radio_prospects_tier_idx on public.radio_prospects (tier);
 create index if not exists radio_prospects_status_idx on public.radio_prospects (status);
 create index if not exists radio_prospects_segment_idx on public.radio_prospects (segment);
+create index if not exists radio_prospects_size_band_idx
+  on public.radio_prospects (size_band);
 create index if not exists radio_prospects_created_idx
   on public.radio_prospects (created_at desc);
 -- Dedupe-lookup op bedrijfsnaam (case-insensitive).
 create index if not exists radio_prospects_name_idx
   on public.radio_prospects (lower(company_name));
 
+-- Run-historie: één rij per afgeronde zoek- of researchronde. Append-only, dus
+-- geen updated_at en geen update-tak in de insert.
+create table if not exists public.radio_runs (
+  id                uuid primary key default gen_random_uuid(),
+  kind              text not null,
+  started_at        timestamptz not null default now(),
+  finished_at       timestamptz not null default now(),
+  settings          text not null default '',
+  targets           jsonb not null default '[]'::jsonb,
+  added             integer not null default 0,
+  duplicates        integer not null default 0,
+  skipped           integer not null default 0,
+  searches          integer not null default 0,
+  input_tokens      integer not null default 0,
+  output_tokens     integer not null default 0,
+  cache_read_tokens integer not null default 0,
+  -- numeric, niet float: bedragen mogen niet gaan afronden in de opslag.
+  cost_usd          numeric(12, 6) not null default 0,
+  model             text not null default '',
+  warnings          jsonb not null default '[]'::jsonb
+);
+
+create index if not exists radio_runs_started_idx
+  on public.radio_runs (started_at desc);
+
 -- Server-side only: RLS aan, geen publieke policies. De service-role key
 -- (en de directe Postgres-verbinding) omzeilen RLS.
 alter table public.radio_prospects enable row level security;
+alter table public.radio_runs enable row level security;
 
 -- PostgREST-schemacache verversen, zodat een via directe Postgres-verbinding
 -- aangemaakte tabel ook voor de REST-client zichtbaar is.

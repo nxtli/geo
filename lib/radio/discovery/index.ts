@@ -13,15 +13,18 @@
  *  3. het bedrijf mag nog niet in de lijst staan (dedupe in de store).
  */
 
-import type { Prospect } from "../types";
-import { addProspect, listProspects, updateProspect } from "../store";
+import type { Prospect, ResearchUsage, RunRecord } from "../types";
+import { addProspect, listProspects, recordRun, updateProspect } from "../store";
 import { websiteResolves } from "../research/fetch";
 import { findQuery, queriesForSegment, timingQueries, type DiscoveryQuery } from "./queries";
-import type { DiscoveredCandidate, DiscoveryProvider } from "./provider";
+import type { DiscoveredCandidate, DiscoveryProvider, TriggerMode } from "./provider";
 import { ClaudeSearchDiscoveryProvider } from "./providers/claude-search";
+import { normalizeProvinces, provincesLabel } from "../provinces";
+import { normalizeSizeBand, sizeBandLabel, MKB_BANDS } from "../company-size";
+import { callCostUsd } from "../../geo/pricing";
 import { logError, logInfo } from "../../geo/logger";
 
-export type { DiscoveredCandidate, DiscoveryProvider } from "./provider";
+export type { DiscoveredCandidate, DiscoveryProvider, TriggerMode } from "./provider";
 export { DISCOVERY_QUERIES, queriesForSegment, timingQueries } from "./queries";
 export type { DiscoveryQuery } from "./queries";
 
@@ -49,6 +52,12 @@ export interface DiscoverOptions {
   perQuery?: number;
   /** Maximaal aantal zoekrichtingen in deze ronde. */
   maxQueries?: number;
+  /** Provincies waar het bedrijf klanten moet hebben. Leeg = heel Nederland. */
+  provinces?: string[];
+  /** Grootteklassen waar we op mikken. Leeg = geen voorkeur. */
+  sizeBands?: string[];
+  /** Moet er een aanleiding zijn? Default: `any`. */
+  triggerMode?: TriggerMode;
 }
 
 export interface DiscoverySummary {
@@ -58,11 +67,20 @@ export interface DiscoverySummary {
   duplicates: string[];
   /** Kandidaten waarvan de website niet bestond — bewust niet opgeslagen. */
   unreachable: string[];
+  /** Kandidaten zonder aanleiding, terwijl die verplicht was. */
+  withoutTrigger: string[];
   /** Bron-URL's die niet in de zoekresultaten voorkwamen. */
   rejectedSources: string[];
   /** Welke zoekrichtingen zijn gebruikt. */
   queriesUsed: Array<{ key: string; label: string; found: number; searches: number }>;
-  totalUsage: { model: string; input_tokens: number; output_tokens: number } | null;
+  totalUsage: ResearchUsage | null;
+  /**
+   * Kosten van deze ronde in USD, opgeteld per call. Per call berekend en niet
+   * uit de totalen, omdat de stappen verschillende modellen kunnen gebruiken.
+   */
+  costUsd: number;
+  /** Totaal aantal uitgevoerde webzoekopdrachten. */
+  searchesRun: number;
   warnings: string[];
 }
 
@@ -95,13 +113,17 @@ export const MAX_QUERIES_PER_CALL = 4;
 export async function discoverProspects(
   options: DiscoverOptions = {},
 ): Promise<DiscoverySummary> {
+  const startedAt = new Date().toISOString();
   const summary: DiscoverySummary = {
     added: [],
     duplicates: [],
     unreachable: [],
+    withoutTrigger: [],
     rejectedSources: [],
     queriesUsed: [],
     totalUsage: null,
+    costUsd: 0,
+    searchesRun: 0,
     warnings: [],
   };
 
@@ -129,7 +151,20 @@ export async function discoverProspects(
   const existing = await listProspects();
   const knownCompanies = existing.map((p) => p.company_name);
 
-  const usage = { model: "", input_tokens: 0, output_tokens: 0 };
+  const provinces = normalizeProvinces(options.provinces ?? []);
+  const sizeBands = (options.sizeBands ?? [])
+    .map((b) => normalizeSizeBand(b))
+    .filter((b): b is NonNullable<typeof b> => b !== null);
+  const triggerMode: TriggerMode = options.triggerMode ?? "any";
+
+  const usage: ResearchUsage = {
+    model: "",
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    web_searches: 0,
+  };
   let sawUsage = false;
 
   for (const query of queries) {
@@ -140,19 +175,37 @@ export async function discoverProspects(
         segment: options.segment ?? query.segment,
         known_companies: knownCompanies,
         limit: perQuery,
+        provinces,
+        size_bands: sizeBands,
+        trigger_mode: triggerMode,
       });
 
-      if (outcome.usage) {
+      for (const record of [outcome.usage, outcome.format_usage]) {
+        if (!record) continue;
         sawUsage = true;
-        usage.model = outcome.usage.model;
-        usage.input_tokens += outcome.usage.input_tokens;
-        usage.output_tokens += outcome.usage.output_tokens;
+        // Kosten per call, met het model van díe call — pas daarna optellen.
+        summary.costUsd += callCostUsd(record);
+        if (!usage.model) usage.model = record.model;
+        usage.input_tokens += record.input_tokens;
+        usage.output_tokens += record.output_tokens;
+        usage.cache_creation_input_tokens =
+          (usage.cache_creation_input_tokens ?? 0) + (record.cache_creation_input_tokens ?? 0);
+        usage.cache_read_input_tokens =
+          (usage.cache_read_input_tokens ?? 0) + (record.cache_read_input_tokens ?? 0);
       }
+      usage.web_searches = (usage.web_searches ?? 0) + outcome.searches_run;
+      summary.searchesRun += outcome.searches_run;
       if (outcome.warning) summary.warnings.push(`${query.label}: ${outcome.warning}`);
       summary.rejectedSources.push(...outcome.rejected_sources);
 
       let stored = 0;
       for (const candidate of outcome.candidates) {
+        // Aanleiding verplicht? Dan is een kandidaat zonder aanleiding geen
+        // kandidaat. In code afgedwongen, niet alleen in de prompt gevraagd.
+        if (triggerMode === "required" && !candidate.signal) {
+          summary.withoutTrigger.push(candidate.company_name);
+          continue;
+        }
         const result = await storeCandidate(candidate, query);
         if (result === "added") {
           stored++;
@@ -201,7 +254,71 @@ export async function discoverProspects(
 
   summary.rejectedSources = [...new Set(summary.rejectedSources)];
   if (sawUsage) summary.totalUsage = usage;
+
+  await recordRun({
+    id: crypto.randomUUID(),
+    kind: "discovery",
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+    settings: describeDiscoverySettings({
+      segment: options.segment ?? null,
+      provinces,
+      sizeBands,
+      triggerMode,
+      perQuery,
+    }),
+    targets: summary.queriesUsed.map((q) => q.label),
+    added: summary.added.length,
+    duplicates: summary.duplicates.length,
+    skipped: summary.unreachable.length + summary.withoutTrigger.length,
+    searches: summary.searchesRun,
+    input_tokens: usage.input_tokens,
+    output_tokens: usage.output_tokens,
+    cache_read_tokens: usage.cache_read_input_tokens ?? 0,
+    cost_usd: summary.costUsd,
+    model: usage.model,
+    warnings: summary.warnings,
+  } satisfies RunRecord);
+
   return summary;
+}
+
+/**
+ * De instellingen van een zoekronde als één regel, voor de historie.
+ * Bewust leesbaar en niet als JSON: Eric moet in het overzicht kunnen zien wat
+ * er gezocht is zonder ergens op te klikken.
+ */
+export function describeDiscoverySettings(options: {
+  segment: string | null;
+  provinces: string[];
+  sizeBands: string[];
+  triggerMode: TriggerMode;
+  perQuery: number;
+}): string {
+  const parts: string[] = [];
+  parts.push(options.segment ? `segment ${options.segment}` : "alle segmenten");
+  parts.push(options.provinces.length ? provincesLabel(options.provinces) : "heel Nederland");
+
+  if (options.sizeBands.length === 0) {
+    parts.push("alle groottes");
+  } else if (
+    options.sizeBands.length === MKB_BANDS.length &&
+    options.sizeBands.every((b) => MKB_BANDS.includes(b as never))
+  ) {
+    parts.push("MKB");
+  } else {
+    parts.push(options.sizeBands.map(sizeBandLabel).join("/"));
+  }
+
+  parts.push(
+    options.triggerMode === "required"
+      ? "aanleiding verplicht"
+      : options.triggerMode === "none"
+        ? "zonder aanleiding"
+        : "aanleiding optioneel",
+  );
+  parts.push(`max ${options.perQuery} per richting`);
+  return parts.join(" \u00b7 ");
 }
 
 /**

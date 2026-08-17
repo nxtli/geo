@@ -23,10 +23,23 @@ import { canonicalUrl, normalizeWebsite, originOf } from "../validation";
 const USER_AGENT =
   "AdverterenOpDeRadio-ProspectResearch/1.0 (+https://nxtli.com; intern prospect-onderzoek)";
 
-/** Maximaal aantal pagina's per bedrijf (homepage inbegrepen). */
-const MAX_PAGES = 6;
-/** Tekens per pagina die we aan de AI meegeven. */
-const MAX_CHARS_PER_PAGE = 6_000;
+/**
+ * Maximaal aantal pagina's per bedrijf (homepage inbegrepen).
+ *
+ * Van 6 naar 4 teruggebracht: de vijfde en zesde pagina waren meestal contact- of
+ * dieper productmateriaal dat de beoordeling nauwelijks veranderde, terwijl ze wel
+ * een derde van de inputkosten per bedrijf opsnoepten.
+ */
+const MAX_PAGES = 4;
+/**
+ * Tekens per pagina die we aan de AI meegeven.
+ *
+ * 3.500 in plaats van 6.000. Het signaal waar de rubric op let — vestigingen,
+ * vacatures, acties, toon — zit vrijwel altijd in het eerste deel van een pagina;
+ * de staart is menu's, footers en juridische tekst. Samen met MAX_PAGES halveert
+ * dit de inputkosten per bedrijf ruimschoots.
+ */
+const MAX_CHARS_PER_PAGE = 3_500;
 const PAGE_TIMEOUT_MS = 8_000;
 const ROBOTS_TIMEOUT_MS = 4_000;
 /** Harde wandklok voor de hele fetch, zodat een trage site niets ophoudt. */

@@ -74,8 +74,8 @@ bedrijven vinden of toevoegen → publieke data ophalen → scoren
 ### Bedrijven laten zoeken (`/radio/zoeken`)
 
 De tool kan zelf Nederlandse bedrijven vinden. Vul een doelaantal in (default 300
-— wat Waalaxy per maand aan contacten toelaat), kies eventueel een segment, en
-klik **Scan**. De tool loopt dan door de zoekrichtingen, en per richting:
+— wat Waalaxy per maand aan contacten toelaat), zet de zoekinstellingen, en klik
+**Scan**. De tool loopt dan door de zoekrichtingen, en per richting:
 
 1. **zoekt op het web** via de web-search van de Claude API — dus met dezelfde
    `ANTHROPIC_API_KEY`, geen aparte zoekdienst nodig;
@@ -89,6 +89,26 @@ klik **Scan**. De tool loopt dan door de zoekrichtingen, en per richting:
 
 De rangschikking komt dus altijd uit de scoring-engine, nooit uit de zoekmachine.
 
+**Zoekinstellingen.**
+
+| Instelling | Wat het doet |
+| --- | --- |
+| **Verzorgingsgebied** | provincies waar het bedrijf klanten heeft. Leeg = heel Nederland. Stuurt de zoektermen naar plaatsnamen in die regio. |
+| **Bedrijfsgrootte** | MKB (tot 99 medewerkers) staat standaard aan. Grote bedrijven zijn niet uitgesloten — zet de band erbij als je die bewust wilt. |
+| **Aanleiding** | *mag/hoeft niet* (default), *verplicht* (alleen bedrijven met een concrete recente aanleiding, in code afgedwongen) of *fit is genoeg*. |
+| **Segment** | beperkt tot één van de twaalf segmenten. |
+| **Max per zoekrichting** | hoeveel kandidaten één richting mag opleveren (1–40). Bepaalt ook het zoekbudget. |
+
+De instellingen sturen het **zoeken**. Of een bedrijf echt in die regio zit en
+echt die omvang heeft, stelt de research-stap vast op basis van de eigen website —
+en alleen dán komt het in `coverage_provinces` en `size_band` terecht.
+
+**Grootte weegt niet mee in de score.** De Fit-rubric uit de briefing belóónt
+schaal (component D en J), terwijl de doelgroep hier juist MKB is. Die spanning is
+opgelost met een filter, niet door de rubric stil te verbouwen: anders zou de
+betekenis van de Fit Score veranderen zonder dat iemand dat besloot. Wil je dat
+MKB ook hóger scoort, dan is dat een aparte, expliciete beslissing.
+
 **Zoekrichtingen** staan in `lib/radio/discovery/queries.ts` en zijn van twee
 soorten. *Timing*-richtingen ("bedrijven die nieuwe vestigingen openen", "veel
 vacatures", "recente investeringen") leveren bedrijven met een actuele aanleiding
@@ -96,10 +116,14 @@ en krijgen automatisch voorrang. *Fit*-richtingen ("Nederlandse retailketens",
 "landelijke e-commerce merken", per segment) leveren bedrijven die structureel bij
 radio passen. Een richting toevoegen is één item in die lijst.
 
-**Tempo en kosten.** Reken op ~1 minuut per zoekrichting en een halve tot hele
-minuut per bedrijf om te onderzoeken. 300 bedrijven is een klus van uren, niet
-minuten — werk in porties van 50 en kijk tussendoor wat de scores doen. Elke
-gevonden lichting is al opgeslagen, dus onderbreken kost niets.
+**Tempo.** Reken op ~1 minuut per zoekrichting en een halve tot hele minuut per
+bedrijf om te onderzoeken. 300 bedrijven is een klus van uren, niet minuten — werk
+in porties van 50 en kijk tussendoor wat de scores doen. Elke gevonden lichting is
+al opgeslagen, dus onderbreken kost niets.
+
+**Kosten.** Boven de knop staat een schatting in euro's voor de scan die je op het
+punt staat te starten, en na de ronde staat het werkelijke bedrag in de historie.
+Zie §5.
 
 > **Flessenhals verderop:** de scan vult je lijst met *bedrijven*. Waalaxy heeft
 > per prospect een *LinkedIn-profiel van een persoon* nodig, en dat verzint deze
@@ -294,7 +318,57 @@ opgehaalde pagina staat, mét bron-URL.
 
 ---
 
-## 5. LinkedIn
+## 5. Kosten en historie
+
+De tool doet API-calls, dus elke ronde kost geld. Dat is expliciet gemaakt in
+plaats van weggestopt.
+
+**Wat waar wordt gerekend.**
+
+| Post | Prijs |
+| --- | --- |
+| input-tokens | modelprijs, zie `lib/geo/pricing.ts` |
+| output-tokens | modelprijs (thinking-tokens zijn outputtokens) |
+| cache-write | 1,25× de inputprijs |
+| cache-read | 0,1× de inputprijs |
+| webzoekopdracht | $0,01 per stuk |
+
+Euro's komen uit één omrekenfactor (`RADIO_EUR_PER_USD`, default 0,92). Bewust
+geen live koers: dat is een extra faalpunt voor een bedrag dat toch een indicatie
+is.
+
+**Waar het geld zit.** Niet in het model, maar in de zoekresultaten. Die komen als
+tekst in de context terecht en tellen bij élke volgende modelturn opnieuw als
+input mee. Meer zoekopdrachten is dus meer dan lineair duurder — vandaar de krappe
+bovengrens van 8 zoekopdrachten per richting, en de instructie aan het model om
+zoekopdrachten in te zetten die een *lijst* opleveren in plaats van één bedrijf.
+
+**Wat er is gedaan om het goedkoper te maken:**
+
+- **Sonnet in plaats van Opus voor de zoekstap.** Die stap schrijft op wat er in
+  de zoekresultaten staat; het commerciële oordeel zit in de scoring-engine.
+- **Denkbudget laag** (`effort: "low"`) waar het extractiewerk is. Thinking-tokens
+  zijn outputtokens en die zijn het duurst.
+- **Prompt caching.** De volledige instructie (~3.000 tokens, bij elk bedrijf
+  identiek) staat in de systeemprompt met een cache-breakpoint. Vanaf het tweede
+  bedrijf kost dat deel een tiende. Dit werkt alleen omdat het stabiele deel
+  vóóraan staat — caching is prefix-matching, dus één variabel woord aan het begin
+  maakt de hele cache waardeloos.
+- **Kleiner paginabudget**: 4 pagina's van 3.500 tekens in plaats van 6 × 6.000.
+
+**Run-historie (`/radio/historie`).** Elke afgeronde zoek- of onderzoeksronde
+wordt vastgelegd: wanneer, met welke instellingen, welke zoekrichtingen of
+bedrijven, wat het opleverde, hoeveel tokens en wat het kostte. Append-only en
+bewust een *verslag*: de cijfers komen uit de ronde zelf en worden niet opnieuw uit
+de huidige prospectlijst berekend, zodat een run van vorige week blijft laten zien
+wat er tóen gebeurde.
+
+Het vastleggen faalt zacht — als het logboek stukloopt, maakt dat de net gevonden
+prospects niet ongeldig.
+
+---
+
+## 6. LinkedIn
 
 **Er wordt niets van LinkedIn opgehaald of gescraped.** LinkedIn staat op de
 blocklist van de fetcher, ook als een website ernaartoe linkt.
@@ -315,7 +389,7 @@ niet genoeg, want daar kan Waalaxy geen connectieverzoek naartoe sturen.
 
 ---
 
-## 6. Nette fetcher
+## 7. Nette fetcher
 
 De fetcher gedraagt zich als een nette bezoeker, geen crawler:
 
@@ -331,7 +405,7 @@ iets ontbreekt in plaats van het aan te vullen.
 
 ---
 
-## 7. Research-providers
+## 8. Research-providers
 
 | Provider | Wanneer actief | Karakter |
 | --- | --- | --- |
@@ -371,7 +445,7 @@ De kern werkt zonder betaalde bronnen. Ontbreekt een bron, dan wordt een veld
 
 ---
 
-## 8. Segmenten
+## 9. Segmenten
 
 Twaalf segmenten om te beginnen: Retail, Automotive, Recruitment,
 Leisure & Events, Travel, Consumer e-commerce, Fitness, Education, Home & Living,
@@ -382,7 +456,7 @@ research-prompt en de filters volgen automatisch.
 
 ---
 
-## 9. Statusworkflow
+## 10. Statusworkflow
 
 `New` → `Researched` → `Tier A` / `Tier B` / `Tier C` / `Skip` →
 `Exported to Waalaxy` → `Contacted` → `Replied` → `Qualified` → `Meeting` →
@@ -394,7 +468,7 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 
 ---
 
-## 10. Routes
+## 11. Routes
 
 | Route | Doel |
 | --- | --- |
@@ -402,6 +476,7 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 | `/radio/zoeken` | bedrijven laten zoeken, onderzoeken en scoren |
 | `/radio/prospects/[id]` | detailpagina |
 | `/radio/import` | toevoegen: handmatig · CSV · batch |
+| `/radio/historie` | run-historie: wat er draaide, wat het opleverde, wat het kostte |
 | `GET/POST /api/radio/prospects` | lijst / toevoegen |
 | `PATCH/DELETE /api/radio/prospects/[id]` | bijwerken / verwijderen |
 | `POST /api/radio/prospects/[id]/research` | research & score |
@@ -414,7 +489,7 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 
 ---
 
-## 11. Projectstructuur
+## 12. Projectstructuur
 
 ```
 app/radio/                     dashboard, detail, import
@@ -426,6 +501,9 @@ lib/radio/
   validation.ts                URL/datum-normalisatie, LinkedIn-regels
   csv.ts                       CSV lezen/schrijven, Waalaxy-export
   filters.ts  query.ts         filteren, sorteren, statistieken
+  provinces.ts                 provincies + verzorgingsgebied
+  company-size.ts              grootteklassen en de MKB-grens
+  cost.ts                      euro-weergave en schatting vooraf
   demo.ts                      DEMO DATA-fixtures
   discovery/
     queries.ts                 zoekrichtingen (§18) — fit en timing
@@ -451,15 +529,15 @@ lib/radio/
     file-driver.ts             JSON-bestand (default)
     postgres-driver.ts         Postgres
     schema.ts  serialize.ts    SQL-schema en conversies
-  __tests__/                   228 tests
+  __tests__/                   285 tests
 ```
 
 ---
 
-## 12. Tests
+## 13. Tests
 
 ```bash
-npm test          # vitest, 228 tests
+npm test          # vitest, 285 tests
 npm run typecheck # tsc --noEmit
 npm run build     # productiebuild
 ```
@@ -467,11 +545,15 @@ npm run build     # productiebuild
 De tests dekken vooral de dingen die stil fout kunnen gaan: de scoreformules en
 tiergrenzen, de bronverificatie, CSV-eigenaardigheden (puntkomma's, BOM,
 aanhalingstekens, regeleindes in velden), gelijktijdige writes naar het
-JSON-bestand, en de Waalaxy-splitsing op ontbrekende LinkedIn-profielen.
+JSON-bestand, en de Waalaxy-splitsing op ontbrekende LinkedIn-profielen. Verder de
+prijsstructuur (cache-reads een tiende, cache-writes een kwart duurder,
+zoekopdrachten per stuk) en de twee nieuwe dimensies — waarbij expliciet
+vastgelegd is dat "landelijk" elke provincie dekt en dat een onbekende waarde
+wégvalt in plaats van gegokt wordt.
 
 ---
 
-## 13. Beperkingen en vervolgstappen
+## 14. Beperkingen en vervolgstappen
 
 Eerlijk over wat de MVP niet doet:
 

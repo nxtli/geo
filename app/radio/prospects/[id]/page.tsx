@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProspect } from "@/lib/radio/store";
 import { segmentLabel } from "@/lib/radio/segments";
+import { provincesLabel } from "@/lib/radio/provinces";
+import { sizeBandLabel } from "@/lib/radio/company-size";
 import { tierDef } from "@/lib/radio/scoring";
 import { TRIGGER_KIND_LABELS } from "@/lib/radio/scoring/triggers";
 import { isReadyForWaalaxy } from "@/lib/radio/filters";
@@ -165,6 +167,26 @@ export default async function ProspectDetail({
                     value={
                       prospect.number_of_locations !== null
                         ? String(prospect.number_of_locations)
+                        : null
+                    }
+                    fallback="niet vastgesteld"
+                  />
+                  <Detail
+                    label="Grootteklasse"
+                    value={
+                      prospect.size_band
+                        ? `${sizeBandLabel(prospect.size_band)}${
+                            prospect.size_band_basis === "inference" ? " (geschat)" : ""
+                          }`
+                        : null
+                    }
+                    fallback="niet vastgesteld"
+                  />
+                  <Detail
+                    label="Verzorgingsgebied"
+                    value={
+                      prospect.coverage_provinces.length > 0
+                        ? provincesLabel(prospect.coverage_provinces)
                         : null
                     }
                     fallback="niet vastgesteld"

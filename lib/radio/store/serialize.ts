@@ -17,6 +17,7 @@ import type {
   ProspectInput,
   ProspectStatus,
   ProspectTrigger,
+  RunRecord,
   SalesAngle,
   Tier,
 } from "../types";
@@ -24,6 +25,8 @@ import { FIT_COMPONENTS } from "../scoring/rubric";
 import { normalizeSegment } from "../segments";
 import { normalizeRole } from "../roles";
 import { sanitizeLinkedInUrl, normalizeWebsite } from "../validation";
+import { normalizeProvinces } from "../provinces";
+import { normalizeSizeBand } from "../company-size";
 
 const EMPTY_CONTACT: ProspectContact = {
   first_name: null,
@@ -49,7 +52,10 @@ export function createProspect(input: ProspectInput, now = new Date()): Prospect
     description: null,
     city: input.city?.trim() || null,
     country: null,
+    coverage_provinces: [],
     company_size: null,
+    size_band: null,
+    size_band_basis: null,
     number_of_locations: null,
 
     fit_score: null,
@@ -141,6 +147,8 @@ export function flattenProspect(p: Prospect): Record<string, unknown> {
     city: p.city,
     country: p.country,
     company_size: p.company_size,
+    size_band: p.size_band,
+    size_band_basis: p.size_band_basis,
     number_of_locations: p.number_of_locations,
     fit_score: p.fit_score,
     trigger_score: p.trigger_score,
@@ -170,6 +178,7 @@ export function flattenProspect(p: Prospect): Record<string, unknown> {
     status: p.status,
     notes: p.notes,
     /* jsonb-kolommen */
+    coverage_provinces: p.coverage_provinces,
     fit_components: p.fit_components,
     knockouts: p.knockouts,
     knockout_override: p.knockout_override,
@@ -270,7 +279,10 @@ export function toProspect(row: Record<string, unknown>): Prospect {
     description: asString(row.description),
     city: asString(row.city),
     country: asString(row.country),
+    coverage_provinces: normalizeProvinces(asArray<string>(row.coverage_provinces)),
     company_size: asString(row.company_size),
+    size_band: normalizeSizeBand(asString(row.size_band)),
+    size_band_basis: asClaimKind(row.size_band_basis),
     number_of_locations: asNumber(row.number_of_locations),
 
     fit_score: asNumber(row.fit_score),
@@ -323,6 +335,60 @@ export function toProspect(row: Record<string, unknown>): Prospect {
     status: asStatus(row.status),
     notes: asString(row.notes),
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Run-historie                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** Vlakke weergave van een run, voor de SQL-insert. */
+export function flattenRun(run: RunRecord): Record<string, unknown> {
+  return {
+    id: run.id,
+    kind: run.kind,
+    started_at: run.started_at,
+    finished_at: run.finished_at,
+    settings: run.settings,
+    targets: run.targets,
+    added: run.added,
+    duplicates: run.duplicates,
+    skipped: run.skipped,
+    searches: run.searches,
+    input_tokens: run.input_tokens,
+    output_tokens: run.output_tokens,
+    cache_read_tokens: run.cache_read_tokens,
+    cost_usd: run.cost_usd,
+    model: run.model,
+    warnings: run.warnings,
+  };
+}
+
+/** Bouw een RunRecord uit een opslagrecord. Tolerant voor oudere vormen. */
+export function toRunRecord(row: Record<string, unknown>): RunRecord {
+  const started = asIsoString(row.started_at, new Date().toISOString());
+  const kind = row.kind === "research" ? "research" : "discovery";
+  return {
+    id: String(row.id ?? crypto.randomUUID()),
+    kind,
+    started_at: started,
+    finished_at: asIsoString(row.finished_at, started),
+    settings: asString(row.settings) ?? "",
+    targets: asArray<string>(row.targets).map((t) => String(t)),
+    added: asNumber(row.added) ?? 0,
+    duplicates: asNumber(row.duplicates) ?? 0,
+    skipped: asNumber(row.skipped) ?? 0,
+    searches: asNumber(row.searches) ?? 0,
+    input_tokens: asNumber(row.input_tokens) ?? 0,
+    output_tokens: asNumber(row.output_tokens) ?? 0,
+    cache_read_tokens: asNumber(row.cache_read_tokens) ?? 0,
+    cost_usd: asNumber(row.cost_usd) ?? 0,
+    model: asString(row.model) ?? "",
+    warnings: asArray<string>(row.warnings).map((w) => String(w)),
+  };
+}
+
+function asClaimKind(value: unknown): Prospect["size_band_basis"] {
+  return value === "fact" || value === "inference" || value === "unknown" ? value : null;
 }
 
 function asConfidence(value: unknown): Prospect["confidence"] {

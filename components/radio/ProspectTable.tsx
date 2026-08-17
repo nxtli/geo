@@ -14,6 +14,8 @@ import {
   cn,
 } from "./primitives";
 import { truncate } from "@/lib/radio/validation";
+import { provincesLabel } from "@/lib/radio/provinces";
+import { sizeBandLabel } from "@/lib/radio/company-size";
 
 interface MissingRow {
   id: string;
@@ -330,6 +332,18 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                       <div className="text-xs text-subtle">
                         {[p.industry, p.city].filter(Boolean).join(" · ") || "—"}
                       </div>
+                      {p.size_band || p.coverage_provinces.length > 0 ? (
+                        <div className="text-xs text-subtle">
+                          {[
+                            p.size_band ? sizeBandLabel(p.size_band) : null,
+                            p.coverage_provinces.length > 0
+                              ? provincesLabel(p.coverage_provinces)
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2">
                       <MiniScore value={p.fit_score} />

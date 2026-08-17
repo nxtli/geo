@@ -8,15 +8,20 @@
  * kolomlijst hier niet uit de pas lopen met het model.
  */
 
-import type { Prospect } from "../types";
+import type { Prospect, RunRecord } from "../types";
 import type { RadioStoreDriver } from "./driver";
-import { flattenProspect, toProspect } from "./serialize";
+import { flattenProspect, flattenRun, toProspect, toRunRecord } from "./serialize";
 import { RADIO_SCHEMA_SQL } from "./schema";
 import { query, isDbConfigured } from "../../geo/supabase/db";
 import { logInfo } from "../../geo/logger";
 
-/** Kolommen die in Postgres jsonb zijn en dus geserialiseerd moeten worden. */
+/**
+ * Kolommen die in Postgres jsonb zijn en dus geserialiseerd moeten worden.
+ * Zonder deze lijst maakt `pg` van een JS-array een Postgres-ARRAY-literal
+ * (`{a,b}`), en dat is geen geldige jsonb.
+ */
 const JSONB_COLUMNS = new Set([
+  "coverage_provinces",
   "fit_components",
   "knockouts",
   "why_interesting",
@@ -24,6 +29,9 @@ const JSONB_COLUMNS = new Set([
   "sales_angles",
   "evidence",
   "personalization",
+  /* runs */
+  "targets",
+  "warnings",
 ]);
 
 /** Kolommen die niet in de UPDATE-tak horen (blijven staan bij een upsert). */
@@ -97,6 +105,33 @@ export class PostgresStoreDriver implements RadioStoreDriver {
       [id],
     );
     return rows.length > 0;
+  }
+
+  async appendRun(run: RunRecord): Promise<void> {
+    await this.init();
+    const flat = flattenRun(run);
+    const columns = Object.keys(flat);
+    const values = columns.map((column) => {
+      const value = flat[column];
+      if (JSONB_COLUMNS.has(column)) return JSON.stringify(value ?? null);
+      return value ?? null;
+    });
+    const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+    await query(
+      `insert into public.radio_runs (${columns.join(", ")})
+       values (${placeholders})
+       on conflict (id) do nothing`,
+      values,
+    );
+  }
+
+  async listRuns(limit = 50): Promise<RunRecord[]> {
+    await this.init();
+    const rows = await query<Record<string, unknown>>(
+      `select * from public.radio_runs order by started_at desc limit $1`,
+      [Math.max(1, limit)],
+    );
+    return rows.map(toRunRecord);
   }
 
   /** INSERT … ON CONFLICT (id) DO UPDATE, opgebouwd uit flattenProspect. */

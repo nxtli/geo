@@ -17,10 +17,65 @@ interface DiscoverySummary {
   added: Array<{ id: string; company_name: string; website: string | null; query: string }>;
   duplicates: string[];
   unreachable: string[];
+  withoutTrigger: string[];
   rejectedSources: string[];
   queriesUsed: Array<{ key: string; label: string; found: number; searches: number }>;
   warnings: string[];
+  costUsd: number;
+  searchesRun: number;
 }
+
+interface Option {
+  key: string;
+  label: string;
+  mkb?: boolean;
+}
+
+interface Estimate {
+  per_query: number;
+  searches_per_direction: number;
+  per_direction_usd: number;
+  per_direction_label: string;
+  per_company_usd: number;
+  per_company_label: string;
+  search_model: string;
+  research_model: string;
+  eur_per_usd: number;
+}
+
+type TriggerMode = "any" | "required" | "none";
+
+/**
+ * Koers als de server hem nog niet heeft meegegeven. Alleen een fallback voor
+ * het eerste renderframe — de echte koers komt uit lib/radio/cost.ts, zodat de
+ * bedragen in de UI en in de historie niet uit elkaar kunnen lopen.
+ */
+const FALLBACK_EUR_PER_USD = 0.92;
+
+/** Bedrag in euro's. Kleine bedragen krijgen extra decimalen. */
+function euro(usd: number, rate: number): string {
+  const value = (usd || 0) * rate;
+  if (value > 0 && value < 0.01) return "< € 0,01";
+  return `€ ${value.toFixed(value < 1 ? 3 : 2).replace(".", ",")}`;
+}
+
+const TRIGGER_MODES: Array<{ key: TriggerMode; label: string; hint: string }> = [
+  {
+    key: "any",
+    label: "Mag, hoeft niet",
+    hint: "Aanleiding wordt meegenomen als de bron er een noemt.",
+  },
+  {
+    key: "required",
+    label: "Verplicht",
+    hint: "Alleen bedrijven met een concrete, recente aanleiding.",
+  },
+  {
+    key: "none",
+    label: "Fit is genoeg",
+    hint: "Beoordeel op profiel; een aanleiding is niet nodig.",
+  },
+];
 
 /**
  * "Zoek bedrijven": de volledige keten in één handeling.
@@ -38,6 +93,17 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [segment, setSegment] = React.useState("");
   const [perQuery, setPerQuery] = React.useState(25);
+  const [provinceOptions, setProvinceOptions] = React.useState<Option[]>([]);
+  const [sizeOptions, setSizeOptions] = React.useState<Option[]>([]);
+  const [provinces, setProvinces] = React.useState<Set<string>>(new Set());
+  /**
+   * Standaard MKB: dat is de doelgroep die is afgesproken. De banden staan er
+   * los bij, zodat een grote keten wél te vinden is als Eric daar bewust op
+   * mikt — grote bedrijven zijn niet uitgesloten, ze zijn niet de default.
+   */
+  const [sizeBands, setSizeBands] = React.useState<Set<string>>(new Set());
+  const [triggerMode, setTriggerMode] = React.useState<TriggerMode>("any");
+  const [estimate, setEstimate] = React.useState<Estimate | null>(null);
   /**
    * Doelaantal nieuwe bedrijven. 300 als default: dat is wat Waalaxy per maand
    * aan contacten toelaat, dus meer prospects dan dat leveren geen extra
@@ -54,29 +120,40 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/radio/discover")
+    fetch(`/api/radio/discover?per_query=${perQuery}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled && data.ok) setQueries(data.queries ?? []);
+        if (cancelled || !data.ok) return;
+        setQueries(data.queries ?? []);
+        setProvinceOptions(data.provinces ?? []);
+        setSizeOptions(data.size_bands ?? []);
+        setEstimate(data.estimate ?? null);
+        // MKB als startpunt, zodra we weten welke banden dat zijn.
+        setSizeBands((current) => {
+          if (current.size > 0) return current;
+          const mkb = (data.size_bands ?? [])
+            .filter((b: Option) => b.mkb)
+            .map((b: Option) => b.key);
+          return new Set<string>(mkb);
+        });
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [perQuery]);
 
-  const toggle = (key: string) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const rate = estimate?.eur_per_usd ?? FALLBACK_EUR_PER_USD;
+  const formatEuro = (usd: number) => euro(usd, rate);
+
+  const toggle = (key: string) => setSelected((c) => toggled(c, key));
+  const toggleProvince = (key: string) => setProvinces((c) => toggled(c, key));
+  const toggleSize = (key: string) => setSizeBands((c) => toggled(c, key));
 
   /** Onderzoek de net gevonden bedrijven, in rondes van 25. */
-  const researchAll = async (ids: string[]): Promise<number> => {
+  const researchAll = async (ids: string[]): Promise<{ done: number; costUsd: number }> => {
     let done = 0;
+    let costUsd = 0;
     let queue = [...ids];
     while (queue.length > 0) {
       setStep(`Onderzoeken en scoren… (${done}/${ids.length})`);
@@ -88,6 +165,7 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
       const data = await response.json();
       if (!response.ok || !data.ok) break;
       done += data.summary?.researched ?? 0;
+      costUsd += data.summary?.costUsd ?? 0;
       const handled = new Set<string>(
         (data.summary?.results ?? []).map((r: { id: string }) => r.id),
       );
@@ -95,7 +173,7 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
       if (handled.size === 0) break;
       router.refresh();
     }
-    return done;
+    return { done, costUsd };
   };
 
   /**
@@ -128,9 +206,12 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
       added: [],
       duplicates: [],
       unreachable: [],
+      withoutTrigger: [],
       rejectedSources: [],
       queriesUsed: [],
       warnings: [],
+      costUsd: 0,
+      searchesRun: 0,
     };
     const newIds: string[] = [];
 
@@ -151,6 +232,9 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
             // Niet meer vragen dan we nog nodig hebben.
             per_query: Math.min(perQuery, Math.max(1, target - newIds.length)),
             max_queries: 1,
+            provinces: [...provinces],
+            size_bands: [...sizeBands],
+            trigger_mode: triggerMode,
           }),
         });
         const data = await response.json();
@@ -165,9 +249,12 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
         merged.added.push(...s.added);
         merged.duplicates.push(...s.duplicates);
         merged.unreachable.push(...s.unreachable);
+        merged.withoutTrigger.push(...(s.withoutTrigger ?? []));
         merged.rejectedSources.push(...s.rejectedSources);
         merged.queriesUsed.push(...s.queriesUsed);
         merged.warnings.push(...s.warnings);
+        merged.costUsd += s.costUsd ?? 0;
+        merged.searchesRun += s.searchesRun ?? 0;
         newIds.push(...(data.new_ids ?? []));
 
         setSummary({ ...merged });
@@ -185,15 +272,17 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
       if (!thenResearch) {
         setMessage({
           tone: "success",
-          text: `${newIds.length} nieuwe bedrijven toegevoegd. Nog niet onderzocht.`,
+          text: `${newIds.length} nieuwe bedrijven toegevoegd (${formatEuro(merged.costUsd)}). Nog niet onderzocht.`,
         });
         return;
       }
 
-      const researched = await researchAll(newIds);
+      const research = await researchAll(newIds);
+      merged.costUsd += research.costUsd;
+      setSummary({ ...merged });
       setMessage({
         tone: "success",
-        text: `${newIds.length} bedrijven gevonden, ${researched} onderzocht en gescoord.`,
+        text: `${newIds.length} bedrijven gevonden, ${research.done} onderzocht en gescoord. Kosten van deze ronde: ${formatEuro(merged.costUsd)}.`,
       });
       router.push("/radio?sort=priority-desc");
     } catch {
@@ -291,6 +380,79 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
           </label>
         </div>
 
+        <div className="mt-4 space-y-3 rounded-lg border border-border bg-background p-3">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Verzorgingsgebied
+            </h3>
+            <p className="mt-1 text-xs text-subtle">
+              Waar het bedrijf zijn klanten heeft — niet waar het kantoor staat. Voor regionale
+              radio is dat wat telt. Kies je niets, dan zoekt de tool in heel Nederland.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {provinceOptions.map((p) => (
+                <ChoiceChip
+                  key={p.key}
+                  label={p.label}
+                  active={provinces.has(p.key)}
+                  onClick={() => toggleProvince(p.key)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Bedrijfsgrootte
+            </h3>
+            <p className="mt-1 text-xs text-subtle">
+              MKB staat standaard aan. Grote bedrijven zijn niet uitgesloten — zet de band erbij
+              als je die bewust wilt benaderen. De grootte bepaalt geen score, alleen waar we
+              zoeken en waarop je kunt filteren.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {sizeOptions.map((b) => (
+                <ChoiceChip
+                  key={b.key}
+                  label={b.label}
+                  active={sizeBands.has(b.key)}
+                  onClick={() => toggleSize(b.key)}
+                />
+              ))}
+              {sizeBands.size > 0 ? (
+                <button
+                  onClick={() => setSizeBands(new Set())}
+                  className="rounded-full border border-border bg-background px-2.5 py-1 text-xs text-subtle hover:text-ink"
+                >
+                  Geen voorkeur
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Aanleiding
+            </h3>
+            <p className="mt-1 text-xs text-subtle">
+              {TRIGGER_MODES.find((m) => m.key === triggerMode)?.hint}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {TRIGGER_MODES.map((m) => (
+                <ChoiceChip
+                  key={m.key}
+                  label={m.label}
+                  title={m.hint}
+                  active={triggerMode === m.key}
+                  onClick={() => setTriggerMode(m.key)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {estimate ? <CostEstimate estimate={estimate} target={target} /> : null}
+
         {queries.length > 0 ? (
           <details className="mt-4 rounded-lg border border-border bg-background p-3">
             <summary className="cursor-pointer text-sm font-medium text-ink">
@@ -377,7 +539,7 @@ export function DiscoveryPanel({ available }: { available: boolean }) {
 
       {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
 
-      {summary ? <DiscoveryResult summary={summary} /> : null}
+      {summary ? <DiscoveryResult summary={summary} rate={rate} /> : null}
     </div>
   );
 }
@@ -406,10 +568,15 @@ function QueryChip({
   );
 }
 
-function DiscoveryResult({ summary }: { summary: DiscoverySummary }) {
+function DiscoveryResult({ summary, rate }: { summary: DiscoverySummary; rate: number }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
       <h3 className="font-display text-base font-semibold text-ink">Zoekresultaat</h3>
+
+      <p className="mt-1 text-sm text-muted">
+        {summary.searchesRun} webzoekopdracht{summary.searchesRun === 1 ? "" : "en"} ·{" "}
+        <strong className="text-ink">{euro(summary.costUsd, rate)}</strong> aan API-kosten
+      </p>
 
       {summary.queriesUsed.length > 0 ? (
         <ul className="mt-3 space-y-1 text-sm">
@@ -459,6 +626,13 @@ function DiscoveryResult({ summary }: { summary: DiscoverySummary }) {
         </div>
       ) : null}
 
+      {summary.withoutTrigger.length > 0 ? (
+        <p className="mt-3 text-sm text-muted">
+          Overgeslagen omdat er geen aanleiding in de bron stond ({summary.withoutTrigger.length}):{" "}
+          {summary.withoutTrigger.join(", ")}
+        </p>
+      ) : null}
+
       {summary.duplicates.length > 0 ? (
         <p className="mt-3 text-sm text-muted">
           Stond al in de lijst: {summary.duplicates.join(", ")}
@@ -482,6 +656,97 @@ function DiscoveryResult({ summary }: { summary: DiscoverySummary }) {
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Zet/uit in een Set, zonder de bestaande te muteren. */
+function toggled(current: Set<string>, key: string): Set<string> {
+  const next = new Set(current);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
+/**
+ * Keuzeknopje. Eén component voor provincies, groottes en aanleiding-modus,
+ * zodat die drie rijen er ook hetzelfde uitzien.
+ */
+function ChoiceChip({
+  label,
+  active,
+  title,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  title?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+        active
+          ? "border-brand bg-brand text-brand-fg"
+          : "border-border bg-background text-muted hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Wat de ronde ongeveer gaat kosten, vóór de start.
+ *
+ * Bewust als bandbreedte gepresenteerd en met de aannames erbij: het zijn echte
+ * API-kosten, dus een te net getal zou meer zekerheid suggereren dan er is. Het
+ * werkelijke bedrag staat na de ronde in de historie.
+ */
+function CostEstimate({ estimate, target }: { estimate: Estimate; target: number }) {
+  // Ruwe aanname: een zoekrichting levert grofweg de helft van het gevraagde
+  // maximum aan bruikbare, nieuwe bedrijven op.
+  const yieldPerDirection = Math.max(1, Math.round(estimate.per_query / 2));
+  const directions = Math.max(1, Math.ceil(target / yieldPerDirection));
+  const searchTotal = directions * estimate.per_direction_usd;
+  const researchTotal = target * estimate.per_company_usd;
+  const rate = estimate.eur_per_usd;
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-background p-3">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+        Geschatte kosten
+      </h3>
+      <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Per zoekrichting</dt>
+          <dd className="text-ink">{estimate.per_direction_label}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Per onderzocht bedrijf</dt>
+          <dd className="text-ink">{estimate.per_company_label}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Zoeken (~{directions} richtingen)</dt>
+          <dd className="text-ink">{euro(searchTotal, rate)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted">Onderzoeken ({target} bedrijven)</dt>
+          <dd className="text-ink">{euro(researchTotal, rate)}</dd>
+        </div>
+        <div className="flex justify-between gap-3 border-t border-border pt-1 sm:col-span-2">
+          <dt className="font-medium text-ink">Totaal voor deze scan</dt>
+          <dd className="font-semibold text-ink">{euro(searchTotal + researchTotal, rate)}</dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs text-subtle">
+        Schatting, geen prijsopgave. Gerekend met {estimate.searches_per_direction}{" "}
+        webzoekopdrachten per richting, model {estimate.search_model} voor zoeken en{" "}
+        {estimate.research_model} voor onderzoeken. Het echte bedrag staat na de ronde bij{" "}
+        <strong className="text-muted">Historie</strong>.
+      </p>
     </div>
   );
 }

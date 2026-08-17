@@ -11,9 +11,16 @@
  *   3. anders "heuristic", zodat de tool ook zonder API-key werkt.
  */
 
-import type { Prospect, ProspectStatus, ResearchResult, ResearchUsage } from "../types";
+import type {
+  Prospect,
+  ProspectStatus,
+  ResearchResult,
+  ResearchUsage,
+  RunRecord,
+} from "../types";
 import { confidenceLabel, scoreProspect } from "../scoring";
-import { getProspect, updateProspect } from "../store";
+import { getProspect, recordRun, updateProspect } from "../store";
+import { callCostUsd } from "../../geo/pricing";
 import { fetchCompanyWebData } from "./fetch";
 import { gatherConnectorSources } from "./connectors";
 import type { ResearchProvider } from "./provider";
@@ -282,6 +289,8 @@ export interface BatchResearchSummary {
     warning?: string;
   }>;
   totalUsage: ResearchUsage | null;
+  /** Kosten van deze batch in USD, per call berekend en opgeteld. */
+  costUsd: number;
 }
 
 /**
@@ -294,17 +303,26 @@ export async function researchMany(
   ids: string[],
   concurrency = Number(process.env.RADIO_RESEARCH_CONCURRENCY) || DEFAULT_CONCURRENCY,
 ): Promise<BatchResearchSummary> {
+  const startedAt = new Date().toISOString();
   const summary: BatchResearchSummary = {
     researched: 0,
     failed: 0,
     results: [],
     totalUsage: null,
+    costUsd: 0,
   };
   const limit = Math.max(1, Math.min(10, concurrency));
   const queue = [...ids];
 
-  const usageTotals = { model: "", input_tokens: 0, output_tokens: 0 };
+  const usageTotals: ResearchUsage = {
+    model: "",
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  };
   let sawUsage = false;
+  const companyNames: string[] = [];
 
   const worker = async (): Promise<void> => {
     for (;;) {
@@ -326,11 +344,21 @@ export async function researchMany(
           tier: outcome.prospect.tier,
           warning: outcome.warning,
         });
+        companyNames.push(outcome.prospect.company_name);
         if (outcome.usage) {
           sawUsage = true;
+          // Kosten per call: de cache-velden zijn anders geprijsd, dus dit kan
+          // niet uit de totalen worden herleid.
+          summary.costUsd += callCostUsd(outcome.usage);
           usageTotals.model = outcome.usage.model;
           usageTotals.input_tokens += outcome.usage.input_tokens;
           usageTotals.output_tokens += outcome.usage.output_tokens;
+          usageTotals.cache_creation_input_tokens =
+            (usageTotals.cache_creation_input_tokens ?? 0) +
+            (outcome.usage.cache_creation_input_tokens ?? 0);
+          usageTotals.cache_read_input_tokens =
+            (usageTotals.cache_read_input_tokens ?? 0) +
+            (outcome.usage.cache_read_input_tokens ?? 0);
         }
       } catch (error) {
         logError("radio.research.batch", error);
@@ -347,5 +375,34 @@ export async function researchMany(
 
   await Promise.all(Array.from({ length: limit }, () => worker()));
   if (sawUsage) summary.totalUsage = usageTotals;
+
+  await recordRun(researchRunRecord(summary, startedAt, companyNames));
   return summary;
+}
+
+/** Zet de batch-uitkomst om in een regel voor de run-historie. */
+function researchRunRecord(
+  summary: BatchResearchSummary,
+  startedAt: string,
+  companyNames: string[],
+): RunRecord {
+  const usage = summary.totalUsage;
+  return {
+    id: crypto.randomUUID(),
+    kind: "research",
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+    settings: `${summary.researched + summary.failed} bedrijven onderzocht via ${selectResearchProvider().id}`,
+    targets: companyNames,
+    added: summary.researched,
+    duplicates: 0,
+    skipped: summary.failed,
+    searches: 0,
+    input_tokens: usage?.input_tokens ?? 0,
+    output_tokens: usage?.output_tokens ?? 0,
+    cache_read_tokens: usage?.cache_read_input_tokens ?? 0,
+    cost_usd: summary.costUsd,
+    model: usage?.model ?? "",
+    warnings: summary.results.filter((r) => !r.ok).map((r) => `${r.company_name}: ${r.warning ?? "mislukt"}`),
+  };
 }

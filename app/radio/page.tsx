@@ -81,7 +81,7 @@ export default async function RadioDashboard({
         ) : null}
 
         {/* Dashboard (§16) */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
           <Stat label="Prospects" value={String(stats.total)} sub={`${stats.notResearched} nog niet onderzocht`} />
           <Stat label="Tier A 🔥" value={String(stats.tierA)} tone="good" sub="zeer interessant" />
           <Stat label="Tier B 🟢" value={String(stats.tierB)} sub="goede prospect" />
@@ -96,6 +96,11 @@ export default async function RadioDashboard({
             value={String(stats.missingContact)}
             tone={stats.missingContact > 0 ? "warn" : "default"}
             sub={`${stats.missingLinkedIn} zonder LinkedIn`}
+          />
+          <Stat
+            label="MKB"
+            value={String(stats.mkb)}
+            sub={`${stats.unknownCoverage} zonder verzorgingsgebied`}
           />
           <Stat
             label="Gemiddelde scores"

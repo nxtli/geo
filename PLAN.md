@@ -129,7 +129,7 @@ Selectie: `RADIO_RESEARCH_PROVIDER` → anders `claude` als
 
 | Connector | Waarvoor | Status |
 | --- | --- | --- |
-| Web search (Brave/Bing/Serper) | triggers uit nieuwsberichten | interface + stub, gedocumenteerd |
+| Web search | **geïmplementeerd** — bedrijven vinden via de web-search tool van de Claude API (`lib/radio/discovery/`) |
 | KVK API | vestigingen, SBI-code, actief ja/nee | idem |
 | Vacature-feeds | recruitment-signaal harden | idem |
 | Betaalde enrichment (Apollo/Cognism) | contactpersonen | optioneel, expliciet niet nodig voor de kern |
@@ -201,8 +201,13 @@ Waalaxy · Contacted · Replied · Qualified · Meeting · Won · Lost`.
 | `POST /api/radio/export/waalaxy` | CSV-export van selectie |
 | `POST /api/radio/migrate` | schema (secret-gated, alleen postgres-driver) |
 
+| `/radio/zoeken` | bedrijven laten zoeken, onderzoeken en scoren |
+| `GET/POST /api/radio/discover` | zoekrichtingen opvragen / bedrijven zoeken |
+
 Batch-research draait geserialiseerd met een concurrency-cap, zodat 100
-bedrijven de API-limieten niet omvergooien.
+bedrijven de API-limieten niet omvergooien. De discovery-scan loopt per
+zoekrichting in aparte requests, zodat een ronde van honderden bedrijven niet op
+de platform-timeout stuit en tussentijds gevonden bedrijven al zijn opgeslagen.
 
 ---
 

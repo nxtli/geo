@@ -35,6 +35,7 @@ export function Shell({
             </div>
             <nav className="flex items-center gap-1 text-sm">
               <NavLink href="/radio">Dashboard</NavLink>
+              <NavLink href="/radio/zoeken">Zoeken</NavLink>
               <NavLink href="/radio/import">Toevoegen</NavLink>
             </nav>
           </div>

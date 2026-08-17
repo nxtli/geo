@@ -328,4 +328,26 @@ export function fetchedUrls(web: CompanyWebData): string[] {
   return web.sources.map((s) => s.url);
 }
 
+/**
+ * Bestaat deze website echt? Eén korte fetch, geen inhoudsanalyse.
+ *
+ * Gebruikt door de discovery-laag: dit is de sterkste test tegen een verzonnen
+ * bedrijf. Een naam kan een model bedenken, een werkend domein niet.
+ *
+ * Een 4xx/5xx telt als "bestaat wel" zolang er een server antwoordde — sommige
+ * sites weren geautomatiseerde bezoekers met een 403 terwijl het bedrijf gewoon
+ * bestaat. Alleen een netwerkfout of een niet-bestaande host is een afwijzing.
+ */
+export async function websiteResolves(website: string | null): Promise<boolean> {
+  const url = normalizeWebsite(website);
+  if (!url) return false;
+  try {
+    if (isBlockedHost(new URL(url).hostname)) return false;
+  } catch {
+    return false;
+  }
+  const result = await fetchPage(url, 6_000);
+  return result.status !== null;
+}
+
 export { USER_AGENT, MAX_PAGES };

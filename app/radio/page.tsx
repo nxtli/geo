@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listProspects, describeStore } from "@/lib/radio/store";
-import { computeStats, filterProspects, sortProspects } from "@/lib/radio/filters";
+import { DEFAULT_SORT, computeStats, filterProspects, sortProspects } from "@/lib/radio/filters";
 import { filterFromSearchParams, sortFromSearchParams, type SearchParams } from "@/lib/radio/query";
 import { describeResearchProvider } from "@/lib/radio/research";
 import { Shell } from "@/components/radio/Shell";
 import { Filters } from "@/components/radio/Filters";
 import { ProspectTable } from "@/components/radio/ProspectTable";
+import { TopTen } from "@/components/radio/TopTen";
 import { DashboardActions } from "@/components/radio/DashboardActions";
 import { Notice, Stat } from "@/components/radio/primitives";
 import { logError } from "@/lib/geo/logger";
@@ -121,6 +122,10 @@ export default async function RadioDashboard({
             ze zodra je met echte bedrijven gaat werken.
           </Notice>
         ) : null}
+
+        {/* Top 10 staat boven de tabel en negeert de filters: dit is de vraag
+            "wie bel ik vandaag?", altijd over de volledige lijst. */}
+        <TopTen prospects={sortProspects(all, DEFAULT_SORT)} />
 
         <Filters resultCount={filtered.length} totalCount={all.length} />
 

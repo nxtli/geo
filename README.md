@@ -32,7 +32,12 @@ npm install
 npm run dev          # http://localhost:3000/radio
 ```
 
-Werkt direct zonder configuratie: een JSON-bestand als database en een
+Met een `ANTHROPIC_API_KEY` erbij kan de tool op `/radio/zoeken` **zelf
+Nederlandse bedrijven vinden** (web search), hun website verifiëren, ze
+onderzoeken en op prioriteit zetten — bedoeld om de lijst te vullen, niet om er
+tien te vinden.
+
+Werkt ook direct zonder configuratie: een JSON-bestand als database en een
 trefwoord-heuristiek als research-engine. Klik op **Demo-data laden** om de tool
 met vier duidelijk gelabelde fictieve prospects te bekijken. Zet
 `ANTHROPIC_API_KEY` voor de AI-analyse, en `POSTGRES_URL` om op Supabase te

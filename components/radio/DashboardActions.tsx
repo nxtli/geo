@@ -104,9 +104,14 @@ export function DashboardActions({
               : `Onderzoek ${unresearchedCount} nieuwe`}
           </Button>
         ) : null}
+        <Link href="/radio/zoeken">
+          <Button size="sm" variant={unresearchedCount > 0 ? "secondary" : "primary"}>
+            Bedrijven zoeken
+          </Button>
+        </Link>
         <Link href="/radio/import">
           <Button size="sm" variant="secondary">
-            Bedrijven toevoegen
+            Zelf toevoegen
           </Button>
         </Link>
         {demoCount > 0 ? (

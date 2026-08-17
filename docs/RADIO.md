@@ -66,11 +66,47 @@ Het SQL-schema staat in [`../supabase/migrations/0002_radio_prospects.sql`](../s
 ## 2. De workflow
 
 ```
-bedrijven toevoegen → publieke data ophalen → scoren → angle + rol bepalen
-                    → contact aanvullen → selecteren → Waalaxy-CSV
+bedrijven vinden of toevoegen → publieke data ophalen → scoren
+                              → angle + rol bepalen → contact aanvullen
+                              → selecteren → Waalaxy-CSV
 ```
 
-### Bedrijven toevoegen — drie manieren (`/radio/import`)
+### Bedrijven laten zoeken (`/radio/zoeken`)
+
+De tool kan zelf Nederlandse bedrijven vinden. Vul een doelaantal in (default 300
+— wat Waalaxy per maand aan contacten toelaat), kies eventueel een segment, en
+klik **Scan**. De tool loopt dan door de zoekrichtingen, en per richting:
+
+1. **zoekt op het web** via de web-search van de Claude API — dus met dezelfde
+   `ANTHROPIC_API_KEY`, geen aparte zoekdienst nodig;
+2. **verifieert de bron**: alleen URL's die echt in de zoekresultaten stonden
+   worden geaccepteerd;
+3. **verifieert de website**: het domein wordt daadwerkelijk opgehaald. Bestaat
+   het niet, dan valt de kandidaat af — een verzonnen bedrijf heeft geen werkend
+   domein. Deze afwijzingen worden apart gerapporteerd;
+4. **slaat op** als prospect met status `New` en het zoeksignaal als evidence;
+5. **onderzoekt en scoort** ze daarna met de gewone research-pipeline.
+
+De rangschikking komt dus altijd uit de scoring-engine, nooit uit de zoekmachine.
+
+**Zoekrichtingen** staan in `lib/radio/discovery/queries.ts` en zijn van twee
+soorten. *Timing*-richtingen ("bedrijven die nieuwe vestigingen openen", "veel
+vacatures", "recente investeringen") leveren bedrijven met een actuele aanleiding
+en krijgen automatisch voorrang. *Fit*-richtingen ("Nederlandse retailketens",
+"landelijke e-commerce merken", per segment) leveren bedrijven die structureel bij
+radio passen. Een richting toevoegen is één item in die lijst.
+
+**Tempo en kosten.** Reken op ~1 minuut per zoekrichting en een halve tot hele
+minuut per bedrijf om te onderzoeken. 300 bedrijven is een klus van uren, niet
+minuten — werk in porties van 50 en kijk tussendoor wat de scores doen. Elke
+gevonden lichting is al opgeslagen, dus onderbreken kost niets.
+
+> **Flessenhals verderop:** de scan vult je lijst met *bedrijven*. Waalaxy heeft
+> per prospect een *LinkedIn-profiel van een persoon* nodig, en dat verzint deze
+> tool nooit. 300 gescoorde bedrijven is dus geen 300 Waalaxy-contacten — kijk op
+> het dashboard naar **Ready for Waalaxy** voor het echte aantal.
+
+### Bedrijven zelf toevoegen — drie manieren (`/radio/import`)
 
 | Manier | Wanneer |
 | --- | --- |
@@ -362,13 +398,15 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 
 | Route | Doel |
 | --- | --- |
-| `/radio` | dashboard: statistieken, filters, prospect-tabel, export |
+| `/radio` | dashboard: statistieken, "bel deze eerst", filters, prospect-tabel, export |
+| `/radio/zoeken` | bedrijven laten zoeken, onderzoeken en scoren |
 | `/radio/prospects/[id]` | detailpagina |
 | `/radio/import` | toevoegen: handmatig · CSV · batch |
 | `GET/POST /api/radio/prospects` | lijst / toevoegen |
 | `PATCH/DELETE /api/radio/prospects/[id]` | bijwerken / verwijderen |
 | `POST /api/radio/prospects/[id]/research` | research & score |
 | `POST /api/radio/research/batch` | batch (max 25 per aanroep) |
+| `GET/POST /api/radio/discover` | zoekrichtingen opvragen / bedrijven zoeken |
 | `POST /api/radio/import` | CSV of batch |
 | `POST /api/radio/export/waalaxy` | export van een selectie |
 | `POST/DELETE /api/radio/demo` | demo-data plaatsen / wissen |
@@ -389,6 +427,11 @@ lib/radio/
   csv.ts                       CSV lezen/schrijven, Waalaxy-export
   filters.ts  query.ts         filteren, sorteren, statistieken
   demo.ts                      DEMO DATA-fixtures
+  discovery/
+    queries.ts                 zoekrichtingen (§18) — fit en timing
+    provider.ts                contract + bronverificatie op zoekresultaten
+    providers/claude-search.ts Claude + web-search tool
+    index.ts                   zoeken → website verifiëren → opslaan
   scoring/
     rubric.ts                  de tien componenten (bron van waarheid)
     triggers.ts                trigger-gewichten en -score
@@ -408,7 +451,7 @@ lib/radio/
     file-driver.ts             JSON-bestand (default)
     postgres-driver.ts         Postgres
     schema.ts  serialize.ts    SQL-schema en conversies
-  __tests__/                   202 tests
+  __tests__/                   228 tests
 ```
 
 ---
@@ -416,7 +459,7 @@ lib/radio/
 ## 12. Tests
 
 ```bash
-npm test          # vitest, 202 tests
+npm test          # vitest, 228 tests
 npm run typecheck # tsc --noEmit
 npm run build     # productiebuild
 ```
@@ -432,17 +475,22 @@ JSON-bestand, en de Waalaxy-splitsing op ontbrekende LinkedIn-profielen.
 
 Eerlijk over wat de MVP niet doet:
 
-- **Bedrijven vinden gebeurt nog niet automatisch.** De tool beoordeelt en
-  prioriteert; het aandragen van kandidaten doe je zelf (handmatig, CSV, batch).
-  De architectuur is er wel op voorbereid: de web-search-connector is de plek
-  waar zoekopdrachten als "Nederlandse retailketens" of "bedrijven openen nieuwe
-  vestigingen" landen.
+- **De scan vindt alleen wat het web prijsgeeft.** Vraag je 300 bedrijven, dan is
+  dat een bovengrens, geen belofte: de zoekrichtingen kunnen uitgeput raken.
+  Nieuwe richtingen toevoegen (`lib/radio/discovery/queries.ts`) is de manier om
+  meer te vinden.
+- **Zoeksignalen worden geen triggers.** Een zoekresultaat wordt opgeslagen als
+  evidence, niet als trigger, want een trigger hoort bij een bron die we zelf
+  hebben opgehaald. De Trigger Score komt dus altijd uit de research op de eigen
+  website — met als gevolg dat aanleidingen uit nieuwsberichten nog niet
+  meewegen in de score, alleen in de context die Eric ziet.
+- **Contactpersonen blijven handwerk.** Er zit geen enrichment in, dus de
+  LinkedIn-URL's die Waalaxy nodig heeft vul je zelf aan of importeer je via CSV.
 - **Filteren gebeurt in het geheugen**, niet in SQL. Prima tot enkele duizenden
   prospects; daarboven is `listAll()` in de Postgres-driver de plek om een
   `WHERE`/`ORDER BY` toe te voegen.
 - **Triggers uit de heuristiek hebben geen datum**, want een trefwoord zegt niets
-  over wanneer. Ze wegen daardoor automatisch lichter. Met de
-  web-search-connector komen er gedateerde triggers bij.
+  over wanneer. Ze wegen daardoor automatisch lichter.
 - **Geen authenticatie per gebruiker** — één set Basic Auth-credentials voor het
   hele team.
 - **Geen geschiedenis van scoreverloop.** Een nieuwe analyse overschrijft de

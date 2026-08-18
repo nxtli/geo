@@ -294,3 +294,41 @@ Drie standen bij het zoeken: *verplicht* (alleen bedrijven met een concrete
 aanleiding), *mag maar hoeft niet* (default) en *fit is genoeg*. Bij "verplicht"
 wordt een kandidaat zonder aanleiding in **code** weggegooid, niet alleen in de
 prompt gevraagd.
+
+---
+
+## 10. De simpele route: lokaal MKB zonder AI
+
+Na de eerste runs bleek de AI-scan het verkeerde gereedschap voor wat er
+werkelijk nodig was: een bellijst van lokale MKB-zaken in branches waar de
+eigenaar over het budget beslist. Twee dingen klopten niet.
+
+**De bron.** Een websearch vindt ketens en top-10-artikelen. "Alle tuincentra in
+Limburg" staat niet in een artikel, maar wél op de kaart. Openbare kaartdata
+(OpenStreetMap via Overpass) is voor lokale winkels compléter én gratis: geen
+API-key, geen credits. Eén verzoek per provincie met alle branches erin, met
+pauzes ertussen en een eigen User-Agent — het is een vrijwilligersdienst.
+
+**Het onderzoek.** Bij deze branches is de radio-invalshoek een eigenschap van de
+BRANCHE, niet van het bedrijf: een tuincentrum heeft een voorjaarspiek, een
+sportschool een januaripiek, een beddenzaak een hoge orderwaarde. Dat hoeft geen
+model per bedrijf uit te zoeken — het staat als vaste regel in de branchelijst.
+Scoring blijft bestaan, maar is nu optioneel: je start hem op een shortlist die je
+zelf aanvinkt.
+
+Wat er nog wél per bedrijf gebeurt is gratis: ketenfilialen eruit filteren op de
+`brand`/`operator`-tag, en de bron als evidence vastleggen.
+
+### Van bedrijf naar persoon
+
+Het echte knelpunt was nooit de bedrijvenlijst maar de PERSOON: Waalaxy heeft een
+profiel-URL nodig. LinkedIn scrapen is daarvoor de verkeerde oplossing, ook als het
+mag: profielen en zoekresultaten zitten achter een auth-wall, dus het kan alleen
+met de sessiecookie van hetzelfde account waar Waalaxy op draait. De prijs van
+detectie is de hele outbound-pijplijn, niet een script.
+
+De oplossing zit in hoe Waalaxy werkt: die importeert uit een LinkedIn-zoekresultaat
+dat de gebruiker zelf open heeft staan. De tool bouwt dus ZOEKopdrachten —
+booleaans, met beslissersrollen, branchewoorden en de regio — en nooit een
+profiel-URL. Een zoeklink is geen bewering over een persoon; een verzonnen
+`/in/…` is dat wel en belandt in een connectieverzoek aan de verkeerde persoon.

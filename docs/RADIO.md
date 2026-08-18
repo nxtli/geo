@@ -123,7 +123,7 @@ al opgeslagen, dus onderbreken kost niets.
 
 **Kosten.** Boven de knop staat een schatting in euro's voor de scan die je op het
 punt staat te starten, en na de ronde staat het werkelijke bedrag in de historie.
-Zie §5.
+Zie §6.
 
 > **Flessenhals verderop:** de scan vult je lijst met *bedrijven*. Waalaxy heeft
 > per prospect een *LinkedIn-profiel van een persoon* nodig, en dat verzint deze
@@ -187,7 +187,72 @@ Kolommen: `first_name`, `last_name`, `company_name`, `job_title`,
 
 ---
 
-## 3. Hoe de scores werken
+## 3. Lokale bedrijven zonder AI (`/radio/lokaal`)
+
+De simpele, gratis route. Het verschil met de scan in één zin: de scan zoekt uit
+*welke* bedrijven interessant zijn, deze route weet dat al.
+
+Je kiest een **branche** en een **provincie** en krijgt de bedrijven. Geen
+modelcall, geen fit- of trigger-score, geen credits — **kosten: € 0,00**.
+
+### Waar de bedrijven vandaan komen
+
+Openbare kaartdata (OpenStreetMap, via de Overpass API). Voor "alle tuincentra in
+Limburg" is dat compléter dan een websearch: een websearch vindt ketens en
+top-10-artikelen, de kaart heeft de zelfstandige zaak op de hoek. Geen API-key,
+geen kosten.
+
+Per provincie gaat er één verzoek uit met alle gekozen branches erin, met een
+pauze ertussen — het is een gratis dienst van vrijwilligers en de tool gedraagt
+zich daarnaar (eigen User-Agent, harde timeout, geen retry-storm).
+
+Wat de kaart wél en niet heeft: naam en plaats bijna altijd, een website bij een
+deel, telefoon soms. Wat ontbreekt blijft leeg en wordt niet aangevuld.
+
+### De branchelijst
+
+25 branches waar de **eigenaar** over het mediabudget beslist — dat maakt het
+gesprek kort. Ze staan in `lib/radio/local/verticals.ts`; een branche toevoegen is
+één item in die lijst. Per branche staan de OSM-tags, de LinkedIn-branchewoorden
+en één regel over waarom radio er past (statische tekst — bij deze branches is de
+angle een eigenschap van de branche, niet van het individuele bedrijf).
+
+Tuincentrum · beddenspeciaalzaak · keukenzaak · meubelzaak · badkamer & sanitair ·
+vloeren · zonwering · kozijnen · dakdekker · hovenier · zwembad & spa · autogarage ·
+autodealer · camper & caravan · motoren · fietsenzaak · sportschool · rijschool ·
+makelaar · uitvaart · reisbureau · dierenspeciaalzaak · opticien · evenementen ·
+bouwmarkt.
+
+### Twee filters die het verschil maken
+
+- **Filialen van ketens overslaan** (standaard aan). De kaart tagt een filiaal met
+  `brand` of `operator`. Bij een keten beslist het hoofdkantoor over het budget, en
+  dan is de hele reden om deze branches te bellen weg. Niet waterdicht, maar gratis
+  en verrassend bruikbaar.
+- **Alleen met website** (standaard uit). Strenger, maar je verliest zaken die wél
+  bestaan en gewoon geen website in de kaart hebben staan.
+
+### En dan de mensen
+
+Blok 2 op dezelfde pagina geeft per branche × provincie een LinkedIn-zoeklink. Die
+open je in LinkedIn en daar laat je Waalaxy de mensen uit importeren. In de
+prospect-tabel staat per bedrijf een `zoek ↗`-link naar de beslisser van dát
+bedrijf. Zie §7.
+
+### Wat deze route NIET doet
+
+Geen scores. Prospects komen binnen met status `New` en zonder fit, trigger of
+tier. Wil je die er alsnog bij, selecteer ze dan op het dashboard en start de
+gewone research (~€0,01 per bedrijf) — maar voor bellen en connecten heb je ze
+niet nodig.
+
+Ook geen grootteklasse: dat de kaart een zaak kent zegt niets over het aantal
+medewerkers, dus `size_band` blijft leeg in plaats van geschat. Het MKB-karakter
+zit in de branchekeuze en het keten-filter, niet in een gegokt getal.
+
+---
+
+## 4. Hoe de scores werken
 
 ### Fit Score (0–100)
 
@@ -264,7 +329,7 @@ telt niet mee — dat wordt hooguit afgestraft via de confidence.
 
 ---
 
-## 4. Anti-hallucinatie
+## 5. Anti-hallucinatie
 
 Dit is het belangrijkste onderdeel. Drie van de vier maatregelen zitten **in
 code**, niet in de prompt.
@@ -318,7 +383,7 @@ opgehaalde pagina staat, mét bron-URL.
 
 ---
 
-## 5. Kosten en historie
+## 6. Kosten en historie
 
 De tool doet API-calls, dus elke ronde kost geld. Dat is expliciet gemaakt in
 plaats van weggestopt.
@@ -368,7 +433,7 @@ prospects niet ongeldig.
 
 ---
 
-## 6. LinkedIn
+## 7. LinkedIn
 
 **Er wordt niets van LinkedIn opgehaald of gescraped.** LinkedIn staat op de
 blocklist van de fetcher, ook als een website ernaartoe linkt.
@@ -387,9 +452,39 @@ die een Waalaxy-import laat mislukken.
 Voor de export is een **persoonsprofiel** (`/in/…`) nodig; een bedrijfspagina is
 niet genoeg, want daar kan Waalaxy geen connectieverzoek naartoe sturen.
 
+### Wat de tool wél doet: de zoekopdracht bouwen
+
+Een URL naar een LinkedIn-ZOEKpagina is geen bewering over een persoon; een
+verzonnen `linkedin.com/in/jan-jansen` is dat wel, en die belandt zo in een
+connectieverzoek aan de verkeerde persoon. Daarom bouwt de tool zoeklinks:
+
+| Waar | Wat |
+| --- | --- |
+| prospect-tabel, kolom LinkedIn | staat er geen profiel-URL, dan `zoek ↗`: zoekt eigenaar/directeur van dít bedrijf, met de plaats erbij |
+| detailpagina, kaart Contact | dezelfde zoekopdracht, plus een veld om de gevonden profiel-URL in te plakken |
+| `/radio/lokaal`, blok 2 | per branche × provincie één zoeklink — de link die je in Waalaxy gebruikt |
+
+De zoekopdrachten gebruiken de booleaanse syntax van LinkedIn, bijvoorbeeld:
+
+```
+("eigenaar" OR "directeur" OR "mede-eigenaar" OR "bedrijfsleider")
+AND ("tuincentrum" OR "tuincentra") AND "Limburg"
+```
+
+Die route is niet alleen toegestaan, hij is ook praktisch de kortste: **Waalaxy
+importeert per campagne uit een LinkedIn-zoekresultaat dat jij open hebt staan.**
+Een lijst losse profiel-URL's zou eerst weer omgezet moeten worden.
+
+**Waarom LinkedIn zelf niet gescrapet wordt** — de rest van het web mag wél, dit
+niet: LinkedIn zet een auth-wall voor profielen en zoekresultaten, dus scrapen kan
+alleen met de sessiecookie van een ingelogd account. Dat is hetzelfde account waar
+Waalaxy op draait. Word je gedetecteerd, dan ben je je hele outbound-pijplijn
+kwijt in plaats van een script. Waalaxy doet die extractie al binnen LinkedIn
+zelf.
+
 ---
 
-## 7. Nette fetcher
+## 8. Nette fetcher
 
 De fetcher gedraagt zich als een nette bezoeker, geen crawler:
 
@@ -405,7 +500,7 @@ iets ontbreekt in plaats van het aan te vullen.
 
 ---
 
-## 8. Research-providers
+## 9. Research-providers
 
 | Provider | Wanneer actief | Karakter |
 | --- | --- | --- |
@@ -445,7 +540,7 @@ De kern werkt zonder betaalde bronnen. Ontbreekt een bron, dan wordt een veld
 
 ---
 
-## 9. Segmenten
+## 10. Segmenten
 
 Twaalf segmenten om te beginnen: Retail, Automotive, Recruitment,
 Leisure & Events, Travel, Consumer e-commerce, Fitness, Education, Home & Living,
@@ -456,7 +551,7 @@ research-prompt en de filters volgen automatisch.
 
 ---
 
-## 10. Statusworkflow
+## 11. Statusworkflow
 
 `New` → `Researched` → `Tier A` / `Tier B` / `Tier C` / `Skip` →
 `Exported to Waalaxy` → `Contacted` → `Replied` → `Qualified` → `Meeting` →
@@ -468,11 +563,12 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 
 ---
 
-## 11. Routes
+## 12. Routes
 
 | Route | Doel |
 | --- | --- |
 | `/radio` | dashboard: statistieken, "bel deze eerst", filters, prospect-tabel, export |
+| `/radio/lokaal` | lokale MKB-bedrijven uit kaartdata + LinkedIn-zoeklinks (gratis) |
 | `/radio/zoeken` | bedrijven laten zoeken, onderzoeken en scoren |
 | `/radio/prospects/[id]` | detailpagina |
 | `/radio/import` | toevoegen: handmatig · CSV · batch |
@@ -482,6 +578,7 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 | `POST /api/radio/prospects/[id]/research` | research & score |
 | `POST /api/radio/research/batch` | batch (max 25 per aanroep) |
 | `GET/POST /api/radio/discover` | zoekrichtingen opvragen / bedrijven zoeken |
+| `GET/POST /api/radio/local` | branches en zoeklinks / kaartdata ophalen |
 | `POST /api/radio/import` | CSV of batch |
 | `POST /api/radio/export/waalaxy` | export van een selectie |
 | `POST/DELETE /api/radio/demo` | demo-data plaatsen / wissen |
@@ -489,7 +586,7 @@ Na research wordt de status automatisch op de tier gezet (tier D → `Skip`),
 
 ---
 
-## 12. Projectstructuur
+## 13. Projectstructuur
 
 ```
 app/radio/                     dashboard, detail, import
@@ -504,6 +601,11 @@ lib/radio/
   provinces.ts                 provincies + verzorgingsgebied
   company-size.ts              grootteklassen en de MKB-grens
   cost.ts                      euro-weergave en schatting vooraf
+  linkedin-search.ts           LinkedIn-ZOEKlinks (nooit profiel-URL's)
+  local/
+    verticals.ts               25 lokale MKB-branches met OSM-tags
+    overpass.ts                OpenStreetMap-bron (gratis, geen key)
+    index.ts                   kaartdata -> prospects, zonder AI
   demo.ts                      DEMO DATA-fixtures
   discovery/
     queries.ts                 zoekrichtingen (§18) — fit en timing
@@ -529,15 +631,15 @@ lib/radio/
     file-driver.ts             JSON-bestand (default)
     postgres-driver.ts         Postgres
     schema.ts  serialize.ts    SQL-schema en conversies
-  __tests__/                   285 tests
+  __tests__/                   312 tests
 ```
 
 ---
 
-## 13. Tests
+## 14. Tests
 
 ```bash
-npm test          # vitest, 285 tests
+npm test          # vitest, 312 tests
 npm run typecheck # tsc --noEmit
 npm run build     # productiebuild
 ```
@@ -553,7 +655,7 @@ wégvalt in plaats van gegokt wordt.
 
 ---
 
-## 14. Beperkingen en vervolgstappen
+## 15. Beperkingen en vervolgstappen
 
 Eerlijk over wat de MVP niet doet:
 

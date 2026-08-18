@@ -452,7 +452,7 @@ export interface ResearchUsage {
 /* -------------------------------------------------------------------------- */
 
 /** Wat voor ronde er is gedraaid. */
-export type RunKind = "discovery" | "research";
+export type RunKind = "discovery" | "research" | "local";
 
 /**
  * Eén uitgevoerde ronde: wat er gezocht of onderzocht is, wat het opleverde en

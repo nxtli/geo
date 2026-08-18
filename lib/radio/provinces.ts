@@ -16,6 +16,11 @@ export interface Province {
   label: string;
   /** Grote plaatsen, zodat de research een stad naar een provincie kan mappen. */
   cities: string[];
+  /**
+   * ISO 3166-2-code. OpenStreetMap tagt provinciegrenzen hiermee, dus dit is de
+   * sleutel waarmee we een gebied in een Overpass-query aanwijzen.
+   */
+  iso: string;
 }
 
 export const PROVINCES: readonly Province[] = [
@@ -23,61 +28,73 @@ export const PROVINCES: readonly Province[] = [
     key: "drenthe",
     label: "Drenthe",
     cities: ["Assen", "Emmen", "Hoogeveen", "Meppel", "Coevorden"],
+    iso: "NL-DR",
   },
   {
     key: "flevoland",
     label: "Flevoland",
     cities: ["Almere", "Lelystad", "Emmeloord", "Dronten"],
+    iso: "NL-FL",
   },
   {
     key: "friesland",
     label: "Friesland",
     cities: ["Leeuwarden", "Drachten", "Sneek", "Heerenveen", "Harlingen"],
+    iso: "NL-FR",
   },
   {
     key: "gelderland",
     label: "Gelderland",
     cities: ["Arnhem", "Nijmegen", "Apeldoorn", "Ede", "Zutphen", "Doetinchem", "Harderwijk"],
+    iso: "NL-GE",
   },
   {
     key: "groningen",
     label: "Groningen",
     cities: ["Groningen", "Veendam", "Delfzijl", "Hoogezand", "Winschoten"],
+    iso: "NL-GR",
   },
   {
     key: "limburg",
     label: "Limburg",
     cities: ["Maastricht", "Venlo", "Sittard", "Heerlen", "Roermond", "Weert"],
+    iso: "NL-LI",
   },
   {
     key: "noord_brabant",
     label: "Noord-Brabant",
     cities: ["Eindhoven", "Tilburg", "Breda", "Den Bosch", "'s-Hertogenbosch", "Helmond", "Roosendaal", "Oss"],
+    iso: "NL-NB",
   },
   {
     key: "noord_holland",
     label: "Noord-Holland",
     cities: ["Amsterdam", "Haarlem", "Alkmaar", "Zaandam", "Hilversum", "Hoorn", "Purmerend"],
+    iso: "NL-NH",
   },
   {
     key: "overijssel",
     label: "Overijssel",
     cities: ["Zwolle", "Enschede", "Deventer", "Hengelo", "Almelo", "Kampen"],
+    iso: "NL-OV",
   },
   {
     key: "utrecht",
     label: "Utrecht",
     cities: ["Utrecht", "Amersfoort", "Veenendaal", "Nieuwegein", "Zeist", "Woerden"],
+    iso: "NL-UT",
   },
   {
     key: "zeeland",
     label: "Zeeland",
     cities: ["Middelburg", "Vlissingen", "Goes", "Terneuzen", "Zierikzee"],
+    iso: "NL-ZE",
   },
   {
     key: "zuid_holland",
     label: "Zuid-Holland",
     cities: ["Rotterdam", "Den Haag", "Leiden", "Dordrecht", "Delft", "Gouda", "Zoetermeer", "Alphen aan den Rijn"],
+    iso: "NL-ZH",
   },
 ] as const;
 
@@ -160,6 +177,11 @@ export function citiesForProvinces(keys: string[], perProvince = 4): string[] {
     if (province) out.push(...province.cities.slice(0, perProvince));
   }
   return [...new Set(out)];
+}
+
+/** ISO 3166-2-code van een provincie, voor de Overpass-query. */
+export function provinceIso(value: string | null | undefined): string | null {
+  return findProvince(value)?.iso ?? null;
 }
 
 /** Compacte provincielijst voor de research-prompt. */

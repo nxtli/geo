@@ -366,7 +366,8 @@ export function flattenRun(run: RunRecord): Record<string, unknown> {
 /** Bouw een RunRecord uit een opslagrecord. Tolerant voor oudere vormen. */
 export function toRunRecord(row: Record<string, unknown>): RunRecord {
   const started = asIsoString(row.started_at, new Date().toISOString());
-  const kind = row.kind === "research" ? "research" : "discovery";
+  const kind: RunRecord["kind"] =
+    row.kind === "research" || row.kind === "local" ? row.kind : "discovery";
   return {
     id: String(row.id ?? crypto.randomUUID()),
     kind,

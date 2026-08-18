@@ -1,6 +1,12 @@
 import type { RunRecord } from "@/lib/radio/types";
 import { formatEur, formatUsd } from "@/lib/radio/cost";
 
+const RUN_KIND_LABEL: Record<RunRecord["kind"], string> = {
+  discovery: "Zoeken",
+  research: "Onderzoek",
+  local: "Kaartdata",
+};
+
 /**
  * Run-historie: wat er gedraaid heeft, wat het opleverde en wat het kostte.
  *
@@ -63,10 +69,12 @@ export function RunHistory({ runs }: { runs: RunRecord[] }) {
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       run.kind === "discovery"
                         ? "bg-brand/10 text-brand"
-                        : "bg-success/10 text-success"
+                        : run.kind === "local"
+                          ? "bg-muted/10 text-muted"
+                          : "bg-success/10 text-success"
                     }`}
                   >
-                    {run.kind === "discovery" ? "Zoeken" : "Onderzoek"}
+                    {RUN_KIND_LABEL[run.kind]}
                   </span>
                 </Td>
                 <Td>
@@ -76,7 +84,9 @@ export function RunHistory({ runs }: { runs: RunRecord[] }) {
                       <summary className="cursor-pointer text-xs text-subtle">
                         {run.kind === "discovery"
                           ? `${run.targets.length} zoekrichting${run.targets.length === 1 ? "" : "en"}`
-                          : `${run.targets.length} bedrijven`}
+                          : run.kind === "local"
+                            ? `${run.targets.length} branche${run.targets.length === 1 ? "" : "s"}`
+                            : `${run.targets.length} bedrijven`}
                       </summary>
                       <ul className="mt-1 space-y-0.5 text-xs text-muted">
                         {run.targets.map((target, index) => (
@@ -100,7 +110,7 @@ export function RunHistory({ runs }: { runs: RunRecord[] }) {
                 </Td>
                 <Td className="text-right">
                   <span className="text-ink">
-                    {run.added} {run.kind === "discovery" ? "nieuw" : "gescoord"}
+                    {run.added} {run.kind === "research" ? "gescoord" : "nieuw"}
                   </span>
                   {run.duplicates > 0 ? (
                     <span className="mt-0.5 block text-xs text-subtle">

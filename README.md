@@ -32,6 +32,12 @@ npm install
 npm run dev          # http://localhost:3000/radio
 ```
 
+Op **`/radio/lokaal`** zit de gratis route: kies een branche (tuincentra,
+beddenzaken, autogarages, …) en een provincie, en je krijgt de lokale MKB-zaken
+uit openbare kaartdata — geen AI, geen credits — plus per bedrijf een
+LinkedIn-zoeklink naar de eigenaar, en per branche+provincie een zoeklink om in
+Waalaxy te importeren.
+
 Met een `ANTHROPIC_API_KEY` erbij kan de tool op `/radio/zoeken` **zelf
 Nederlandse bedrijven vinden** (web search), hun website verifiëren, ze
 onderzoeken en op prioriteit zetten — bedoeld om de lijst te vullen, niet om er

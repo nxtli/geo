@@ -16,6 +16,7 @@ import {
 import { truncate } from "@/lib/radio/validation";
 import { provincesLabel } from "@/lib/radio/provinces";
 import { sizeBandLabel } from "@/lib/radio/company-size";
+import { ownerSearchUrl } from "@/lib/radio/linkedin-search";
 
 interface MissingRow {
   id: string;
@@ -399,7 +400,19 @@ export function ProspectTable({ prospects }: { prospects: Prospect[] }) {
                           profiel
                         </a>
                       ) : (
-                        <span className="text-subtle">—</span>
+                        // Geen profiel-URL? Dan geen streepje, maar de zoekopdracht
+                        // waarmee je hem zelf in één klik vindt. De tool verzint
+                        // nooit een profiel-URL, maar mag je wel de zoekactie
+                        // uit handen nemen.
+                        <a
+                          href={ownerSearchUrl(p.company_name, { city: p.city })}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          title="Zoek de eigenaar of directeur van dit bedrijf op LinkedIn"
+                          className="text-muted underline decoration-border hover:text-ink"
+                        >
+                          zoek ↗
+                        </a>
                       )}
                     </td>
                     <td className="px-3 py-2">

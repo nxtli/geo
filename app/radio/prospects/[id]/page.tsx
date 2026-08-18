@@ -5,6 +5,7 @@ import { getProspect } from "@/lib/radio/store";
 import { segmentLabel } from "@/lib/radio/segments";
 import { provincesLabel } from "@/lib/radio/provinces";
 import { sizeBandLabel } from "@/lib/radio/company-size";
+import { ownerSearchUrl } from "@/lib/radio/linkedin-search";
 import { tierDef } from "@/lib/radio/scoring";
 import { TRIGGER_KIND_LABELS } from "@/lib/radio/scoring/triggers";
 import { isReadyForWaalaxy } from "@/lib/radio/filters";
@@ -340,7 +341,18 @@ export default async function ProspectDetail({
                       LinkedIn-profiel
                     </ExternalLink>
                   ) : (
-                    <p className="text-sm text-warning">Nog geen LinkedIn-URL</p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-warning">Nog geen LinkedIn-URL</p>
+                      <ExternalLink
+                        href={ownerSearchUrl(prospect.company_name, {
+                          city: prospect.city,
+                          roles: contactName ? [contactName] : undefined,
+                        })}
+                        className="text-sm"
+                      >
+                        Zoek deze persoon op LinkedIn ↗
+                      </ExternalLink>
+                    </div>
                   )}
                   {prospect.contact.source ? (
                     <p className="text-xs text-subtle">
@@ -358,9 +370,16 @@ export default async function ProspectDetail({
                     <strong className="text-ink">Recommended role:</strong>{" "}
                     {prospect.recommended_contact_role ?? "Head of Marketing"}
                   </p>
+                  <ExternalLink
+                    href={ownerSearchUrl(prospect.company_name, { city: prospect.city })}
+                    className="text-sm"
+                  >
+                    Zoek de eigenaar of directeur op LinkedIn ↗
+                  </ExternalLink>
                   <p className="mt-2 text-xs text-subtle">
-                    Er wordt geen persoon gegokt. Vul hieronder een naam en LinkedIn-URL in als je
-                    die hebt.
+                    Er wordt geen persoon gegokt en geen profiel-URL geconstrueerd. De link
+                    hierboven is een ZOEKopdracht op naam en plaats; plak de juiste profiel-URL
+                    hieronder in zodra je hem hebt.
                   </p>
                 </div>
               )}

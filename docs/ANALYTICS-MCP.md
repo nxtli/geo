@@ -82,12 +82,32 @@ via `uvx`, zodat er niets globaal geïnstalleerd hoeft te worden.
 Beschikbare tools: `get_account_summaries`, `get_property_details`,
 `list_google_ads_links`, `list_property_annotations`,
 `get_custom_dimensions_and_metrics`, `run_report`, `run_realtime_report`,
-`run_funnel_report`.
+`run_funnel_report`, `run_conversions_report`.
 
-### Credentials
+### Zonder Google Cloud: via Google Sheets
 
-De server verwacht Application Default Credentials via
-`GOOGLE_APPLICATION_CREDENTIALS`. Twee routes:
+De GA4 Data API vraagt hoe dan ook OAuth-credentials, en die horen bij een
+Cloud-project — van jezelf, of van een derde partij die de server host. Wil je
+geen Cloud-project aanmaken, dan is de praktische route om GA4 niet via de API
+te ontsluiten maar via Sheets:
+
+1. Google Sheets → Extensies → Add-ons → **GA4 Reports Builder for Google
+   Analytics** installeren (officieel van Google, gratis)
+2. Rapport definiëren: property, periode, dimensies, metrics
+3. **Scheduled report** aanzetten (uur / dag / week / maand)
+4. De sheet in de AODR-map in Drive zetten
+
+De data ververst zichzelf en is via de Drive-connector direct leesbaar. Geen
+Cloud-project, geen sleutelbeheer, en de autorisatie loopt gewoon via het
+Google-account dat al toegang tot de property heeft.
+
+Beperking: je leest wat het rapport bevat, niet de hele API. Voor ad-hoc
+vragen buiten de gedefinieerde dimensies moet het rapport aangepast worden.
+
+### Credentials voor de MCP-server
+
+Wil je wél de volledige API (elke dimensie/metric, ad hoc), dan verwacht de
+server Application Default Credentials.
 
 **Lokaal (eigen machine):**
 
@@ -102,17 +122,26 @@ gcloud auth application-default login \
 2. API's aanzetten: **Google Analytics Data API** en **Google Analytics Admin API**
 3. GA4 → Beheer → Property-toegangsbeheer → het service-account-e-mailadres
    toevoegen met rol **Viewer**
-4. De sleutel beschikbaar maken als `GOOGLE_APPLICATION_CREDENTIALS`
+4. `GOOGLE_APPLICATION_CREDENTIALS` in de omgeving laten wijzen naar het pad
+   van de sleutel
 
 Bewaar de sleutel nooit in de repo. Voor remote sessies: zet de inhoud als
 environment-secret in de omgevingsinstellingen en schrijf hem bij sessiestart
 naar een bestand buiten de working tree.
+
+Let op: `.mcp.json` zet zelf géén `env`-blok met `${GOOGLE_APPLICATION_CREDENTIALS}`.
+Een niet-gezette variabele wordt daar letterlijk doorgegeven, waarna de server
+klaagt over een bestand met de naam `${GOOGLE_APPLICATION_CREDENTIALS}`. De
+server erft nu gewoon de omgeving en volgt de normale ADC-zoekvolgorde.
 
 ### Read-only borgen
 
 Twee lagen: de scope `analytics.readonly` staat schrijfacties niet toe, en de
 rol **Viewer** op de property doet dat evenmin. De server zelf heeft geen
 enkele schrijf-tool.
+
+De Sheets-route is read-only van nature: de add-on leest rapporten uit en
+schrijft alleen naar het spreadsheet, nooit terug naar de property.
 
 ## 3. AODR — vindplaatsen
 

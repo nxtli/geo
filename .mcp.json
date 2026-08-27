@@ -2,10 +2,7 @@
   "mcpServers": {
     "google-analytics": {
       "command": "uvx",
-      "args": ["--from", "analytics-mcp", "google-analytics-mcp"],
-      "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS}"
-      }
+      "args": ["--from", "analytics-mcp", "google-analytics-mcp"]
     }
   }
 }

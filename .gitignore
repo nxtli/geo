@@ -22,3 +22,8 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# service-account sleutels (GA4 MCP) — nooit committen
+*service-account*.json
+*-credentials.json
+gcp-key*.json

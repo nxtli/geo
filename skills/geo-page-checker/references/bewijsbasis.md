@@ -81,6 +81,17 @@ Herzien als: Een replicatie op live engines vindt geen effect van diepgang of ve
 - [Vishwakarma, What Gets Cited](https://arxiv.org/abs/2605.25517), 2026
 - [Tian e.a., Diagnosing and Repairing Citation Failures in GEO](https://arxiv.org/abs/2603.09296), 2026
 
+### E-UNIQUE (richtlijn)
+
+Inhoud die iets toevoegt aan wat al bekend is, heeft de voorkeur: eigen onderzoek, eigen data, ervaring uit klantgesprekken en cases, een eigen methode of standpunt. Google noemt dit 'non-commodity content' en zet het bovenaan zijn advies voor AI-functies. Een taalmodel kan algemene kennis zelf formuleren en heeft daar geen bron voor nodig. Voor informatie die nergens anders staat, is de pagina de enige bron.
+
+Voorbehoud: Er is geen gepubliceerde meting van het effect op citaties. De redenering is logisch en sluit aan op onderzoek naar diepgang en inhoudelijke armoede (E-DEPTH), maar is niet los getest. Eigen inbreng telt alleen als de herkomst erbij staat. Een AI-collega mag deze inhoud nooit zelf verzinnen: de organisatie levert haar aan.
+
+Herzien als: Een studie meet het effect van unieke informatie op citaties, of de eigen proef toont dat pagina's met eigen data niet vaker worden aanbevolen.
+
+- [Google, Optimizing your website for generative AI features on Google Search](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide), 2026
+- [Search Engine Journal over de Google-gids](https://www.searchenginejournal.com/googles-new-ai-search-guide-calls-aeo-and-geo-still-seo/), 2026
+
 ### E-CONFIDENT (middel)
 
 Stellige taal met onderbouwing wint van taal vol voorbehouden. Inhoud zonder tegenstrijdigheden wint van inhoud die zichzelf tegenspreekt.

@@ -41,6 +41,7 @@ Oordeel per criterium
 - "voldoet": de pagina voldoet aan de toets achter "Voldoet als".
 - "deels": een deel is aanwezig, een deel ontbreekt.
 - "niet": het ontbreekt.
+- Eigen inbreng (U1 tot en met U3): stel per passage de vraag of een taalmodel dit zonder deze pagina had kunnen schrijven. Algemene uitleg, bekende voordelen en cijfers van anderen tellen niet. Eigen data, eigen onderzoek, cases, observaties uit klantgesprekken en een eigen methode of standpunt tellen wel, mits de herkomst erbij staat. In het voorstel verzin je deze inhoud nooit: schrijf [invullen: ...] en zeg welke bron de organisatie daarvoor heeft (onderzoek, klantgesprekken, verkoopdata).
 - "nvt": niet te beoordelen met de aangeleverde tekst of kennis. Gebruik dit liever dan te gokken. Bijvoorbeeld A4 zonder bekende keuzecriteria, F3 en G4 altijd.
 - "finding": één of twee zinnen over wat je op de pagina zag.
 - "quote": een letterlijk citaat van de pagina (maximaal 20 woorden) dat je oordeel onderbouwt. Leeg als er niets te citeren valt. Verzin geen citaat.

@@ -180,13 +180,14 @@ Gebruik de dimensies en punten uit `references/geo-checklist.md`:
 
 | Dimensie | Punten | Kern |
 |---|---|---|
-| Aansluiting op de vraag | 30 | Beantwoordt de pagina de vragen en keuzecriteria van de koper? |
-| Concrete, controleerbare informatie | 20 | Prijs, specificaties, diepgang, vergelijking |
-| Citeerbare antwoorden | 15 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
+| Aansluiting op de vraag | 26 | Beantwoordt de pagina de vragen en keuzecriteria van de koper? |
+| Concrete, controleerbare informatie | 18 | Prijs, specificaties, diepgang, vergelijking |
+| Eigen inbreng | 10 | Eigen onderzoek, eigen data, cases en klantgesprekken, eigen methode of standpunt |
+| Citeerbare antwoorden | 13 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
 | Bewijs en bronnen | 10 | Cijfers met bron, citaat met naam, controleerbare claims |
 | Actualiteit | 5 | Zichtbare datum met jaartal, actuele gegevens |
 | Entiteit en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
-| Paginabasis | 10 | Koppen, titel, ankerteksten, pagina-ervaring |
+| Paginabasis | 8 | Koppen, titel, ankerteksten, pagina-ervaring |
 
 De drie poortwachters (zoekbots toegelaten, indexeerbaar, tekst in de HTML) krijgen geen punten.
 Faalt er een, dan is de score hooguit 20. Structured data, llms.txt en canonical meld je als
@@ -194,6 +195,10 @@ hygiene zonder punten: voor schema en llms.txt is geen effect op AI-citaties aan
 
 Geef per criterium een oordeel (voldoet, deels, niet, niet te beoordelen) met een letterlijk
 citaat van de pagina. Reken de punten uit volgens de rekenregels in de scorecard.
+
+Eigen inbreng beoordeel je met een vraag: had een taalmodel deze passage zonder deze pagina kunnen
+schrijven? Zo ja, dan telt de passage niet. Verzin eigen inbreng nooit. Vraag de organisatie om
+onderzoek, klantgesprekken of data en schrijf tot die tijd `[invullen: ...]`.
 
 Rapporteer de lezer-lens (herkenning, belofte, bewijs, actie, eenvoud) apart, zonder punten.
 

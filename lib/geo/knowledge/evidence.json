@@ -116,6 +116,25 @@
       "revise_if": "Een replicatie op live engines vindt geen effect van diepgang of vergelijking."
     },
     {
+      "id": "E-UNIQUE",
+      "grade": "richtlijn",
+      "claim": "Inhoud die iets toevoegt aan wat al bekend is, heeft de voorkeur: eigen onderzoek, eigen data, ervaring uit klantgesprekken en cases, een eigen methode of standpunt. Google noemt dit 'non-commodity content' en zet het bovenaan zijn advies voor AI-functies. Een taalmodel kan algemene kennis zelf formuleren en heeft daar geen bron voor nodig. Voor informatie die nergens anders staat, is de pagina de enige bron.",
+      "caveat": "Er is geen gepubliceerde meting van het effect op citaties. De redenering is logisch en sluit aan op onderzoek naar diepgang en inhoudelijke armoede (E-DEPTH), maar is niet los getest. Eigen inbreng telt alleen als de herkomst erbij staat. Een AI-collega mag deze inhoud nooit zelf verzinnen: de organisatie levert haar aan.",
+      "revise_if": "Een studie meet het effect van unieke informatie op citaties, of de eigen proef toont dat pagina's met eigen data niet vaker worden aanbevolen.",
+      "sources": [
+        {
+          "title": "Google, Optimizing your website for generative AI features on Google Search",
+          "url": "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+          "year": 2026
+        },
+        {
+          "title": "Search Engine Journal over de Google-gids",
+          "url": "https://www.searchenginejournal.com/googles-new-ai-search-guide-calls-aeo-and-geo-still-seo/",
+          "year": 2026
+        }
+      ]
+    },
+    {
       "id": "E-CONFIDENT",
       "grade": "middel",
       "claim": "Stellige taal met onderbouwing wint van taal vol voorbehouden. Inhoud zonder tegenstrijdigheden wint van inhoud die zichzelf tegenspreekt.",

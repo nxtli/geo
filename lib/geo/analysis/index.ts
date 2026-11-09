@@ -5,6 +5,11 @@ import { MockAnalysisProvider } from "./providers/mock";
 import { ClaudeAnalysisProvider } from "./providers/claude";
 import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
 import { probeLlmVisibility } from "./llm-visibility";
+import { rescore } from "./provider";
+import { buildActions, deriveLegacyLists } from "./scorecard";
+import { CURRENT_RUBRIC_VERSION } from "./rubric";
+import { buildFactLayer } from "../facts/checks";
+import { EVIDENCE, evidenceIsStale } from "../knowledge";
 
 /**
  * Analysis provider registry + selection.
@@ -99,6 +104,7 @@ export async function runGeoAnalysis(
       provider.analyze(input, opts),
       ANALYSIS_DEADLINE_MS,
     );
+    finalizeAnalysis(result, input);
     await applyLlmVisibility(result, probe);
     return { result, usage, providerId: provider.id, degraded: false };
   } catch {
@@ -107,9 +113,56 @@ export async function runGeoAnalysis(
     // the visitor still gets a (flagged degraded) report within the time budget.
     logInfo("analysis", `provider "${provider.id}" failed/timed out — falling back to mock`);
     const { result } = await registry["mock"].analyze(input);
+    finalizeAnalysis(result, input);
     await applyLlmVisibility(result, probe);
     return { result, providerId: "mock", degraded: true };
   }
+}
+
+/**
+ * Legt de feitenlaag over het resultaat van de provider:
+ *  - technische checks en hygiëne komen uit gemeten feiten, niet uit het model
+ *  - feiten beslissen de criteria die ze kunnen beslissen
+ *  - een falende poortwachter topt de score af
+ *  - elk verloren punt krijgt een advies met eigenaar en "klaar als"
+ */
+export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisInput): GeoAnalysisResult {
+  const layer = buildFactLayer(input);
+  result.technical_checks = layer.technical_checks;
+  result.hygiene = layer.hygiene;
+  result.blocked = layer.blocked;
+  result.rubric_version = result.rubric_version || CURRENT_RUBRIC_VERSION;
+
+  const fetched = Boolean(input.facts);
+  result.unscored_reason = fetched
+    ? null
+    : "De pagina kon niet worden opgehaald. Zonder de inhoud is er geen score.";
+
+  if (result.criteria.length) {
+    const forced = new Map(layer.forced.map((c) => [c.id, c]));
+    result.criteria = result.criteria.map((c) => forced.get(c.id) ?? c);
+    for (const f of layer.forced) {
+      if (!result.criteria.some((c) => c.id === f.id)) result.criteria.push(f);
+    }
+  }
+  rescore(result);
+
+  if (result.criteria.length) {
+    result.actions = buildActions(result.criteria, result.actions, layer.gateActions);
+    Object.assign(result, deriveLegacyLists(result.actions));
+  } else {
+    result.actions = layer.gateActions;
+  }
+
+  result.scope_notes = [
+    "Deze scan beoordeelt of één pagina geschikt is voor AI-zoekmachines. Hij meet niet hoe vaak een AI-tool het merk noemt of aanbeveelt.",
+    (input.buyer?.origin ?? "bezoeker") === "marketingbrein"
+      ? "De klantvragen komen uit goedgekeurde kennis in het Marketingbrein."
+      : "De klantvragen zijn door de aanvrager ingevuld en niet getoetst bij kopers.",
+    "Niet gemeten: laadsnelheid, vermeldingen buiten de eigen site, blokkades door firewall of CDN.",
+    `Kennisbank ${EVIDENCE.version}, herzien op ${EVIDENCE.reviewed}.${evidenceIsStale() ? " Let op: de kennisbank is toe aan herziening." : ""}`,
+  ];
+  return result;
 }
 
 /** Graft the REAL per-LLM answers onto the result's comparison table. */

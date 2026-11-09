@@ -1,5 +1,7 @@
 import type { GeoPageMetadata } from "./types";
 import { logError } from "./logger";
+import { extractPageFacts, htmlToOutlineText, type PageFacts } from "./facts/page";
+import { analyzeRobots, type RobotsReport } from "./facts/robots";
 
 /**
  * Best-effort homepage fetch + real technical signals for the GEO check.
@@ -14,15 +16,20 @@ export interface ScrapeResult {
   robotsTxt: string | null;
   /** /llms.txt: true = present, false = absent (e.g. 404), undefined = not checked. */
   llmsTxtPresent?: boolean;
+  /** Gemeten feiten uit HTML en headers. null als de pagina niet is opgehaald. */
+  facts: PageFacts | null;
+  /** Toegang per AI-bot volgens robots.txt. */
+  robots: RobotsReport;
 }
 
-const MAX_CHARS = 12_000;
+const MAX_CHARS = 16_000;
 const PAGE_TIMEOUT_MS = 7_000;
 const SIGNAL_TIMEOUT_MS = 5_000;
 
 interface Probe {
   status: number | null; // null = network error / timeout (truly unknown)
   text: string | null;
+  xRobotsTag?: string | null;
 }
 
 export async function fetchHomepage(url: string): Promise<ScrapeResult> {
@@ -56,12 +63,16 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
         ? true
         : false;
 
+  const robotsReport = analyzeRobots(robotsTxt, url);
+
   if (page.status === null || !isOk(page.status) || !page.text) {
     return {
       text: null,
       metadata: { fetched: false, status: page.status ?? null },
       robotsTxt,
       llmsTxtPresent,
+      facts: null,
+      robots: robotsReport,
     };
   }
 
@@ -77,7 +88,9 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
   const description =
     extractAttr(html, /<meta[^>]+name=["']description["'][^>]*>/i) ??
     extractAttr(html, /<meta[^>]+property=["']og:description["'][^>]*>/i);
-  const text = htmlToText(html).slice(0, MAX_CHARS);
+  const facts = extractPageFacts(html, url, { xRobotsTag: page.xRobotsTag ?? null });
+  // Tekst mét herkenbare koppen, zodat het model de structuur ziet.
+  const text = htmlToOutlineText(html).slice(0, MAX_CHARS);
 
   return {
     text: text || null,
@@ -86,7 +99,7 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
       status: page.status,
       title: title ?? null,
       description: description ?? null,
-      word_count: text ? text.split(/\s+/).length : 0,
+      word_count: facts.wordCount,
       meta_robots: metaRobots,
       has_json_ld: hasJsonLd,
       h1_count: h1Count,
@@ -94,6 +107,8 @@ export async function fetchHomepage(url: string): Promise<ScrapeResult> {
     },
     robotsTxt,
     llmsTxtPresent,
+    facts,
+    robots: robotsReport,
   };
 }
 
@@ -127,27 +142,13 @@ async function probe(target: string, timeoutMs: number, html = false): Promise<P
     } catch {
       text = null;
     }
-    return { status: res.status, text };
+    return { status: res.status, text, xRobotsTag: res.headers.get("x-robots-tag") };
   } catch (error) {
     if (html) logError("scrape.fetchHomepage", error);
     return { status: null, text: null };
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function extractTag(html: string, re: RegExp): string | null {

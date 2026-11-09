@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
-import { GEO_CATEGORIES, GEO_MAX_SCORE } from "./rubric";
+import { CURRENT_RUBRIC_VERSION, GEO_MAX_SCORE, LEGACY_RUBRIC_VERSION, rubricFor, type RubricCategory } from "./rubric";
+import { normalizeCriteria, scoreFromCriteria } from "./scorecard";
+import { SCORECARD } from "../knowledge";
 
 type CategoryScore = GeoAnalysisResult["category_scores"][number];
 
@@ -12,7 +14,7 @@ type CategoryScore = GeoAnalysisResult["category_scores"][number];
  * the scale. Scores are matched by key, then by label, then by position, and
  * rescaled if the model used a different max for a category.
  */
-function reconcileToRubric(returned: CategoryScore[]): CategoryScore[] {
+function reconcileToRubric(returned: CategoryScore[], GEO_CATEGORIES: RubricCategory[]): CategoryScore[] {
   // Consume each returned entry AT MOST ONCE so no model category is counted in
   // two rubric slots (which would inflate the total / misattribute scores).
   const used = new Array(returned.length).fill(false);
@@ -129,9 +131,40 @@ const technicalCheckSchema = z.object({
   detail: z.string().default(""),
 });
 
+const criterionSchema = z.object({
+  id: z.string(),
+  verdict: z.enum(["voldoet", "deels", "niet", "nvt"]).catch("nvt"),
+  finding: z.string().default(""),
+  quote: z.string().default(""),
+});
+
+const actionSchema = z.object({
+  title: z.string().default(""),
+  criterion: z.string().default(""),
+  why: z.string().default(""),
+  where: z.string().default(""),
+  before: z.string().default(""),
+  after: z.string().default(""),
+  owner: z.string().default(""),
+  effort: z.enum(["laag", "midden", "hoog"]).catch("midden"),
+  done_when: z.string().default(""),
+  points: z.coerce.number().catch(0).default(0),
+  evidence_grade: z.string().default(""),
+  source: z.string().default(""),
+});
+
 export const geoAnalysisResultSchema = z.object({
+  rubric_version: z.string().optional(),
+  criteria: z.array(criterionSchema).default([]),
+  actions: z.array(actionSchema).default([]),
+  blocked: z.boolean().catch(false).default(false),
+  unscored_reason: z.string().nullable().catch(null).default(null),
+  hygiene: z.array(z.object({ label: z.string(), status: z.enum(["goed", "aandacht", "blokker", "onbekend"]).catch("onbekend"), detail: z.string().default("") })).default([]),
+  scope_notes: z.array(z.string()).default([]),
   visibility_score: z.coerce
     .number()
+    .catch(0)
+    .default(0)
     .transform((n) => Math.max(0, Math.min(100, Math.round(n)))),
   category_scores: z.array(categoryScoreSchema).default([]),
   technical_checks: z.array(technicalCheckSchema).default([]),
@@ -165,16 +198,32 @@ export const geoAnalysisResultSchema = z.object({
 
 export function parseAnalysisResult(value: unknown): GeoAnalysisResult {
   const parsed = geoAnalysisResultSchema.parse(value) as GeoAnalysisResult;
-  // Normalize the breakdown onto the canonical rubric and derive the headline
-  // from it, so the total ALWAYS equals the sum of the breakdown AND is a true
-  // /100 ("hoe de score is opgebouwd" can never contradict or mislabel the
-  // headline). Only when no breakdown is supplied do we keep the model's
-  // already-clamped (0..100) visibility_score as-is.
+  // Versie: expliciet opgeslagen, anders "2" als er oordelen per criterium zijn,
+  // anders de oude rubric (resultaten van vóór de versie-invoering).
+  parsed.rubric_version =
+    parsed.rubric_version || (parsed.criteria.length ? CURRENT_RUBRIC_VERSION : LEGACY_RUBRIC_VERSION);
+  return rescore(parsed);
+}
+
+/**
+ * Leidt de punten af. Bij rubric 2 komen ze uit de oordelen per criterium (het
+ * taalmodel rekent niet zelf). De kop is altijd de som van de dimensies, met een
+ * plafond zodra een poortwachter faalt.
+ */
+export function rescore(parsed: GeoAnalysisResult): GeoAnalysisResult {
+  if (parsed.rubric_version === CURRENT_RUBRIC_VERSION && parsed.criteria.length) {
+    parsed.criteria = normalizeCriteria(parsed.criteria);
+    parsed.category_scores = scoreFromCriteria(parsed.criteria).category_scores;
+  }
   if (parsed.category_scores.length > 0) {
-    parsed.category_scores = reconcileToRubric(parsed.category_scores);
+    parsed.category_scores = reconcileToRubric(parsed.category_scores, rubricFor(parsed.rubric_version));
     const sum = parsed.category_scores.reduce((s, c) => s + c.score, 0);
     parsed.visibility_score = Math.max(0, Math.min(GEO_MAX_SCORE, sum));
   }
+  if (parsed.blocked) {
+    parsed.visibility_score = Math.min(parsed.visibility_score, SCORECARD.blocked_cap);
+  }
+  if (parsed.unscored_reason) parsed.visibility_score = 0;
   return parsed;
 }
 
@@ -188,33 +237,35 @@ export const geoAnalysisJsonSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    visibility_score: { type: "integer" },
-    category_scores: {
+    criteria: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
-          key: { type: "string" },
-          label: { type: "string" },
-          score: { type: "integer" },
-          max: { type: "integer" },
-          summary: { type: "string" },
+          id: { type: "string" },
+          verdict: { type: "string", enum: ["voldoet", "deels", "niet", "nvt"] },
+          finding: { type: "string" },
+          quote: { type: "string" },
         },
-        required: ["key", "label", "score", "max", "summary"],
+        required: ["id", "verdict", "finding", "quote"],
       },
     },
-    technical_checks: {
+    actions: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
         properties: {
-          label: { type: "string" },
-          status: { type: "string", enum: ["goed", "aandacht", "blokker", "onbekend"] },
-          detail: { type: "string" },
+          title: { type: "string" },
+          criterion: { type: "string" },
+          why: { type: "string" },
+          where: { type: "string" },
+          before: { type: "string" },
+          after: { type: "string" },
+          effort: { type: "string", enum: ["laag", "midden", "hoog"] },
         },
-        required: ["label", "status", "detail"],
+        required: ["title", "criterion", "why", "where", "before", "after", "effort"],
       },
     },
     short_summary: { type: "string" },
@@ -262,29 +313,14 @@ export const geoAnalysisJsonSchema = {
         required: ["question", "why"],
       },
     },
-    quick_wins: { type: "array", items: { type: "string" } },
-    thirty_day_action_plan: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          title: { type: "string" },
-          why: { type: "string" },
-          effort: { type: "string", enum: ["laag", "midden", "hoog"] },
-        },
-        required: ["title", "why", "effort"],
-      },
-    },
     suggested_homepage_copy_improvements: {
       type: "array",
       items: { type: "string" },
     },
   },
   required: [
-    "visibility_score",
-    "category_scores",
-    "technical_checks",
+    "criteria",
+    "actions",
     "short_summary",
     "what_ai_understands",
     "likely_ai_positioning",
@@ -295,8 +331,6 @@ export const geoAnalysisJsonSchema = {
     "content_gaps",
     "recommended_pages",
     "recommended_faq_questions",
-    "quick_wins",
-    "thirty_day_action_plan",
     "suggested_homepage_copy_improvements",
   ],
 } as const;

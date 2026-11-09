@@ -1,0 +1,48 @@
+{
+  "version": "2",
+  "blocked_cap": 20,
+  "verdict_values": { "voldoet": 1, "deels": 0.5, "niet": 0 },
+  "gates": [
+    { "id": "P1", "name": "AI-zoekbots mogen de pagina ophalen", "evidence": ["E-BOTS"], "owner": "developer", "done_when": "robots.txt bevat geen Disallow voor deze pagina bij OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot en Bingbot." },
+    { "id": "P2", "name": "Pagina is indexeerbaar en mag in snippets", "evidence": ["E-INDEX"], "owner": "developer", "done_when": "Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header." },
+    { "id": "P3", "name": "Kerntekst staat in de HTML", "evidence": ["E-RENDER"], "owner": "developer", "done_when": "De koppen en de kerntekst staan in de HTML die de server teruggeeft, zonder JavaScript." }
+  ],
+  "dimensions": [
+    { "key": "vraagaansluiting", "label": "Aansluiting op de vraag", "criteria": [
+      { "id": "A1", "name": "De pagina beantwoordt de opgegeven klantvragen", "max": 8, "evidence": ["E-RELEVANCE", "E-BUYER"], "owner": "schrijver", "fix": "Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig.", "done_when": "Elke opgegeven klantvraag heeft op de pagina een antwoord dat los leesbaar is." },
+      { "id": "A2", "name": "De begrippen uit de vraag staan vroeg op de pagina", "max": 8, "evidence": ["E-RELEVANCE", "E-DEPTH"], "owner": "schrijver", "fix": "Zet het onderwerp en het aanbod in de woorden van de klant in de h1 en de eerste alinea.", "done_when": "De h1 en de eerste 100 woorden noemen het aanbod en het onderwerp van de belangrijkste klantvraag." },
+      { "id": "A3", "name": "De pagina zegt voor wie het aanbod is", "max": 6, "evidence": ["E-RELEVANCE", "E-BUYER"], "owner": "schrijver", "fix": "Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat.", "done_when": "De eerste alinea noemt het publiek en de situatie waarin het aanbod past." },
+      { "id": "A4", "name": "De pagina behandelt de keuzecriteria van de koper", "max": 4, "evidence": ["E-BUYER", "E-DEPTH"], "owner": "schrijver", "fix": "Behandel per keuzecriterium wat het aanbod biedt, met een feit of een getal.", "done_when": "Elk bekend keuzecriterium komt op de pagina terug met een concreet antwoord." },
+      { "id": "A5", "name": "Taal en regio passen bij de vraag", "max": 4, "evidence": ["E-RELEVANCE"], "owner": "schrijver", "fix": "Schrijf in de taal van het publiek en noem het werkgebied.", "done_when": "Taal, valuta en werkgebied passen bij het publiek." } ] },
+    { "key": "concrete_informatie", "label": "Concrete, controleerbare informatie", "criteria": [
+      { "id": "B1", "name": "De prijs staat expliciet op de pagina", "max": 7, "evidence": ["E-PRICE"], "owner": "mens", "fix": "Zet een prijs, een vanaf-prijs of een prijsvoorbeeld op de pagina, met wat inbegrepen is. Wil je geen prijs noemen, leg dan uit waar de prijs van afhangt.", "done_when": "De pagina noemt een bedrag of legt in één alinea uit waar de prijs van afhangt." },
+      { "id": "B2", "name": "Specificaties en voorwaarden zijn concreet", "max": 6, "evidence": ["E-PRICE"], "owner": "schrijver", "fix": "Vervang bijvoeglijke naamwoorden door getallen: duur, aantallen, levertijd, wat inbegrepen is.", "done_when": "Duur, omvang en inbegrepen onderdelen staan er als feitelijke zinnen met getallen." },
+      { "id": "B3", "name": "Het onderwerp is diepgaand behandeld", "max": 5, "evidence": ["E-DEPTH"], "owner": "schrijver", "fix": "Werk het proces, de werking of de aanpak uit in stappen.", "done_when": "Een lezer zonder voorkennis begrijpt wat er gebeurt na de eerste stap." },
+      { "id": "B4", "name": "De pagina vergelijkt met alternatieven", "max": 2, "evidence": ["E-DEPTH"], "owner": "schrijver", "fix": "Voeg een korte, eerlijke vergelijking toe met het meest voor de hand liggende alternatief.", "done_when": "De pagina noemt minstens één alternatief en het verschil." } ] },
+    { "key": "citeerbare_antwoorden", "label": "Citeerbare antwoorden", "criteria": [
+      { "id": "C1", "name": "Het antwoord staat eerst en is los leesbaar", "max": 6, "evidence": ["E-RELEVANCE", "E-TARGETED"], "owner": "schrijver", "fix": "Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen.", "done_when": "De eerste zin onder elke kop klopt zonder de rest van de pagina." },
+      { "id": "C2", "name": "De taal is stellig en onderbouwd", "max": 4, "evidence": ["E-CONFIDENT"], "owner": "schrijver", "fix": "Vervang voorbehouden (kan, mogelijk, vaak) door een feit met een getal of een bron.", "done_when": "Kernclaims bevatten geen voorbehoud zonder onderbouwing." },
+      { "id": "C3", "name": "De pagina spreekt zichzelf niet tegen", "max": 5, "evidence": ["E-CONFIDENT"], "owner": "mens", "fix": "Maak prijzen, namen en cijfers op de hele pagina gelijk.", "done_when": "Elk feit komt op de pagina maar in één versie voor." } ] },
+    { "key": "bewijs_bronnen", "label": "Bewijs en bronnen", "criteria": [
+      { "id": "D1", "name": "Cijfers hebben een bron", "max": 4, "evidence": ["E-EVIDENCE"], "owner": "schrijver", "fix": "Zet bij elk cijfer de bron en het jaar.", "done_when": "Elk cijfer heeft een bron of een toelichting hoe het gemeten is." },
+      { "id": "D2", "name": "Er staat een citaat van een klant of expert met naam", "max": 3, "evidence": ["E-EVIDENCE"], "owner": "mens", "fix": "Plaats een echte quote met naam, functie en organisatie.", "done_when": "Minstens één quote met naam, functie en organisatie." },
+      { "id": "D3", "name": "Claims zijn controleerbaar", "max": 3, "evidence": ["E-EVIDENCE", "E-CONFIDENT"], "owner": "schrijver", "fix": "Onderbouw superlatieven met een bron of schrap ze.", "done_when": "Geen claim als beste of meest gekozen zonder bron." } ] },
+    { "key": "actualiteit", "label": "Actualiteit", "criteria": [
+      { "id": "E1", "name": "De pagina toont een datum van laatste wijziging met jaartal", "max": 3, "evidence": ["E-RECENCY"], "owner": "developer", "fix": "Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar.", "done_when": "De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging." },
+      { "id": "E2", "name": "De gegevens zijn actueel", "max": 2, "evidence": ["E-RECENCY"], "owner": "mens", "fix": "Werk prijzen, jaartallen en regelingen bij.", "done_when": "Geen verlopen data, prijzen of regelingen." } ] },
+    { "key": "entiteit_vertrouwen", "label": "Entiteit en vertrouwen", "criteria": [
+      { "id": "F1", "name": "Duidelijk wie het aanbiedt, wat en waar", "max": 4, "evidence": ["E-ENTITY", "E-RELEVANCE"], "owner": "schrijver", "fix": "Noem de organisatie, het aanbod en de vestigingsplaats of het werkgebied in één zin.", "done_when": "Eén zin op de pagina zegt wie wat aanbiedt en waar." },
+      { "id": "F2", "name": "Er is een auteur of expert met naam en functie", "max": 3, "evidence": ["E-ENTITY"], "owner": "mens", "fix": "Toon wie verantwoordelijk is voor de inhoud, met naam en functie.", "done_when": "Naam en functie van een verantwoordelijke staan op de pagina." },
+      { "id": "F3", "name": "Het merk wordt buiten de eigen site genoemd", "max": 3, "evidence": ["E-ENTITY"], "owner": "mens", "fix": "Lever feiten, prijzen en voorbeelden aan bij vakmedia en vergelijkingssites in jouw markt.", "done_when": "Minstens drie onafhankelijke sites noemen het merk met juiste feiten.", "needs": "off_page" } ] },
+    { "key": "paginabasis", "label": "Paginabasis", "criteria": [
+      { "id": "G1", "name": "Eén h1 en logische koppen", "max": 3, "evidence": ["E-PAGEBASE"], "owner": "developer", "fix": "Gebruik één h1 en daaronder h2 en h3 in echte heading-tags.", "done_when": "Precies één h1 en geen overgeslagen kopniveaus." },
+      { "id": "G2", "name": "Titel en beschrijving zeggen wat de pagina biedt", "max": 2, "evidence": ["E-PAGEBASE"], "owner": "schrijver", "fix": "Noem in de title en de meta description het aanbod en het publiek.", "done_when": "Title en description noemen het aanbod en voor wie het is." },
+      { "id": "G3", "name": "Interne links hebben een beschrijvende ankertekst", "max": 2, "evidence": ["E-PAGEBASE"], "owner": "schrijver", "fix": "Vervang lees meer en klik hier door een tekst die het doel van de link beschrijft.", "done_when": "Geen link met alleen lees meer, klik hier of meer info." },
+      { "id": "G4", "name": "Pagina-ervaring: snel, mobiel, toegankelijk", "max": 3, "evidence": ["E-PAGEBASE"], "owner": "developer", "fix": "Comprimeer afbeeldingen, vul alt-teksten in en meet de Core Web Vitals.", "done_when": "LCP onder 2,5 seconde op mobiel en een alt-tekst bij elke inhoudelijke afbeelding.", "needs": "speed" } ] }
+  ],
+  "hygiene": [
+    { "id": "H1", "name": "Structured data (JSON-LD)", "evidence": ["E-SCHEMA"] },
+    { "id": "H2", "name": "llms.txt", "evidence": ["E-LLMSTXT"] },
+    { "id": "H3", "name": "Canonical", "evidence": ["E-PAGEBASE"] }
+  ]
+}

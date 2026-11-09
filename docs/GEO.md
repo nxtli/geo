@@ -115,24 +115,52 @@ Run. Idempotent, veilig om opnieuw te draaien.
 
 **3. Supabase CLI.** `supabase db push` met het project gelinkt.
 
-## De AI-analyse en de `geo-page-checker`-methodiek
+## De analyse in drie lagen
 
-De analyse draait via een **swap-bare provider-architectuur**
-(`lib/geo/analysis/`). Auto-selectie: expliciete `GEO_ANALYSIS_PROVIDER` → de
-**`claude`**-provider (mits `ANTHROPIC_API_KEY` gezet) → de mock.
+De scan scheidt wat gemeten is van wat een aanname is.
 
-**De `claude`-provider draait de NXTLI `geo-page-checker`-methodiek** als één
-geautomatiseerde scan. De volledige skill staat in `skills/geo-page-checker/`
-(bron-van-waarheid); de scoringsrubric (6 categorieën / 100 punten), de
-technische checklist en de principes zijn verwerkt in de analyse-prompt
-(`lib/geo/analysis/prompt.ts`). De homepage + `robots.txt` + `llms.txt` worden
-server-side opgehaald (`scrape.ts`) en meegegeven; de output wordt op het
-`GeoAnalysisResult`-schema vastgezet en gevalideerd met `parseAnalysisResult`.
+**1. Feiten (`lib/geo/facts/`).** Door code gemeten, zonder taalmodel:
+- `robots.ts`: parser voor robots.txt. Bepaalt per AI-bot of de pagina opgehaald mag worden en
+  scheidt zoekbots (OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot, Bingbot) van
+  trainingsbots (GPTBot, ClaudeBot, ...) en gebruikersbots.
+- `page.ts`: noindex en nosnippet (meta-tag en header), koppen, title, description, canonical,
+  JSON-LD-typen, zichtbare datum, eurobedragen, interne links en ankerteksten, alt-teksten,
+  detectie van een lege JavaScript-shell.
+- `checks.ts`: maakt hiervan de technische checks, de drie poortwachters, de hygiëne en de
+  adviezen die direct uit een feit volgen (bijvoorbeeld een plak-klaar robots.txt-blok).
 
-Aanzetten: zet **`ANTHROPIC_API_KEY`** (server-side) van de org/workspace met
-toegang. Klaar — de `claude`-provider wordt dan automatisch gekozen. Optioneel:
-`GEO_ANALYSIS_MODEL` (default `claude-sonnet-4-6`). Zonder key valt alles terug op
-de mock, zodat de flow nooit breekt.
+**2. Aannames (`lib/geo/knowledge/`).** Twee databestanden, één bron voor app, prompt en skill:
+- `evidence.json`: elke aanname met bewijskracht (feit, sterk, middel, zwak, richtlijn,
+  ontkracht), voorbehoud en bron. Heeft een datum `review_before`.
+- `scorecard.json`: de criteria met punten, eigenaar, standaardadvies en "klaar als".
+
+Aanscherpen: wijzig de JSON, werk `reviewed` bij, draai `npm test` en `npm run build:skill`.
+De tests bewaken dat de punten optellen tot 100, dat elk criterium een aanname met bron heeft
+en dat geen criterium alleen op een ontkrachte aanname steunt. `build:skill` schrijft
+`skills/geo-page-checker/references/bewijsbasis.md` en `geo-checklist.md`.
+
+**3. Oordeel (`lib/geo/analysis/`).** Het taalmodel beoordeelt alleen de inhoud, per criterium
+(voldoet, deels, niet, niet te beoordelen) met een citaat van de pagina. De code rekent de
+punten uit (`scorecard.ts`), laat feiten vóór het model gaan en bouwt de adviezen
+(`finalizeAnalysis` in `index.ts`). Elk advies heeft: actie, waarom, waar, nu, voorstel,
+eigenaar, inspanning, klaar als, punten en bron.
+
+Regels:
+- Een falende poortwachter topt de score af op 20.
+- "Niet te beoordelen" telt niet mee. Snelheid en vermeldingen buiten de site zijn dat altijd.
+- Is de pagina niet opgehaald, dan is er geen score.
+- Schema en llms.txt worden gemeld en geven geen punten.
+- Opgeslagen resultaten hebben een `rubric_version`. Rapporten van vóór deze versie blijven op
+  de oude rubric ("1").
+
+**Marketingbrein (`lib/geo/brain.ts`).** `buyerFromBrain()` zet de uitvoer van
+`get_marketing_brain` om naar koperskennis (`GeoAnalysisInput.buyer`): publieken, klantvragen
+met K-nummer, aanbod, keuzecriteria, concurrenten. Alleen goedgekeurde kennis telt;
+`initialProfile` wordt niet gebruikt. Zonder brein gebruikt de scan de chatvelden en meldt het
+rapport dat de klantvragen niet getoetst zijn.
+
+De `claude`-provider wordt gekozen zodra `ANTHROPIC_API_KEY` is gezet. Zonder key draait de
+mock: die geeft een voorlopige indeling zonder oordeel per criterium. De feitenlaag draait altijd.
 
 ### Waarom niet de skill zélf via de Skills-API?
 
@@ -153,7 +181,7 @@ custom skill wordt geregistreerd.
 Input naar de analyse (`GeoAnalysisInput`): homepage_url, company_name,
 offer_description, target_audience, desired_queries, competitors, en —
 indien beschikbaar — page_content + metadata. Output (`GeoAnalysisResult`):
-visibility_score, short_summary, what_ai_understands, likely_ai_positioning,
+rubric_version, visibility_score, category_scores, criteria, actions, blocked, technical_checks, hygiene, scope_notes, short_summary, what_ai_understands, likely_ai_positioning,
 ai_answer_comparison (het ideale antwoord volgens de GEO-rubriek), llm_visibility
 (wat elke echte LLM teruggeeft — zie hieronder), strengths, weaknesses,
 missing_signals, content_gaps, recommended_pages, recommended_faq_questions,

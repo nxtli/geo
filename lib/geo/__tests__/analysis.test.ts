@@ -4,7 +4,7 @@ import { GEO_CATEGORIES, GEO_MAX_SCORE } from "../analysis/rubric";
 
 /** Minimal valid analysis payload; override the bits a test cares about. */
 function base(overrides: Record<string, unknown>) {
-  return { visibility_score: 0, short_summary: "test", ...overrides };
+  return { visibility_score: 0, short_summary: "test", rubric_version: "2", ...overrides };
 }
 
 const sumScores = (cs: Array<{ score: number }>) =>
@@ -82,7 +82,7 @@ describe("parseAnalysisResult", () => {
       { key: "", label: "Other C", score: 10, max: 20, summary: "" },
       { key: "", label: "Other D", score: 10, max: 20, summary: "" },
     ];
-    const r = parseAnalysisResult(base({ category_scores }));
+    const r = parseAnalysisResult(base({ category_scores, rubric_version: "1" }));
     const get = (k: string) => r.category_scores.find((c) => c.key === k)!;
     // Exact label matches are preserved, not stolen by the positional fallback.
     expect(get("vraaggerichte_structuur").score).toBe(18);

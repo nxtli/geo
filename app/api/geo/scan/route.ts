@@ -204,6 +204,8 @@ export async function POST(request: Request): Promise<Response> {
             metadata: page.metadata,
             robots_txt: page.robotsTxt,
             llms_txt_present: page.llmsTxtPresent,
+            facts: page.facts,
+            robots: page.robots,
           },
           {
             onProgress: (frac) =>

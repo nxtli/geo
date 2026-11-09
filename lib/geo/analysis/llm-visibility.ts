@@ -29,9 +29,12 @@ export async function probeLlmVisibility(
   return rows.filter((r): r is LlmVisibilityRow => !!r && !!r.answer.trim());
 }
 
+/**
+ * De vraag bevat bewust GEEN URL: met een domeinnaam erbij leidt een model
+ * zonder zoekfunctie het antwoord af uit de naam, en dat lijkt dan op kennis.
+ */
 function buildPrompt(input: GeoAnalysisInput): string {
-  const site = input.homepage_url ? ` (website: ${input.homepage_url})` : "";
-  return `Iemand vraagt jou als AI-assistent: "Wat weet je over ${input.company_name}?"${site}. Beschrijf in maximaal ~60 woorden wat dit bedrijf doet, voor wie, en waar ze bekend om staan — uitsluitend op basis van wat je daadwerkelijk weet of online vindt. Ken je het bedrijf niet of heb je geen betrouwbare informatie, zeg dat dan eerlijk in één zin. Antwoord in het Nederlands.`;
+  return `Iemand vraagt jou als AI-assistent: "Wat weet je over ${input.company_name}?" Beschrijf in maximaal ~60 woorden wat dit bedrijf doet, voor wie, en waar ze bekend om staan — uitsluitend op basis van wat je daadwerkelijk weet of online vindt. Ken je het bedrijf niet of heb je geen betrouwbare informatie, zeg dat dan eerlijk in één zin. Antwoord in het Nederlands.`;
 }
 
 /** Rough heuristic: did the model actually recognise the business? */

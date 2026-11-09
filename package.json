@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:skill": "node scripts/build-skill.mjs",
+    "build:prototype": "node scripts/build-prototype.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",

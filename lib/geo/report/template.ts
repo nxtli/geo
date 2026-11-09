@@ -155,12 +155,12 @@ export function renderReportHtml(params: {
     <div class="meta">Voor <strong>${esc(lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
     <div class="scoreWrap">
       <div>
-        <div class="score" style="color:${bandColor}">${score}<span style="font-size:20px;color:var(--subtle)">/100</span></div>
-        <span class="badge" style="background:${bandColor}">${band}</span>
+        <div class="score" style="color:${bandColor}">${a.unscored_reason ? "–" : score}<span style="font-size:20px;color:var(--subtle)">/100</span></div>
+        <span class="badge" style="background:${bandColor}">${a.unscored_reason ? "Geen score" : a.blocked ? "Geblokkeerd" : band}</span>
       </div>
       <div class="scoreside">
-        <div class="muted" style="font-size:13px;font-weight:700">AI Visibility Score</div>
-        <div class="scoreExplain">Hoe goed AI-tools zoals ChatGPT, Claude en Google AI je pagina kunnen lezen, begrijpen en aanbevelen.</div>
+        <div class="muted" style="font-size:13px;font-weight:700">Paginascore</div>
+        <div class="scoreExplain">${esc(a.unscored_reason ?? (a.blocked ? "Een AI-tool kan of mag deze pagina niet gebruiken. Daarom is de score afgetopt. Los eerst de blokkade op." : "Hoe geschikt deze pagina is om door AI-tools gelezen, begrepen en aangehaald te worden. De score meet de pagina, niet hoe vaak AI je noemt."))}</div>
         <div class="bar"><i style="width:${score}%"></i></div>
         ${bandScale(score, bandColor)}
       </div>
@@ -188,11 +188,12 @@ export function renderReportHtml(params: {
   ${
     a.llm_visibility?.length || a.ai_answer_comparison?.improved?.answer
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(lead.company_name)}, live gevraagd aan meerdere AI-systemen</span></div>
+          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(lead.company_name)}, steekproef bij meerdere AI-systemen</span></div>
+          <p class="muted" style="font-size:12.5px;margin:0 0 12px">Eén vraag per systeem, één keer gesteld, zonder je webadres. AI-antwoorden wisselen per keer. Lees dit als steekproef, niet als meting.</p>
           ${
             a.llm_visibility?.length
               ? `<div class="llmwrap"><table class="llm">
-                  <thead><tr><th>AI-systeem</th><th>Wat het teruggeeft</th><th>Gevonden?</th></tr></thead>
+                  <thead><tr><th>AI-systeem</th><th>Wat het teruggeeft</th><th>Kent je?</th></tr></thead>
                   <tbody>${a.llm_visibility
                     .map(
                       (r) => `<tr>
@@ -211,7 +212,7 @@ export function renderReportHtml(params: {
                   <div class="h">Zo zou het idealiter moeten klinken</div>
                   <blockquote>${esc(clip(a.ai_answer_comparison.improved.answer, 600))}</blockquote>
                   ${tagLine(a.ai_answer_comparison.improved.tags, "✓")}
-                  <p class="idealnote">Het antwoord dat je nastreeft: concreet, feitelijk en citeerbaar — opgesteld volgens de GEO-methodiek (duidelijke entiteit, bewijs en gestructureerde, op zichzelf staande antwoorden).</p>
+                  <p class="idealnote">Zo kan een AI-tool je aanbod samenvatten als de adviezen hieronder zijn uitgevoerd. Tekst tussen [invullen: ...] vraagt om een feit van jou.</p>
                 </div>`
               : ""
           }
@@ -226,6 +227,27 @@ export function renderReportHtml(params: {
       ${numlist(a.quick_wins, "Geen directe verbeterpunten.")}
     </div>
   </section>
+
+  ${
+    a.actions?.length
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Adviezen om uit te voeren</h2><span class="section-sub">op volgorde van belang</span></div>
+          ${a.actions
+            .map(
+              (x, i) => `<div class="tcheck" style="display:block">
+                <div class="lbl" style="flex:none">${i + 1}. ${esc(x.title)}</div>
+                <div class="det" style="margin-top:6px">${esc(x.why)}</div>
+                ${x.where ? `<div class="det"><strong>Waar:</strong> ${esc(x.where)}</div>` : ""}
+                ${x.before ? `<div class="det"><strong>Nu:</strong> <span style="white-space:pre-wrap">${esc(clip(x.before, 400))}</span></div>` : ""}
+                ${x.after ? `<div class="det"><strong>Voorstel:</strong> <span style="white-space:pre-wrap">${esc(clip(x.after, 700))}</span></div>` : ""}
+                <div class="det"><strong>Klaar als:</strong> ${esc(x.done_when)}</div>
+                <div class="det muted" style="font-size:12.5px">${esc(x.criterion)} · ${x.points ? `${String(x.points).replace(".", ",")} punten` : "blokkade"} · ${esc(x.owner)} · inspanning ${esc(x.effort)} · bewijs: ${esc(x.evidence_grade)}${x.source ? ` (${esc(x.source)})` : ""}</div>
+              </div>`,
+            )
+            .join("")}
+        </div></section>`
+      : ""
+  }
 
   <!-- SCORE BREAKDOWN -->
   <section class="section">
@@ -265,7 +287,11 @@ export function renderReportHtml(params: {
                 </div>`,
               )
               .join("") +
-            `<p class="muted" style="font-size:12.5px;margin-top:12px">Snelheid (Core Web Vitals) is in deze scan niet gemeten.</p>`
+            (a.hygiene?.length
+              ? `<p class="muted" style="font-size:12.5px;margin:14px 0 4px;font-weight:700">Gemeld, telt niet mee in de score</p>` +
+                a.hygiene.map((t) => `<div class="tcheck"><div class="lbl">${esc(t.label)}</div><div class="det">${esc(t.detail)}</div></div>`).join("")
+              : "") +
+            `<p class="muted" style="font-size:12.5px;margin-top:12px">Deze checks zijn door code gemeten, niet door een taalmodel ingeschat. Snelheid (Core Web Vitals) is niet gemeten.</p>`
           : `<p class="muted">Geen technische check beschikbaar.</p>`
       }
     </div>
@@ -319,7 +345,7 @@ export function renderReportHtml(params: {
   ${
     a.recommended_faq_questions.length
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Aanbevolen FAQ-vragen</h2><span class="section-sub">sterkste GEO-format</span></div>
+          <div class="section-head"><h2>Klantvragen die je pagina nog niet beantwoordt</h2><span class="section-sub">beantwoord ze op de pagina</span></div>
           ${ilist(
             a.recommended_faq_questions.map((q) => ({ title: q.question, sub: q.why })),
             "gap",
@@ -353,6 +379,15 @@ export function renderReportHtml(params: {
     <p style="margin:.5em 0 14px">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI.</p>
     <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">Plan een sessie →</a>
   </div>
+
+  ${
+    a.scope_notes?.length
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Wat deze scan wel en niet meet</h2></div>
+          ${ilist(a.scope_notes, "gap", "")}
+        </div></section>`
+      : ""
+  }
 
   <div class="foot">
     Dit rapport is automatisch gegenereerd door Charlie, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.

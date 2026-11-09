@@ -1,6 +1,6 @@
 # Technische GEO-checklist
 
-De technische checks staan los van de inhoudelijke GEO-score. Ze beantwoorden ��n vraag:
+De technische checks staan los van de inhoudelijke GEO-score. Ze beantwoorden een vraag:
 **mag en kan een AI-zoekmachine deze pagina of site uberhaupt lezen, vertrouwen en snel laden?**
 Een perfecte tekst is zinloos als de crawler wordt geweerd of de pagina pas na zware
 JavaScript verschijnt. Loop deze checks af, rapporteer ze in een apart blok (zie SKILL.md),
@@ -23,14 +23,18 @@ AI-bots worden toegelaten of geblokkeerd. Onderscheid drie soorten:
 
 - **Search-/retrieval-bots** - deze halen je pagina op het moment dat iemand een vraag stelt
   en bepalen of je geciteerd wordt. **Deze wil je toelaten.** De belangrijkste:
-  `OAI-SearchBot` (ChatGPT search), `Claude-SearchBot` en `ClaudeBot` (Claude),
-  `PerplexityBot` (Perplexity), `Googlebot` (Google AI Overviews gebruikt de gewone Googlebot).
-- **Training-bots** - deze trainen toekomstige modellen: `GPTBot` (OpenAI), `CCBot` (Common
+  `OAI-SearchBot` (ChatGPT search), `Claude-SearchBot` (Claude),
+  `PerplexityBot` (Perplexity), `Googlebot` (Google AI Overviews en AI Mode), `Bingbot` (Copilot).
+- **Training-bots** - deze trainen toekomstige modellen: `GPTBot` (OpenAI), `ClaudeBot` (Anthropic), `CCBot` (Common
   Crawl), `Google-Extended` (Gemini-training), `Applebot-Extended` (Apple Intelligence).
   Blokkeren is een legitieme keuze en schaadt je gewone Google-ranking niet. Benoem het als
   bewuste keuze, niet als fout.
-- **Agent-bots** - `ChatGPT-User`, `Claude-User`: halen een pagina op als de gebruiker er
-  live om vraagt. Toelaten helpt zichtbaarheid.
+- **Gebruikersbots** - `ChatGPT-User`, `Claude-User`, `Perplexity-User`: halen een pagina op als
+  de gebruiker er live om vraagt. `ChatGPT-User` en `Perplexity-User` volgen robots.txt niet
+  altijd. Een regel voor deze bots is dus geen harde toets.
+
+Let op: een firewall of CDN kan een bot weren die robots.txt toelaat. Dat zie je niet in
+robots.txt. Meld het als voorbehoud.
 
 Rapporteer concreet: welke search-bots zijn toegestaan, welke geblokkeerd. Een `Disallow: /`
 onder `User-agent: OAI-SearchBot` of `PerplexityBot` is een BLOKKER voor GEO - dan kun je
@@ -72,7 +76,8 @@ is niet toegestaan. Volg daarom deze routes in volgorde en gebruik de eerste die
 
 Rapporteer, zodra je de data wél hebt:
 
-- Is er schema aanwezig? Zo nee: AANDACHT (gemiste kans, geen blokker).
+- Is er schema aanwezig? Meld het als hygiene, zonder punten. Voor schema is geen effect op
+  AI-citaties aangetoond (zie `bewijsbasis.md`, E-SCHEMA). Het blijft nuttig voor gewone zoekresultaten.
 - Welke types? (`Organization`, `LocalBusiness`, `FAQPage`, `Article`, `Product`, `Course`...)
 - Is het JSON geldig (parse-baar, geen syntaxfouten)? Ongeldig schema wordt genegeerd. BLOKKER
   voor dat blok.
@@ -103,9 +108,9 @@ div, is AANDACHT.
   (vertrouwenssignaal weg).
 - **Canonical** (per pagina) - staat er een `<link rel="canonical">`? Voorkomt
   dubbele-content-verwarring.
-- **`llms.txt`** (site-breed) - bestaat `https://[domein]/llms.txt`? Nieuwe de-facto standaard
-  die AI's een schoon overzicht van je belangrijkste pagina's geeft. Aanwezig + gevuld = GOED,
-  aanwezig maar leeg = AANDACHT, afwezig = AANDACHT.
+- **`llms.txt`** (site-breed) - bestaat `https://[domein]/llms.txt`? Meld alleen of het bestand
+  er is. Geef er geen status of punten voor: onderzoek onder circa 300.000 domeinen vond geen
+  effect op AI-citaties, en Google noemt het bestand onnodig (zie `bewijsbasis.md`, E-LLMSTXT).
 - **Sitemap** (site-breed) - verwijst `robots.txt` naar een `sitemap.xml`, of bestaat die op de
   standaardlocatie?
 

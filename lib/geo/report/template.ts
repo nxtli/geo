@@ -132,6 +132,7 @@ export function renderReportHtml(params: {
 
   .cta { margin-top:30px; border-radius:18px; padding:26px; background:var(--ink); color:#fff; }
   .cta a { color:#5fd6dd; }
+  .cta-url { display:none; margin-top:12px; font-size:13px; color:#fff; }
   .foot { margin-top:34px; color:var(--subtle); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
   .muted { color:var(--muted); }
   @media (max-width:620px){ .twocol{grid-template-columns:1fr;} .rowscore{grid-template-columns:1fr 80px 48px;} }
@@ -142,7 +143,9 @@ export function renderReportHtml(params: {
     body { background:#fff; }
     .page { max-width:none; padding:0; }
     .printbtn { display:none !important; }
-    .card, .subcard, .rowscore, .tcheck, .section { break-inside: avoid; }
+    .card, .subcard, .rowscore, .tcheck, .section, .cta { break-inside: avoid; }
+    /* Niet elke PDF-weergave bewaart klikbare links. Het adres staat er daarom ook als tekst. */
+    .cta-url { display:block; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
@@ -383,6 +386,7 @@ export function renderReportHtml(params: {
     <strong>${esc(brand.report.ctaTitle)}</strong>
     <p style="margin:.5em 0 14px">${esc(brand.report.ctaBody)}</p>
     <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">${esc(brand.report.ctaButton)}</a>
+    <div class="cta-url">Of ga naar <a href="${esc(strategyUrl)}">${esc(strategyUrl.replace(/^https?:\/\//, ""))}</a></div>
   </div>
 
   ${

@@ -7,6 +7,7 @@ import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
+import { getServerBrand } from "@/lib/geo/brand-server";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
 import { upsertHubspotContact } from "@/lib/geo/notify/hubspot";
 import { ensureSchemaOnce } from "@/lib/geo/supabase/migrate";
@@ -40,6 +41,7 @@ export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
   const parsed = geoLeadSchema.safeParse(body);
   const baseUrl = resolveBaseUrl(request);
+  const brand = await getServerBrand();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -129,8 +131,8 @@ export async function POST(request: Request): Promise<Response> {
           const message = differentPage
             ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
                 priorHost ? ` (voor ${priorHost})` : ""
-              }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
-            : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport. Wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
+              }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Dan ${brand.cta.again}.`
+            : `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport. Wil je een nieuwe analyse? Dan ${brand.cta.again}.`;
           send({
             type: "result",
             data: {
@@ -155,7 +157,7 @@ export async function POST(request: Request): Promise<Response> {
           send({
             type: "error",
             message:
-              "Je hebt recent al een gratis GEO-scan met dit e-mailadres gedaan. Voor een nieuwe analyse plan je even een korte sessie met NXTLI.",
+              `Je hebt recent al een gratis GEO-scan met dit e-mailadres gedaan. Voor een nieuwe analyse: ${brand.cta.again}.`,
           });
           return close();
         }
@@ -168,14 +170,14 @@ export async function POST(request: Request): Promise<Response> {
             send({
               type: "error",
               message:
-                "We hebben vandaag al heel veel scans gedraaid. Probeer het morgen opnieuw — of plan direct een korte sessie met NXTLI.",
+                `We hebben vandaag al heel veel scans gedraaid. Probeer het morgen opnieuw, of ${brand.cta.again}.`,
             });
             return close();
           }
         }
 
         // 1. Persist lead + scan request.
-        const persistedLead = await insertLead(lead);
+        const persistedLead = await insertLead(lead, brand.domain);
         const scan = await createScanRequest({
           leadId: persistedLead?.id ?? null,
           email: lead.email,
@@ -215,7 +217,7 @@ export async function POST(request: Request): Promise<Response> {
         progress(91, 4);
 
         // 4. Build the report.
-        const reportHtml = buildReportHtml({ lead, analysis });
+        const reportHtml = buildReportHtml({ lead, analysis, brand });
         putReportHtml(scanRequestId, reportHtml);
         const { pdfUrl } = await generatePdf({ html: reportHtml, scanRequestId });
         const reportUrl = `/api/geo/report/${scanRequestId}`;
@@ -250,6 +252,7 @@ export async function POST(request: Request): Promise<Response> {
           analysis,
           reportHtml,
           reportUrl,
+          brand,
         });
         if (scan && email.sent) {
           await updateScanRequest(scan.id, { email_sent_at: new Date().toISOString() });

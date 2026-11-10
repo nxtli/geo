@@ -12,11 +12,12 @@ import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
 import { CharlieAvatar } from "./CharlieAvatar";
 import { Button, cn } from "./primitives";
+import { useBrand } from "./brand-context";
 import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons";
 
 type Phase = "asking" | "consent" | "scanning" | "success" | "error";
 
-const STRATEGY_URL =
+const DEFAULT_STRATEGY_URL =
   process.env.NEXT_PUBLIC_GEO_STRATEGY_CALL_URL ||
   "https://nxtli.com/michiel-schoonhoven-agenda/";
 
@@ -31,6 +32,8 @@ export function CharlieChat({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const brand = useBrand();
+  const STRATEGY_URL = brand.id === "nxtli" ? DEFAULT_STRATEGY_URL : brand.cta.url;
   const [messages, setMessages] = React.useState<ChatMessageData[]>([]);
   const [stepIndex, setStepIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Partial<GeoLeadInput>>({});
@@ -84,7 +87,7 @@ export function CharlieChat({
     if (!isOpen || initialized.current) return;
     initialized.current = true;
     (async () => {
-      await pushCharlie(CHARLIE.intro, 350);
+      await pushCharlie(brand.charlie.intro, 350);
       await pushCharlie(CHARLIE_STEPS[0].prompt, 700);
     })();
   }, [isOpen, pushCharlie]);
@@ -259,7 +262,7 @@ export function CharlieChat({
         if (data.email_queued) {
           await pushCharlie(CHARLIE_COPY.emailNote(payload.email), 500);
         }
-        await pushCharlie(CHARLIE_COPY.finalCta, 600);
+        await pushCharlie(brand.cta.chatLine, 600);
       }
     } catch {
       stop();
@@ -288,7 +291,7 @@ export function CharlieChat({
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Chat met Charlie, de AI-analist van NXTLI"
+      aria-label={`Chat met Charlie, ${brand.charlie.role}`}
     >
       <div
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm animate-fade-in"
@@ -301,7 +304,7 @@ export function CharlieChat({
             <CharlieAvatar size="md" withStatus />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-ink">{CHARLIE.name}</div>
-              <div className="text-xs text-muted">{CHARLIE.role}</div>
+              <div className="text-xs text-muted">{brand.charlie.role}</div>
             </div>
           </div>
           <button
@@ -409,7 +412,7 @@ export function CharlieChat({
                 rel="noopener noreferrer"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand"
               >
-                Plan een sessie <ArrowRightIcon className="h-4 w-4" />
+                {brand.cta.label} <ArrowRightIcon className="h-4 w-4" />
               </a>
             </div>
           )}
@@ -421,7 +424,7 @@ export function CharlieChat({
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand"
             >
-              Neem contact op met NXTLI <ArrowRightIcon className="h-4 w-4" />
+              {brand.cta.errorLabel} <ArrowRightIcon className="h-4 w-4" />
             </a>
           )}
         </div>
@@ -498,6 +501,7 @@ function ConsentInput({
   onToggle: () => void;
   onStart: () => void;
 }) {
+  const consentLabel = useBrand().consentLabel;
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-muted">
@@ -507,7 +511,7 @@ function ConsentInput({
           onChange={onToggle}
           className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
         />
-        <span>{CHARLIE_COPY.consentLabel}</span>
+        <span>{consentLabel}</span>
       </label>
       <Button
         size="lg"

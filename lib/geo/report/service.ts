@@ -4,6 +4,7 @@ import type {
   GeoScanResponse,
 } from "../types";
 import { renderReportHtml } from "./template";
+import type { Brand } from "../brand";
 
 /**
  * Report service — turns a raw AI analysis into the stored report record, the
@@ -14,9 +15,10 @@ export function buildReportHtml(params: {
   lead: Pick<GeoLeadInput, "company_name" | "homepage_url" | "name">;
   analysis: GeoAnalysisResult;
   now?: Date;
+  brand?: Brand;
 }): string {
   const date = formatDate(params.now ?? new Date());
-  return renderReportHtml({ lead: params.lead, analysis: params.analysis, date });
+  return renderReportHtml({ lead: params.lead, analysis: params.analysis, date, brand: params.brand });
 }
 
 /** Maps an analysis onto the `geo_scan_reports` columns. */

@@ -1,5 +1,6 @@
 import type { GeoAnalysisResult } from "../types";
 import { logError, logInfo } from "../logger";
+import { BRANDS, type Brand } from "../brand";
 
 /**
  * Email adapter for the GEO report.
@@ -21,6 +22,7 @@ export interface SendReportParams {
   analysis: GeoAnalysisResult;
   reportHtml: string;
   reportUrl?: string | null;
+  brand?: Brand;
 }
 
 export interface SendResult {
@@ -38,7 +40,8 @@ export async function sendGeoReportEmail(
     return { sent: false };
   }
 
-  const subject = "Je NXTLI GEO Scan is klaar";
+  const brand = params.brand ?? BRANDS.nxtli;
+  const subject = brand.email.subject;
   const html = renderEmailHtml(params);
   const text = renderEmailText(params);
 
@@ -80,48 +83,50 @@ async function deliver(opts: {
   return { sent: true };
 }
 
-function strategyUrl(): string {
-  return (
-    process.env.GEO_STRATEGY_CALL_URL ||
-    "https://nxtli.com/michiel-schoonhoven-agenda/"
-  );
+function strategyUrl(brand: Brand): string {
+  return brand.id === "nxtli"
+    ? process.env.GEO_STRATEGY_CALL_URL || brand.cta.url
+    : brand.cta.url;
 }
 
 function renderEmailText(p: SendReportParams): string {
-  const link = p.reportUrl ?? strategyUrl();
+  const brand = p.brand ?? BRANDS.nxtli;
+  const link = p.reportUrl ?? strategyUrl(brand);
   return `Hoi ${p.name},
 
-Charlie heeft je homepage geanalyseerd op AI-vindbaarheid.
+Charlie heeft je pagina beoordeeld op geschiktheid voor AI-zoekmachines.
 
-Je AI Visibility Score: ${p.analysis.visibility_score}/100
+Je paginascore: ${p.analysis.visibility_score}/100
 
 Je vindt je volledige rapport via deze link:
 ${link}
 
-In het rapport zie je hoe duidelijk jouw website is voor AI-systemen zoals ChatGPT en Claude, welke kansen er liggen en welke verbeteringen je als eerste kunt oppakken.
+In het rapport zie je hoe geschikt jouw pagina is voor AI-systemen zoals ChatGPT en Claude en welke adviezen je als eerste oppakt.
 
-Wil je dat we met je meekijken? Plan hier een korte strategiesessie:
-${strategyUrl()}
+${brand.email.ctaLine}:
+${strategyUrl(brand)}
 
 Groet,
-NXTLI`;
+${brand.email.signoff}`;
 }
 
 function renderEmailHtml(p: SendReportParams): string {
-  const link = p.reportUrl ?? strategyUrl();
+  const brand = p.brand ?? BRANDS.nxtli;
+  const c = brand.email.color;
+  const link = p.reportUrl ?? strategyUrl(brand);
   return `<!doctype html><html lang="nl"><body style="margin:0;background:#f6f7fa;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a">
   <div style="max-width:560px;margin:0 auto;padding:32px 20px">
-    <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#0c90a1">NXTLI GEO Scan</div>
+    <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:${c}">${escapeHtml(brand.id === "mat" ? "Marketing AI Team · GEO-scan" : brand.product)}</div>
     <h1 style="font-size:22px;margin:8px 0 16px">Je rapport is klaar, ${escapeHtml(p.name)}</h1>
-    <p style="color:#475569;line-height:1.6">Charlie heeft je homepage van <strong>${escapeHtml(p.companyName)}</strong> geanalyseerd op AI-vindbaarheid.</p>
+    <p style="color:#475569;line-height:1.6">Charlie heeft je homepage van <strong>${escapeHtml(p.companyName)}</strong> beoordeeld op geschiktheid voor AI-zoekmachines.</p>
     <div style="border:1px solid #e4e7ed;border-radius:14px;padding:18px;margin:16px 0;background:#fff">
-      <div style="font-size:13px;color:#475569">AI Visibility Score</div>
-      <div style="font-size:40px;font-weight:800;color:#0c90a1">${p.analysis.visibility_score}<span style="font-size:16px;color:#94a3b8">/100</span></div>
+      <div style="font-size:13px;color:#475569">Paginascore</div>
+      <div style="font-size:40px;font-weight:800;color:${c}">${p.analysis.visibility_score}<span style="font-size:16px;color:#94a3b8">/100</span></div>
       <p style="color:#475569;margin:8px 0 0;line-height:1.6">${escapeHtml(p.analysis.short_summary)}</p>
     </div>
-    <a href="${escapeHtml(link)}" style="display:inline-block;background:#0c90a1;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Bekijk je volledige rapport</a>
-    <p style="color:#475569;line-height:1.6;margin-top:24px">Wil je dat we met je meekijken? <a href="${escapeHtml(strategyUrl())}" style="color:#0c90a1">Plan een korte GEO-strategiesessie</a>.</p>
-    <p style="color:#94a3b8;font-size:12px;margin-top:28px">Groet,<br/>NXTLI</p>
+    <a href="${escapeHtml(link)}" style="display:inline-block;background:${c};color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Bekijk je volledige rapport</a>
+    <p style="color:#475569;line-height:1.6;margin-top:24px"><a href="${escapeHtml(strategyUrl(brand))}" style="color:${c}">${escapeHtml(brand.email.ctaLine)}</a>.</p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:28px">Groet,<br/>${escapeHtml(brand.email.signoff)}</p>
   </div></body></html>`;
 }
 

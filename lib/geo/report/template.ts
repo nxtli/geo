@@ -1,4 +1,5 @@
 import type { GeoAnalysisResult, GeoLeadInput } from "../types";
+import { BRANDS, type Brand } from "../brand";
 
 /**
  * NXTLI-branded HTML report. Self-contained (inline CSS) so it can be served
@@ -14,16 +15,20 @@ export function renderReportHtml(params: {
   lead: Pick<GeoLeadInput, "company_name" | "homepage_url" | "name">;
   analysis: GeoAnalysisResult;
   date: string;
+  brand?: Brand;
 }): string {
   const { lead, analysis, date } = params;
+  const brand = params.brand ?? BRANDS.nxtli;
+  const col = brand.report.colors;
   const score = analysis.visibility_score;
   const band = score >= 70 ? "Sterk" : score >= 45 ? "Gemiddeld" : "Te verbeteren";
   const bandColor = score >= 70 ? "#16a34a" : score >= 45 ? "#d97706" : "#dc2626";
 
   const a = analysis;
   const strategyUrl =
-    process.env.GEO_STRATEGY_CALL_URL ||
-    "https://nxtli.com/michiel-schoonhoven-agenda/";
+    brand.id === "nxtli"
+      ? process.env.GEO_STRATEGY_CALL_URL || brand.cta.url
+      : brand.cta.url;
 
   const hasBlocker = a.technical_checks.some((t) => t.status === "blokker");
   // Blockers jump to the top; everyone else keeps their original order.
@@ -36,9 +41,9 @@ export function renderReportHtml(params: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NXTLI GEO Scan: ${esc(lead.company_name)}</title>
+<title>${esc(brand.product)}: ${esc(lead.company_name)}</title>
 <style>
-  :root { --brand:#0c90a1; --accent:#03b2b8; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#e0f6f7; --bg:#f7f8fb; --good:#16a34a; --warn:#d97706; --bad:#dc2626; }
+  :root { --brand:${col.brand}; --accent:${col.accent}; --ink:${col.ink}; --muted:${col.muted}; --subtle:#94a3b8; --border:#e6e8ee; --soft:${col.soft}; --bg:#f7f8fb; --good:#16a34a; --warn:#d97706; --bad:#dc2626; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); line-height:1.6; }
   .page { max-width: 800px; margin: 0 auto; padding: 40px 22px 64px; }
@@ -147,10 +152,10 @@ export function renderReportHtml(params: {
 
   <section class="card cover">
     <div class="coverTop">
-      <img class="logo" src="/nxtli-logo.png" alt="NXTLI" />
+      <img class="logo" src="${esc(brand.logo.src)}" alt="${esc(brand.logo.alt)}" />
       <button class="printbtn" type="button" onclick="window.print()">⬇ Download als PDF</button>
     </div>
-    <div class="eyebrow">NXTLI GEO Scan</div>
+    <div class="eyebrow">${esc(brand.id === "mat" ? "Marketing AI Team · GEO-scan" : brand.product)}</div>
     <h1>AI-vindbaarheidsrapport</h1>
     <div class="meta">Voor <strong>${esc(lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
     <div class="scoreWrap">
@@ -375,9 +380,9 @@ export function renderReportHtml(params: {
   }
 
   <div class="cta">
-    <strong>Wil je dat NXTLI dit voor je uitwerkt?</strong>
-    <p style="margin:.5em 0 14px">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI.</p>
-    <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">Plan een sessie →</a>
+    <strong>${esc(brand.report.ctaTitle)}</strong>
+    <p style="margin:.5em 0 14px">${esc(brand.report.ctaBody)}</p>
+    <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">${esc(brand.report.ctaButton)}</a>
   </div>
 
   ${
@@ -390,7 +395,7 @@ export function renderReportHtml(params: {
   }
 
   <div class="foot">
-    Dit rapport is automatisch gegenereerd door Charlie, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.
+    ${esc(brand.report.foot)}
   </div>
 </div>
 </body>

@@ -218,6 +218,24 @@ invoering van usage-logging; oudere scans tonen geen tokens. De nieuwe kolommen
 `geo_scan_requests`) worden toegevoegd door de migratie-route opnieuw te draaien
 (idempotent `add column if not exists`).
 
+## Twee afzenders: NXTLI en Marketing AI Team
+
+Eén codebase bedient `geo.nxtli.com` en `geo.marketingaiteam.com`. De afzender bepaalt logo,
+kleuren, lettertype, de rol van Charlie, de vervolgstap, het rapport en de e-mail.
+
+- Instelling: `lib/geo/brand.ts` (teksten, logo, vervolgstap, rapportkleuren).
+- Stijl: `app/globals.css` onder `[data-brand="mat"]` (kleuren en lettertype van marketingaiteam.com).
+- Keuze per verzoek, in deze volgorde: env `GEO_BRAND`, cookie `geo_brand`, hostnaam.
+  Een host met `marketingaiteam` krijgt de stijl van Marketing AI Team.
+- Testen op een testadres: open `/?brand=mat` of `/?brand=nxtli`.
+- Leads krijgen het domein van de afzender als `source`.
+- Het logo en het portret van Charlie voor Marketing AI Team laden nu vanaf marketingaiteam.com.
+  Zet ze in `public/` en pas de paden in `brand.ts` aan om dat los te koppelen.
+
+Domein koppelen: voeg `geo.marketingaiteam.com` toe aan het Vercel-project en zet bij de
+DNS-beheerder van marketingaiteam.com een CNAME `geo` naar de waarde die Vercel toont. Voor e-mail
+vanaf dit domein: voeg het domein toe in Resend en zet `GEO_EMAIL_FROM` per omgeving.
+
 ## Brand / styling aanpassen
 
 Alle brand-tokens staan in **`app/globals.css`** (`:root`) en worden via

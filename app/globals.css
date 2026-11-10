@@ -80,3 +80,50 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Marketing AI Team — huisstijl van marketingaiteam.com.
+ * Navy inkt, blauw naar cyaan, lettertype Geist, koppen licht en strak gezet,
+ * knoppen met een kleine afronding en een verloop.
+ */
+[data-brand="mat"] {
+  --bg: 255 255 255;
+  --surface: 255 255 255;
+  --elevated: 243 248 255;
+  --ink: 8 37 82;
+  --muted: 93 112 142;
+  --subtle: 133 150 176;
+  --border: 219 230 242;
+
+  --brand: 23 103 242;
+  --brand-fg: 255 255 255;
+  --brand-soft: 237 244 255;
+  --accent: 23 200 207;
+
+  --font-sans: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, Arial, sans-serif;
+  --font-display: var(--font-sans);
+}
+[data-brand="mat"] h1,
+[data-brand="mat"] h2 {
+  font-weight: 400 !important;
+  letter-spacing: -0.045em !important;
+}
+[data-brand="mat"] h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+[data-brand="mat"] .geo-btn-primary {
+  border-radius: 10px;
+  font-weight: 700;
+  background-image: linear-gradient(100deg, rgb(23 103 242), rgb(21 158 222));
+  box-shadow: 0 12px 30px rgb(23 103 242 / 0.2);
+}
+[data-brand="mat"] .geo-hero {
+  background-image: linear-gradient(115deg, rgb(248 251 255) 0%, rgb(237 247 255) 53%, rgb(245 254 255) 100%);
+}
+[data-brand="mat"] .geo-cta-panel {
+  background-image: linear-gradient(120deg, rgb(10 45 97), rgb(17 101 192) 62%, rgb(22 185 199));
+}
+[data-brand="mat"] .geo-cta-panel h2 {
+  color: #fff;
+}

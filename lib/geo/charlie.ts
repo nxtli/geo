@@ -2,7 +2,8 @@ import { fieldValidators } from "./validation";
 import type { GeoLeadInput } from "./types";
 
 /**
- * Charlie — the NXTLI AI-analist persona and the scripted chat flow.
+ * Charlie: de vaste chatflow. Rol, intro, toestemmingstekst en vervolgstap
+ * verschillen per afzender en staan in lib/geo/brand.ts.
  * Kept as a standalone, declarative config so the chat component stays dumb
  * and the persona/copy can be tuned without touching UI logic.
  *
@@ -12,10 +13,7 @@ import type { GeoLeadInput } from "./types";
 
 export const CHARLIE = {
   name: "Charlie",
-  role: "AI-analist bij NXTLI",
   avatarInitial: "C",
-  intro:
-    "Tof! Ik ben Charlie, AI-analist bij NXTLI. Ik ga in een paar stappen bekijken hoe goed jouw homepage vindbaar is in AI-antwoorden. Laten we beginnen.",
 };
 
 /** The key on GeoLeadInput each step writes to. */
@@ -147,15 +145,13 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   },
   {
     label: "Rapport genereren",
-    detail: "Ik zet alles in jouw NXTLI-rapport.",
+    detail: "Ik zet alles in jouw rapport.",
   },
 ];
 
 export const CHARLIE_COPY = {
-  consentLabel:
-    "Ik ga akkoord dat NXTLI mijn gegevens gebruikt om de scan uit te voeren en het rapport toe te sturen.",
   reviewLead: "Mooi, ik heb alles. Klopt dit zo?",
-  scanningLead: "Top! Ik ga je homepage analyseren in NXTLI-format. Even geduld…",
+  scanningLead: "Top! Ik ga je pagina analyseren. Even geduld…",
   scanningSubtle: "Dit duurt meestal niet langer dan een minuutje.",
   successLead:
     "Je scan is klaar. Ik heb de belangrijkste kansen hieronder voor je samengevat.",
@@ -163,8 +159,6 @@ export const CHARLIE_COPY = {
     `Ik heb het volledige rapport ook naar ${email} gestuurd.`,
   errorFallback:
     "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",
-  finalCta:
-    "Wil je dat we dit voor je verbeteren? Plan een korte GEO-strategiesessie met NXTLI.",
 };
 
 /** A consent step is appended after the scripted questions. */

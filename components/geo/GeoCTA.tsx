@@ -10,7 +10,7 @@ export function GeoCTA() {
   return (
     <section className="py-20 sm:py-28">
       <Container>
-        <div className="relative overflow-hidden rounded-3xl bg-ink px-7 py-14 text-center sm:px-12 sm:py-20">
+        <div className="geo-cta-panel relative overflow-hidden rounded-3xl bg-ink px-7 py-14 text-center sm:px-12 sm:py-20">
           <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-brand/30 blur-3xl" />
           <div className="relative">
             <h2 className="mx-auto max-w-2xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">

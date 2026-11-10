@@ -6,12 +6,14 @@ import { ArrowRightIcon, SparkIcon } from "./icons";
 import { useGeoChat } from "./chat-context";
 import { CharlieAvatar } from "./CharlieAvatar";
 import { CHARLIE } from "@/lib/geo/charlie";
+import { useBrand } from "./brand-context";
 
 export function GeoHero() {
   const { open } = useGeoChat();
+  const brand = useBrand();
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="geo-hero relative overflow-hidden">
       <div className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black,transparent)]" />
       <div className="pointer-events-none absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-brand/10 blur-3xl" />
 
@@ -19,7 +21,7 @@ export function GeoHero() {
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="animate-fade-up">
             <Eyebrow>
-              <SparkIcon className="h-3.5 w-3.5" /> NXTLI GEO Scan
+              <SparkIcon className="h-3.5 w-3.5" /> {brand.id === "mat" ? "Marketing AI Team · GEO-scan" : brand.product}
             </Eyebrow>
             <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-5xl lg:text-6xl">
               Wil jij gevonden worden in{" "}

@@ -4,6 +4,7 @@ import { buildReportHtml } from "@/lib/geo/report/service";
 import { parseAnalysisResult } from "@/lib/geo/analysis/provider";
 import { getReportByScanRequest, getScanForReport } from "@/lib/geo/supabase/service";
 import { logError } from "@/lib/geo/logger";
+import { getServerBrand } from "@/lib/geo/brand-server";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export async function GET(
   const { id } = await params;
 
   let html: string | null = null;
+  const brand = await getServerBrand();
 
   // Preferred: re-render from the stored analysis using the current template.
   try {
@@ -37,6 +39,7 @@ export async function GET(
         lead: leadFromRawInput(scan.raw_input),
         analysis,
         now: toDate(scan.created_at),
+        brand,
       });
     }
   } catch (error) {

@@ -13,16 +13,18 @@ import { WhyNxtli } from "./WhyNxtli";
 import { GeoFAQ } from "./GeoFAQ";
 import { GeoCTA } from "./GeoCTA";
 import { GeoFooter } from "./GeoFooter";
+import { useBrand } from "./brand-context";
 
 function NavBar() {
   const { open } = useGeoChat();
+  const brand = useBrand();
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
         <a href="#top" className="flex items-center gap-2">
           <Logo className="h-9 w-auto" />
           <span className="hidden text-sm font-medium text-subtle sm:inline">
-            GEO Scan
+            {brand.logoSuffix}
           </span>
         </a>
         <Button size="md" onClick={open}>

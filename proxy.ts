@@ -10,10 +10,24 @@ import { NextResponse, type NextRequest } from "next/server";
  * Uses the Next 16 `proxy` file convention (the successor to `middleware`).
  */
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: ["/", "/admin", "/admin/:path*"],
 };
 
 export function proxy(req: NextRequest) {
+  // Huisstijl kiezen op een testadres: /?brand=mat of /?brand=nxtli zet een
+  // cookie en laadt de pagina opnieuw zonder de parameter.
+  if (req.nextUrl.pathname === "/") {
+    const wanted = req.nextUrl.searchParams.get("brand");
+    if (wanted === "mat" || wanted === "nxtli") {
+      const url = req.nextUrl.clone();
+      url.searchParams.delete("brand");
+      const res = NextResponse.redirect(url);
+      res.cookies.set("geo_brand", wanted, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 30 });
+      return res;
+    }
+    return NextResponse.next();
+  }
+
   const user = process.env.ADMIN_USERNAME;
   const pass = process.env.ADMIN_PASSWORD;
 

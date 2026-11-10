@@ -1,34 +1,27 @@
+"use client";
+
 import { Container } from "./primitives";
 import { CheckIcon } from "./icons";
+import { useBrand } from "./brand-context";
 
-const POINTS = [
-  "AI-first websites die mensen én AI begrijpen",
-  "Slimme automations en content­structuur",
-  "Systemen die meegroeien met je bedrijf",
-];
-
+/** "Waarom deze afzender". De inhoud komt uit lib/geo/brand.ts. */
 export function WhyNxtli() {
+  const { why } = useBrand();
   return (
     <section className="py-20 sm:py-28">
       <Container>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-              Waarom NXTLI
+              {why.eyebrow}
             </div>
             <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Jouw website begrijpelijk voor mensen én AI, zo bouw je aan
-              blijvende vindbaarheid
+              {why.title}
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-muted">
-              NXTLI is een AI-first studio en automation-partner. We helpen
-              ondernemers en marketeers met AI-first websites, automations,
-              contentstructuur en slimme systemen, niet alleen mooi, maar ook
-              begrijpelijk voor mensen én AI.
-            </p>
+            <p className="mt-4 text-base leading-relaxed text-muted">{why.body}</p>
 
             <ul className="mt-7 space-y-3">
-              {POINTS.map((p) => (
+              {why.points.map((p) => (
                 <li key={p} className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
                     <CheckIcon className="h-3.5 w-3.5" />
@@ -42,12 +35,7 @@ export function WhyNxtli() {
           <div className="relative">
             <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-brand/10 to-accent/10 blur-2xl" />
             <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { k: "AI-first", v: "Jouw website begrepen door mens én AI" },
-                { k: "Automation", v: "Meer output, minder handmatig werk" },
-                { k: "Structuur", v: "Content die AI citeert en klanten overtuigt" },
-                { k: "Resultaat", v: "Vaker gevonden. Vaker gekozen." },
-              ].map((s) => (
+              {why.tiles.map((s) => (
                 <div
                   key={s.k}
                   className="rounded-2xl border border-border bg-surface p-5 shadow-soft"

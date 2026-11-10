@@ -1,13 +1,17 @@
+"use client";
+
 import { Container, SectionHeading } from "./primitives";
+import { useBrand } from "./brand-context";
 import { CheckIcon } from "./icons";
 
 export function GeoReportPreview() {
+  const brand = useBrand();
   return (
     <section className="bg-elevated/50 py-20 sm:py-28">
       <Container>
         <SectionHeading
           eyebrow="Voorbeeldrapport"
-          title="Een helder NXTLI-rapport, geen vaag adviesdocument"
+          title="Een helder rapport, geen vaag adviesdocument"
           intro="Je krijgt een concrete score, je sterke punten, gemiste kansen en een prioriteitenplan voor de komende 30 dagen."
         />
 
@@ -15,7 +19,7 @@ export function GeoReportPreview() {
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-gradient-to-r from-surface to-elevated/60 px-7 py-6">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-                NXTLI GEO Scan
+                {brand.product}
               </div>
               <div className="mt-1 font-display text-lg font-semibold text-ink">
                 jouwbedrijf.nl

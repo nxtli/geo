@@ -75,8 +75,9 @@ voorbereid). Voor productie:
 | `OPENAI_API_KEY` | Multi-LLM tabel | ChatGPT-rij in "Wat AI over je zegt"; anders overgeslagen |
 | `GEMINI_API_KEY` | Multi-LLM tabel | Gemini-rij; anders overgeslagen |
 | `PERPLEXITY_API_KEY` | Multi-LLM tabel | Perplexity-rij; anders overgeslagen |
+| `XAI_API_KEY` | Multi-LLM tabel | Grok-rij; anders overgeslagen |
 | `GEO_AI_SEARCH` | optioneel | `off` = zet de HELE multi-LLM probe uit |
-| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` | optioneel | defaults `gpt-4o-mini` / `gemini-2.5-flash` / `sonar` |
+| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` / `GEO_GROK_MODEL` | optioneel | defaults `gpt-4o-mini` / `gemini-2.5-flash` / `sonar` / `grok-4` |
 | `GEO_SKILL_NAME` | optioneel | default `geo-page-checker` |
 | `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
 | `GEO_SKILL_VERSION` | optioneel | default `latest` |
@@ -195,10 +196,10 @@ quick_wins, thirty_day_action_plan, suggested_homepage_copy_improvements.
 ### Multi-LLM zichtbaarheid ("Wat AI over je zegt")
 
 Naast de analyse vraagt de scan de échte LLM's (ChatGPT/OpenAI, Gemini/Google,
-Perplexity, Claude/Anthropic) wat zij op basis van de bedrijfsnaam teruggeven
+Perplexity, Grok/xAI, Claude/Anthropic) wat zij op basis van de bedrijfsnaam teruggeven
 (`lib/geo/analysis/llm-visibility.ts`). Elk systeem draait alleen als zijn key is
 gezet (`OPENAI_API_KEY` / `GEMINI_API_KEY` / `PERPLEXITY_API_KEY` /
-`ANTHROPIC_API_KEY`), is best-effort en time-boxed (18s), en loopt PARALLEL aan de
+`XAI_API_KEY` / `ANTHROPIC_API_KEY`), is best-effort en time-boxed (18s), en loopt PARALLEL aan de
 analyse — nooit op het kritieke pad. De antwoorden komen in het rapport in een
 tabel; eronder toont het "improved"-blok van `ai_answer_comparison` het ideale
 antwoord volgens de GEO-methodiek. `GEO_AI_SEARCH=off` schakelt de hele probe uit.

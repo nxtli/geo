@@ -4,7 +4,7 @@ import { logError } from "../logger";
 
 /**
  * Multi-LLM visibility probe. Asks the real LLMs (ChatGPT/OpenAI, Gemini,
- * Perplexity, Claude) what they know about the business by name and captures
+ * Perplexity, Grok/xAI, Claude) what they know about the business by name and captures
  * each one's answer — the raw material for the report's "wat verschillende AI's
  * over je zeggen" table.
  *
@@ -12,7 +12,7 @@ import { logError } from "../logger";
  * set, is time-boxed, and returns null on any error (so one slow/broken engine
  * never blocks the scan). Disable the whole probe with GEO_AI_SEARCH=off.
  * Model ids are overridable via GEO_OPENAI_MODEL / GEO_GEMINI_MODEL /
- * GEO_PERPLEXITY_MODEL / GEO_ANALYSIS_MODEL.
+ * GEO_PERPLEXITY_MODEL / GEO_GROK_MODEL / GEO_ANALYSIS_MODEL.
  */
 const TIMEOUT_MS = 18_000;
 
@@ -24,6 +24,7 @@ export async function probeLlmVisibility(
     probeOpenAI(input),
     probeGemini(input),
     probePerplexity(input),
+    probeGrok(input),
     probeClaude(input),
   ]);
   return rows.filter((r): r is LlmVisibilityRow => !!r && !!r.answer.trim());
@@ -143,6 +144,39 @@ async function probePerplexity(input: GeoAnalysisInput): Promise<LlmVisibilityRo
     return typeof text === "string" && text.trim() ? row("Perplexity", text) : null;
   } catch (error) {
     logError("llm.perplexity", error);
+    return null;
+  }
+}
+
+/**
+ * Grok (xAI). De API volgt het OpenAI-formaat. Modelnamen wisselen vaak, dus
+ * GEO_GROK_MODEL overschrijft de standaard. Grok-modellen redeneren eerst:
+ * de ruimere max_tokens voorkomt een leeg antwoord.
+ */
+async function probeGrok(input: GeoAnalysisInput): Promise<LlmVisibilityRow | null> {
+  const key = process.env.XAI_API_KEY;
+  if (!key) return null;
+  const model = process.env.GEO_GROK_MODEL || "grok-4";
+  try {
+    const res = await timedFetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1200,
+        messages: [{ role: "user", content: buildPrompt(input) }],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      logError("llm.grok", `responded ${res.status} (model ${model}) ${body.slice(0, 200)}`);
+      return null;
+    }
+    const json = await res.json();
+    const text = json?.choices?.[0]?.message?.content;
+    return typeof text === "string" && text.trim() ? row("Grok (xAI)", text) : null;
+  } catch (error) {
+    logError("llm.grok", error);
     return null;
   }
 }

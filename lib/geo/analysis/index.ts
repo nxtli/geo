@@ -96,7 +96,7 @@ export async function runGeoAnalysis(
 
   // Multi-LLM visibility probe runs ALONGSIDE the analysis (best-effort,
   // time-boxed inside), so it never adds to the critical path — what each real
-  // LLM (ChatGPT, Gemini, Perplexity, Claude) returns about the business is
+  // LLM (ChatGPT, Gemini, Perplexity, Grok, Claude) returns about the business is
   // grafted onto the report's comparison table afterwards.
   // Het merk op de pagina kan afwijken van de ingevulde bedrijfsnaam (bureau
   // scant de site van een product of klant). De steekproef vraagt naar het

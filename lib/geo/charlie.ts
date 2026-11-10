@@ -62,8 +62,8 @@ export const CHARLIE_STEPS: CharlieStep[] = [
   },
   {
     key: "company_name",
-    prompt: "En wat is de naam van je bedrijf?",
-    placeholder: "Bijv. NXTLI",
+    prompt: "Voor welk bedrijf of merk is de pagina die je wilt scannen?",
+    placeholder: "De naam zoals klanten die kennen",
     validate: fieldValidators.required,
     ack: (v) => `Helder, ${v}.`,
   },
@@ -152,7 +152,7 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
 export const CHARLIE_COPY = {
   reviewLead: "Mooi, ik heb alles. Klopt dit zo?",
   scanningLead: "Top! Ik ga je pagina analyseren. Even geduld…",
-  scanningSubtle: "Dit duurt meestal niet langer dan een minuutje.",
+  scanningSubtle: "Dit duurt meestal één tot twee minuten.",
   successLead:
     "Je scan is klaar. Ik heb de belangrijkste kansen hieronder voor je samengevat.",
   emailNote: (email: string) =>

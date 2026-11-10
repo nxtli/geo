@@ -23,7 +23,7 @@ import {
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /**
  * POST /api/geo/scan
@@ -291,7 +291,7 @@ export async function POST(request: Request): Promise<Response> {
             report_html: reportHtml,
             email_queued: email.sent,
             message: degraded
-              ? "Je rapport staat klaar. We kijken er ook handmatig naar voor de puntjes op de i."
+              ? "De inhoudelijke beoordeling is deze keer niet gelukt. In je rapport staan wel de technische checks. We kijken handmatig mee en sturen je het volledige rapport na."
               : undefined,
           },
         });

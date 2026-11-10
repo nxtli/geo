@@ -55,6 +55,7 @@ export function buildPreview(
     short_summary: analysis.short_summary,
     strengths: analysis.strengths.slice(0, 3),
     quick_wins: analysis.quick_wins.slice(0, 3),
+    unscored_reason: analysis.unscored_reason,
   };
 }
 

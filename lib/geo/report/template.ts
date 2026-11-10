@@ -157,7 +157,7 @@ export function renderReportHtml(params: {
     </div>
     <div class="eyebrow">${esc(brand.id === "mat" ? "Marketing AI Team · GEO-scan" : brand.product)}</div>
     <h1>AI-vindbaarheidsrapport</h1>
-    <div class="meta">Voor <strong>${esc(lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
+    <div class="meta">Voor <strong>${esc(a.subject_name || lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
     <div class="scoreWrap">
       <div>
         <div class="score" style="color:${bandColor}">${a.unscored_reason ? "–" : score}<span style="font-size:20px;color:var(--subtle)">/100</span></div>
@@ -177,7 +177,7 @@ export function renderReportHtml(params: {
     <div class="card">
       <div class="eyebrow">Belangrijkste inzichten</div>
       <p class="lead" style="font-size:16px;margin-top:8px">${esc(a.short_summary)}</p>
-      <div class="twocol" style="margin-top:16px">
+      ${a.strengths.length || a.weaknesses.length ? `      <div class="twocol" style="margin-top:16px">
         <div class="subcard">
           <div class="h" style="color:#15803d">Sterk</div>
           ${ilist(a.strengths, "good", "Geen sterke punten gevonden.")}
@@ -186,14 +186,14 @@ export function renderReportHtml(params: {
           <div class="h" style="color:#c2410c">Grootste kansen</div>
           ${ilist(a.weaknesses, "opp", "Geen kansen gevonden.")}
         </div>
-      </div>
+      </div>` : ""}
     </div>
   </section>
 
   ${
     a.llm_visibility?.length || a.ai_answer_comparison?.improved?.answer
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(lead.company_name)}, steekproef bij meerdere AI-systemen</span></div>
+          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(a.subject_name || lead.company_name)}, steekproef bij meerdere AI-systemen</span></div>
           <p class="muted" style="font-size:12.5px;margin:0 0 12px">Eén vraag per systeem, één keer gesteld, zonder je webadres. AI-antwoorden wisselen per keer. Lees dit als steekproef, niet als meting.</p>
           ${
             a.llm_visibility?.length
@@ -226,12 +226,12 @@ export function renderReportHtml(params: {
   }
 
   <!-- QUICK WINS — also near the top -->
-  <section class="section">
+  ${a.quick_wins.length ? `<section class="section">
     <div class="card">
-      <div class="section-head"><h2>Snelle winst — nu te doen</h2><span class="section-sub">kleine acties, grote impact</span></div>
-      ${numlist(a.quick_wins, "Geen directe verbeterpunten.")}
+      <div class="section-head"><h2>Snelle winst, nu te doen</h2><span class="section-sub">kleine acties, grote impact</span></div>
+      ${numlist(a.quick_wins, "")}
     </div>
-  </section>
+  </section>` : ""}
 
   ${
     a.actions?.length
@@ -255,9 +255,9 @@ export function renderReportHtml(params: {
   }
 
   <!-- SCORE BREAKDOWN -->
-  <section class="section">
+  ${a.category_scores.length ? `  <section class="section">
     <div class="card">
-      <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel — kleur toont de prestatie</span></div>
+      <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel, kleur toont de prestatie</span></div>
       ${
         a.category_scores.length
           ? a.category_scores
@@ -273,7 +273,7 @@ export function renderReportHtml(params: {
           : `<p class="muted">Geen onderverdeling beschikbaar.</p>`
       }
     </div>
-  </section>
+  </section>` : ""}
 
   <!-- TECHNICAL CHECK -->
   <section class="section">
@@ -303,13 +303,13 @@ export function renderReportHtml(params: {
   </section>
 
   <!-- DETAIL -->
-  <section class="section">
+  ${a.what_ai_understands ? `  <section class="section">
     <div class="card">
       <div class="section-head"><h2>Wat AI van je site begrijpt</h2></div>
       <p>${esc(a.what_ai_understands)}</p>
       ${a.likely_ai_positioning ? `<p class="quote">${esc(a.likely_ai_positioning)}</p>` : ""}
     </div>
-  </section>
+  </section>` : ""}
 
   ${
     a.missing_signals.length

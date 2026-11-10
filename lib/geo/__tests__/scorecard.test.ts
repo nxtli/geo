@@ -121,3 +121,38 @@ describe("Marketingbrein", () => {
     expect(buildAnalysisPrompt(base)).toContain("niet getoetst");
   });
 });
+
+describe("zonder taalmodel en met een afwijkende merknaam", () => {
+  const url = "https://marketingaiteam.com/";
+  const html = '<head><meta property="og:site_name" content="Marketing AI Team"></head><h1>Van losse AI-tools naar één Marketing AI Team.</h1>';
+  const input = { homepage_url: url, company_name: "NXTLI", offer_description: "x", target_audience: "y", desired_queries: "z", facts: extractPageFacts(html, url), robots: analyzeRobots("", url) };
+  it("valt terug op alleen feiten: geen score, geen geschatte teksten", async () => {
+    const { runGeoAnalysis } = await import("../analysis");
+    const prev = { k: process.env.ANTHROPIC_API_KEY, p: process.env.GEO_ANALYSIS_PROVIDER, s: process.env.GEO_AI_SEARCH };
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.GEO_ANALYSIS_PROVIDER;
+    process.env.GEO_AI_SEARCH = "off";
+    const out = await runGeoAnalysis(input);
+    if (prev.k) process.env.ANTHROPIC_API_KEY = prev.k;
+    if (prev.p) process.env.GEO_ANALYSIS_PROVIDER = prev.p;
+    if (prev.s) process.env.GEO_AI_SEARCH = prev.s; else delete process.env.GEO_AI_SEARCH;
+    expect(out.providerId).toBe("facts");
+    expect(out.degraded).toBe(true);
+    expect(out.result.unscored_reason).not.toBeNull();
+    expect(out.result.visibility_score).toBe(0);
+    expect(out.result.category_scores).toHaveLength(0);
+    expect(out.result.technical_checks.length).toBeGreaterThan(3);
+    expect(JSON.stringify(out.result)).not.toContain("mock");
+  });
+  it("de beoordeling gaat over het merk van de pagina, niet over de ingevulde bedrijfsnaam", async () => {
+    const { subjectName } = await import("../analysis");
+    expect(subjectName(input)).toBe("Marketing AI Team");
+    expect(subjectName({ ...input, company_name: "marketing ai team" })).toBe("marketing ai team");
+    expect(subjectName({ ...input, facts: null })).toBe("NXTLI");
+    expect(buildAnalysisPrompt(input)).toContain("Merk volgens de pagina zelf: Marketing AI Team");
+    const r = parseAnalysisResult({ short_summary: "x", criteria: verdicts("voldoet") });
+    finalizeAnalysis(r, input);
+    expect(r.subject_name).toBe("Marketing AI Team");
+    expect(r.scope_notes[0]).toContain("NXTLI");
+  });
+});

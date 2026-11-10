@@ -231,6 +231,8 @@ export interface GeoAnalysisResult {
   hygiene: TechnicalCheck[];
   /** Wat de scan wel en niet heeft gemeten. */
   scope_notes: string[];
+  /** Het merk waar de beoordeling over gaat (van de pagina, anders ingevuld). */
+  subject_name?: string;
   short_summary: string;
   what_ai_understands: string;
   likely_ai_positioning: string;
@@ -286,6 +288,8 @@ export interface GeoScanResponse {
     short_summary: string;
     strengths: string[];
     quick_wins: string[];
+    /** Gezet als er geen score is; de chat toont dan de reden. */
+    unscored_reason?: string | null;
   };
   report_url?: string | null;
   /**

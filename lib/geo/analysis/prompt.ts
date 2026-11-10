@@ -43,8 +43,8 @@ Oordeel per criterium
 - "niet": het ontbreekt.
 - Eigen inbreng (U1 tot en met U3): stel per passage de vraag of een taalmodel dit zonder deze pagina had kunnen schrijven. Algemene uitleg, bekende voordelen en cijfers van anderen tellen niet. Eigen data, eigen onderzoek, cases, observaties uit klantgesprekken en een eigen methode of standpunt tellen wel, mits de herkomst erbij staat. In het voorstel verzin je deze inhoud nooit: schrijf [invullen: ...] en zeg welke bron de organisatie daarvoor heeft (onderzoek, klantgesprekken, verkoopdata).
 - "nvt": niet te beoordelen met de aangeleverde tekst of kennis. Gebruik dit liever dan te gokken. Bijvoorbeeld A4 zonder bekende keuzecriteria, F3 en G4 altijd.
-- "finding": één of twee zinnen over wat je op de pagina zag.
-- "quote": een letterlijk citaat van de pagina (maximaal 20 woorden) dat je oordeel onderbouwt. Leeg als er niets te citeren valt. Verzin geen citaat.
+- "finding": één korte zin over wat je op de pagina zag.
+- "quote": een letterlijk citaat van de pagina (maximaal 12 woorden) dat je oordeel onderbouwt. Leeg als er niets te citeren valt. Verzin geen citaat.
 - Geef voor ELK criterium-id precies één oordeel.
 
 De aannames achter de criteria (met bewijskracht)
@@ -53,7 +53,7 @@ ${ASSUMPTIONS}
 Geen effect aangetoond, dus geen advies als hefboom voor AI-vindbaarheid: ${NO_EFFECT}
 
 Adviezen ("actions")
-Geef voor elk criterium met oordeel "niet" of "deels" één advies dat iemand vandaag kan uitvoeren:
+Geef voor de criteria met oordeel "niet" of "deels" een advies dat iemand vandaag kan uitvoeren. Geef er hooguit acht: kies de criteria met de meeste punten. De overige criteria krijgen automatisch een standaardadvies.
 - "criterion": het id van het criterium.
 - "title": de handeling, in gebiedende wijs, specifiek voor deze pagina. Niet "voeg een prijs toe" maar "Zet onder de kop 'Tarieven' het bedrag per maand".
 - "why": wat je zag en wat het de lezer of de AI-tool kost. Noem geen percentages of beloofde stijgingen.
@@ -67,11 +67,8 @@ Overige velden
 - short_summary: drie tot vier zinnen. Begin met de grootste belemmering. Zeg welke klantvraag de pagina het slechtst beantwoordt.
 - what_ai_understands / likely_ai_positioning: wat een AI-tool uit deze pagina kan opmaken over wie, wat en voor wie.
 - ai_answer_comparison: "current" = hoe een AI-tool het aanbod nu zou samenvatten op basis van deze pagina, met 3 tot 4 labels. "improved" = hoe dat klinkt na de adviezen, met alleen feiten van de pagina of [invullen: ...].
-- strengths / weaknesses: concreet, met verwijzing naar het criterium-id.
-- missing_signals: feiten die een koper nodig heeft en die ontbreken.
-- content_gaps / recommended_faq_questions: klantvragen die de pagina niet beantwoordt. Neem de opgegeven klantvragen als basis. "why" zegt bij welk publiek de vraag hoort.
-- recommended_pages: alleen pagina's die een onbeantwoorde klantvraag oplossen.
-- suggested_homepage_copy_improvements: maximaal drie herschreven zinnen, elk als "Nu: ... Voorstel: ...".
+- strengths / weaknesses: elk hooguit drie, concreet, met verwijzing naar het criterium-id.
+- recommended_faq_questions: hooguit vijf klantvragen die de pagina niet beantwoordt. Neem de opgegeven klantvragen als basis. "why" zegt bij welk publiek de vraag hoort.
 
 Schrijf helder Nederlands op B1-niveau: korte, actieve zinnen, geen jargon zonder uitleg, geen hype. Geef uitsluitend het gevraagde JSON terug.`;
 
@@ -104,7 +101,11 @@ export function buildAnalysisPrompt(input: GeoAnalysisInput): string {
   const f = input.facts ?? null;
   const r = input.robots ?? null;
   const lines: string[] = [];
-  lines.push(`Bedrijf: ${input.company_name}`);
+  const site = input.facts?.siteName;
+  lines.push(`Bedrijf (ingevuld door de aanvrager): ${input.company_name}`);
+  if (site && site.toLowerCase() !== input.company_name.toLowerCase()) {
+    lines.push(`Merk volgens de pagina zelf: ${site}. Beoordeel de pagina als pagina van dit merk en gebruik deze naam in je teksten.`);
+  }
   lines.push(`Pagina: ${input.homepage_url}`);
 
   lines.push("", `--- Kennis over de koper (bron: ${buyer.origin === "marketingbrein" ? "goedgekeurde kennis uit het Marketingbrein" : "ingevuld door de bezoeker, niet getoetst"}) ---`);

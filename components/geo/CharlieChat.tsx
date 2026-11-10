@@ -594,30 +594,35 @@ function ProcessingList({
 function ResultCard({ result }: { result: GeoScanResponse }) {
   const p = result.preview!;
   const score = p.visibility_score;
-  const tone =
-    score >= 70 ? "text-success" : score >= 45 ? "text-warning" : "text-danger";
+  const unscored = Boolean(p.unscored_reason);
+  const tone = unscored
+    ? "text-subtle"
+    : score >= 70 ? "text-success" : score >= 45 ? "text-warning" : "text-danger";
   return (
     <div className="animate-fade-up space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-soft">
       <div className="flex items-center gap-4">
         <div className="text-center">
           <div className={cn("font-display text-4xl font-bold leading-none", tone)}>
-            {score}
+            {unscored ? "–" : score}
           </div>
           <div className="text-[10px] uppercase tracking-wide text-subtle">/ 100</div>
         </div>
         <div className="flex-1">
           <div className="text-xs font-semibold uppercase tracking-wide text-brand">
-            AI Visibility Score
+            {unscored ? "Geen score" : "Paginascore"}
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-elevated">
             <div
               className="h-full rounded-full bg-gradient-to-r from-brand to-accent"
-              style={{ width: `${score}%` }}
+              style={{ width: `${unscored ? 0 : score}%` }}
             />
           </div>
         </div>
       </div>
       <p className="text-sm leading-relaxed text-muted">{p.short_summary}</p>
+      {unscored ? (
+        <p className="text-xs leading-relaxed text-subtle">{p.unscored_reason}</p>
+      ) : null}
       {p.category_scores?.length > 0 && (
         <div>
           <div className="mb-1.5 text-xs font-semibold text-ink">Opbouw van de score</div>

@@ -161,6 +161,7 @@ export const geoAnalysisResultSchema = z.object({
   unscored_reason: z.string().nullable().catch(null).default(null),
   hygiene: z.array(z.object({ label: z.string(), status: z.enum(["goed", "aandacht", "blokker", "onbekend"]).catch("onbekend"), detail: z.string().default("") })).default([]),
   scope_notes: z.array(z.string()).default([]),
+  subject_name: z.string().optional(),
   visibility_score: z.coerce
     .number()
     .catch(0)
@@ -298,9 +299,6 @@ export const geoAnalysisJsonSchema = {
     },
     strengths: { type: "array", items: { type: "string" } },
     weaknesses: { type: "array", items: { type: "string" } },
-    missing_signals: { type: "array", items: { type: "string" } },
-    content_gaps: { type: "array", items: { type: "string" } },
-    recommended_pages: { type: "array", items: { type: "string" } },
     recommended_faq_questions: {
       type: "array",
       items: {
@@ -313,10 +311,6 @@ export const geoAnalysisJsonSchema = {
         required: ["question", "why"],
       },
     },
-    suggested_homepage_copy_improvements: {
-      type: "array",
-      items: { type: "string" },
-    },
   },
   required: [
     "criteria",
@@ -327,10 +321,6 @@ export const geoAnalysisJsonSchema = {
     "ai_answer_comparison",
     "strengths",
     "weaknesses",
-    "missing_signals",
-    "content_gaps",
-    "recommended_pages",
     "recommended_faq_questions",
-    "suggested_homepage_copy_improvements",
   ],
 } as const;

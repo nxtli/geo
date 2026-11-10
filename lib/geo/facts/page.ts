@@ -11,6 +11,8 @@ export interface PageFacts {
   title: string | null;
   description: string | null;
   canonical: string | null;
+  /** Merknaam die de pagina zelf opgeeft (og:site_name of schema). */
+  siteName: string | null;
   lang: string | null;
   metaRobots: string | null;
   xRobotsTag: string | null;
@@ -22,7 +24,7 @@ export interface PageFacts {
   h1Count: number;
   headings: Heading[];
   skippedHeadingLevel: boolean;
-  jsonLd: { blocks: number; invalid: number; types: string[]; dateModified: string | null };
+  jsonLd: { blocks: number; invalid: number; types: string[]; dateModified: string | null; orgName: string | null };
   /** Datum die een bezoeker op de pagina ziet, met jaartal. */
   visibleDate: string | null;
   metaModified: string | null;
@@ -87,7 +89,7 @@ export function htmlToOutlineText(html: string): string {
 }
 
 function collectJsonLd(html: string) {
-  const out = { blocks: 0, invalid: 0, types: [] as string[], dateModified: null as string | null };
+  const out = { blocks: 0, invalid: 0, types: [] as string[], dateModified: null as string | null, orgName: null as string | null };
   const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   const types = new Set<string>();
   const walk = (node: unknown) => {
@@ -98,6 +100,8 @@ function collectJsonLd(html: string) {
     if (typeof t === "string") types.add(t);
     else if (Array.isArray(t)) t.forEach((x) => typeof x === "string" && types.add(x));
     if (typeof o.dateModified === "string" && !out.dateModified) out.dateModified = o.dateModified;
+    const ts = typeof t === "string" ? [t] : Array.isArray(t) ? t : [];
+    if (!out.orgName && typeof o.name === "string" && ts.some((x) => /^(Organization|WebSite|LocalBusiness|Corporation|Brand)$/.test(String(x)))) out.orgName = o.name.trim();
     Object.values(o).forEach(walk);
   };
   let m: RegExpExecArray | null;
@@ -199,6 +203,7 @@ export function extractPageFacts(
     })(),
     description: metaContent(html, "name", "description") ?? metaContent(html, "property", "og:description"),
     canonical: canonicalTag ? attr(canonicalTag, "href") : null,
+    siteName: (metaContent(html, "property", "og:site_name") || jsonLd.orgName || "").trim() || null,
     lang: htmlTag ? attr(htmlTag, "lang") : null,
     metaRobots,
     xRobotsTag,

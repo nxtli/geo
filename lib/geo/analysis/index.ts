@@ -5,6 +5,8 @@ import { MockAnalysisProvider } from "./providers/mock";
 import { ClaudeAnalysisProvider } from "./providers/claude";
 import { GeoSkillAnalysisProvider } from "./providers/geo-skill";
 import { probeLlmVisibility } from "./llm-visibility";
+import { FactsOnlyProvider } from "./providers/facts";
+import { logError } from "../logger";
 import { rescore } from "./provider";
 import { buildActions, deriveLegacyLists } from "./scorecard";
 import { CURRENT_RUBRIC_VERSION } from "./rubric";
@@ -35,17 +37,16 @@ function register(provider: GeoAnalysisProvider) {
 register(new GeoSkillAnalysisProvider());
 register(new ClaudeAnalysisProvider());
 register(new MockAnalysisProvider());
+register(new FactsOnlyProvider());
 
 export function selectProvider(): GeoAnalysisProvider {
   const explicit = process.env.GEO_ANALYSIS_PROVIDER?.trim();
   if (explicit && registry[explicit]) return registry[explicit];
 
-  const order = ["claude", "mock"];
-  for (const id of order) {
-    const p = registry[id];
-    if (p?.isConfigured()) return p;
-  }
-  return registry["mock"];
+  // Zonder werkend taalmodel: alleen feiten, geen geschatte score. De mock
+  // draait uitsluitend op een expliciete GEO_ANALYSIS_PROVIDER=mock (lokaal).
+  if (registry["claude"].isConfigured()) return registry["claude"];
+  return registry["facts"];
 }
 
 /**
@@ -54,7 +55,7 @@ export function selectProvider(): GeoAnalysisProvider {
  * to the mock, so the request always reaches a terminal state (and the scan row
  * is never left stuck on "scanning") well before the platform kills the function.
  */
-const ANALYSIS_DEADLINE_MS = 95_000;
+const ANALYSIS_DEADLINE_MS = 230_000;
 
 function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -97,7 +98,11 @@ export async function runGeoAnalysis(
   // time-boxed inside), so it never adds to the critical path — what each real
   // LLM (ChatGPT, Gemini, Perplexity, Claude) returns about the business is
   // grafted onto the report's comparison table afterwards.
-  const probe = probeLlmVisibility(input).catch(() => [] as Awaited<ReturnType<typeof probeLlmVisibility>>);
+  // Het merk op de pagina kan afwijken van de ingevulde bedrijfsnaam (bureau
+  // scant de site van een product of klant). De steekproef vraagt naar het
+  // merk van de pagina.
+  const subject = subjectName(input);
+  const probe = probeLlmVisibility({ ...input, company_name: subject }).catch(() => [] as Awaited<ReturnType<typeof probeLlmVisibility>>);
 
   try {
     const { result, usage } = await withDeadline(
@@ -106,16 +111,17 @@ export async function runGeoAnalysis(
     );
     finalizeAnalysis(result, input);
     await applyLlmVisibility(result, probe);
-    return { result, usage, providerId: provider.id, degraded: false };
-  } catch {
-    if (provider.id === "mock") throw new Error("analysis_failed");
+    return { result, usage, providerId: provider.id, degraded: provider.id === "facts" };
+  } catch (error) {
+    logError("analysis.run", error);
+    if (provider.id === "mock" || provider.id === "facts") throw new Error("analysis_failed");
     // Real provider failed or exceeded the deadline — fall back to the mock so
     // the visitor still gets a (flagged degraded) report within the time budget.
-    logInfo("analysis", `provider "${provider.id}" failed/timed out — falling back to mock`);
-    const { result } = await registry["mock"].analyze(input);
+    logInfo("analysis", `provider "${provider.id}" failed/timed out, alleen feiten`);
+    const { result } = await registry["facts"].analyze(input);
     finalizeAnalysis(result, input);
     await applyLlmVisibility(result, probe);
-    return { result, providerId: "mock", degraded: true };
+    return { result, providerId: "facts", degraded: true };
   }
 }
 
@@ -134,9 +140,13 @@ export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisIn
   result.rubric_version = result.rubric_version || CURRENT_RUBRIC_VERSION;
 
   const fetched = Boolean(input.facts);
-  result.unscored_reason = fetched
-    ? null
-    : "De pagina kon niet worden opgehaald. Zonder de inhoud is er geen score.";
+  result.unscored_reason = !fetched
+    ? "De pagina kon niet worden opgehaald. Zonder de inhoud is er geen score."
+    : result.criteria.length || result.category_scores.length
+      ? null
+      : result.unscored_reason || "De inhoudelijke beoordeling is niet gelukt. Er is daarom geen score.";
+  const subject = subjectName(input);
+  result.subject_name = subject;
 
   if (result.criteria.length) {
     const forced = new Map(layer.forced.map((c) => [c.id, c]));
@@ -154,7 +164,12 @@ export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisIn
     result.actions = layer.gateActions;
   }
 
+  const nameNote =
+    subject !== input.company_name
+      ? [`Je vulde "${input.company_name}" in als bedrijfsnaam. De pagina hoort bij "${subject}". De beoordeling en de steekproef gaan over "${subject}".`]
+      : [];
   result.scope_notes = [
+    ...nameNote,
     "Deze scan beoordeelt of één pagina geschikt is voor AI-zoekmachines. Hij meet niet hoe vaak een AI-tool het merk noemt of aanbeveelt.",
     (input.buyer?.origin ?? "bezoeker") === "marketingbrein"
       ? "De klantvragen komen uit goedgekeurde kennis in het Marketingbrein."
@@ -163,6 +178,19 @@ export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisIn
     `Kennisbank ${EVIDENCE.version}, herzien op ${EVIDENCE.reviewed}.${evidenceIsStale() ? " Let op: de kennisbank is toe aan herziening." : ""}`,
   ];
   return result;
+}
+
+/**
+ * De naam waar de analyse over gaat: de merknaam die de pagina zelf opgeeft
+ * (og:site_name of schema), anders de ingevulde bedrijfsnaam.
+ */
+export function subjectName(input: GeoAnalysisInput): string {
+  const site = input.facts?.siteName?.trim();
+  const given = (input.company_name || "").trim();
+  if (!site) return given;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!given || norm(site) === norm(given)) return given || site;
+  return site;
 }
 
 /** Graft the REAL per-LLM answers onto the result's comparison table. */

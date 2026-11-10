@@ -24,7 +24,7 @@ export const DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-6";
  * can fall back to the mock — instead of the platform killing the function
  * mid-stream and leaving the scan row stuck on "scanning".
  */
-export const ANALYSIS_REQUEST_TIMEOUT_MS = 80_000;
+export const ANALYSIS_REQUEST_TIMEOUT_MS = 210_000;
 
 /**
  * Direct Claude API analysis provider.
@@ -62,7 +62,7 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
 
     const params = {
       model,
-      max_tokens: 6000,
+      max_tokens: 12000,
       output_config: {
         effort: "low",
         format: { type: "json_schema", schema: geoAnalysisJsonSchema },
@@ -81,7 +81,7 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
       // ~4500 chars is a typical full report; cap at 0.95 until completion.
       stream.on("text", (delta: string) => {
         chars += delta.length;
-        const frac = Math.min(0.95, chars / 4500);
+        const frac = Math.min(0.95, chars / 14000);
         if (frac - last >= 0.02) {
           last = frac;
           opts.onProgress?.(frac);
@@ -92,6 +92,10 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response: any = await stream.finalMessage();
 
+    if (response?.stop_reason === "max_tokens") {
+      logError("analysis.claude", "antwoord afgekapt op max_tokens");
+      throw new Error("analysis_truncated");
+    }
     if (response?.stop_reason === "refusal") {
       logError("analysis.claude", "model returned refusal stop_reason");
       throw new Error("analysis_refused");

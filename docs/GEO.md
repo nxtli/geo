@@ -159,8 +159,13 @@ met K-nummer, aanbod, keuzecriteria, concurrenten. Alleen goedgekeurde kennis te
 `initialProfile` wordt niet gebruikt. Zonder brein gebruikt de scan de chatvelden en meldt het
 rapport dat de klantvragen niet getoetst zijn.
 
-De `claude`-provider wordt gekozen zodra `ANTHROPIC_API_KEY` is gezet. Zonder key draait de
-mock: die geeft een voorlopige indeling zonder oordeel per criterium. De feitenlaag draait altijd.
+De `claude`-provider wordt gekozen zodra `ANTHROPIC_API_KEY` is gezet. Zonder key, of als de
+aanroep faalt, toont het rapport alleen de gemeten feiten en geen score (`providers/facts.ts`).
+De oorzaak staat in de logs onder `analysis.run`. De mock draait alleen nog met een expliciete
+`GEO_ANALYSIS_PROVIDER=mock`, voor lokaal testen.
+
+De beoordeling gaat over het merk dat de pagina zelf opgeeft (`og:site_name` of schema). Wijkt
+dat af van de ingevulde bedrijfsnaam, dan meldt het rapport dat.
 
 ### Waarom niet de skill zélf via de Skills-API?
 

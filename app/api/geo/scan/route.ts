@@ -285,6 +285,7 @@ export async function POST(request: Request): Promise<Response> {
             status: "completed",
             preview: buildPreview(analysis),
             report_url: reportUrl,
+            report_html: reportHtml,
             email_queued: email.sent,
             message: degraded
               ? "Je rapport staat klaar. We kijken er ook handmatig naar voor de puntjes op de i."

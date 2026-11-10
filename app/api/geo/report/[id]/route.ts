@@ -52,7 +52,11 @@ export async function GET(
 
   if (!html) {
     return NextResponse.json(
-      { ok: false, message: "Rapport niet gevonden of verlopen." },
+      {
+        ok: false,
+        message:
+          "Rapport niet gevonden of verlopen. Zonder database bewaart deze omgeving rapporten alleen tijdelijk. Open het rapport vanuit de chat direct na de scan.",
+      },
       { status: 404 },
     );
   }

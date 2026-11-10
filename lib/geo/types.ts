@@ -288,6 +288,12 @@ export interface GeoScanResponse {
     quick_wins: string[];
   };
   report_url?: string | null;
+  /**
+   * Het rapport zelf. De chat opent dit als de link niet werkt, bijvoorbeeld
+   * in een omgeving zonder database waar het rapport alleen in het geheugen van
+   * één serverinstantie staat.
+   */
+  report_html?: string;
   email_queued?: boolean;
   /**
    * True when the scan was blocked by the one-scan-per-email gate. The preview /

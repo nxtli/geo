@@ -42,6 +42,31 @@ export function CharlieChat({
   const [processingIndex, setProcessingIndex] = React.useState(0);
   const [scanProgress, setScanProgress] = React.useState(0);
   const [result, setResult] = React.useState<GeoScanResponse | null>(null);
+  // Link naar het rapport. Standaard de server-URL; werkt die niet (geen
+  // database, andere serverinstantie), dan een lokale kopie van het rapport.
+  const [reportHref, setReportHref] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const url = result?.report_url ?? null;
+    const html = result?.report_html;
+    setReportHref(url);
+    if (!url || !html) return;
+    let blobUrl: string | null = null;
+    let cancelled = false;
+    fetch(url, { method: "GET", cache: "no-store" })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .then((ok) => {
+        if (ok || cancelled) return;
+        // <base> zodat het logo en andere paden vanaf de site laden.
+        const withBase = html.replace(/<head([^>]*)>/i, `<head$1><base href="${window.location.origin}/">`);
+        blobUrl = URL.createObjectURL(new Blob([withBase], { type: "text/html;charset=utf-8" }));
+        setReportHref(blobUrl);
+      });
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [result]);
 
   const initialized = React.useRef(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -368,10 +393,10 @@ export function CharlieChat({
             </p>
           )}
 
-          {phase === "success" && result?.report_url && (
+          {phase === "success" && reportHref && (
             <div className="flex flex-col gap-2 sm:flex-row">
               <a
-                href={result.report_url}
+                href={reportHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-brand-fg shadow-soft transition-all hover:shadow-glow"

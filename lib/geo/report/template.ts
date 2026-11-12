@@ -1,4 +1,6 @@
 import type { GeoAnalysisResult, GeoLeadInput } from "../types";
+import { SCORECARD, stepOfCriterion, stepOfDimension } from "../knowledge";
+import type { CategoryScore, GeoAction } from "../types";
 import { BRANDS, type Brand } from "../brand";
 
 /**
@@ -160,6 +162,12 @@ export function renderReportHtml(params: {
   .act-new .act-label { color:var(--brand); }
   .act-text { white-space:pre-wrap; overflow-wrap:anywhere; }
   .act-empty { color:#8a94a6; font-style:italic; }
+  /* De twee stappen: eerst gevonden worden, dan als bron gekozen worden. */
+  .step-head { margin:18px 0 6px; font-weight:800; color:var(--ink); font-size:15px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+  .step-head:first-child { margin-top:0; }
+  .step-head small { flex-basis:100%; font-weight:400; color:var(--muted); font-size:13px; line-height:1.5; }
+  .step-num { background:var(--soft); color:var(--brand); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+  .step-head-acts { margin:26px 0 12px; }
   .fill { background:#fff4d6; border-radius:4px; padding:0 4px; color:#7a4b00; font-weight:600; }
   .act-done { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0 42px; font-size:14px; color:var(--muted); }
   .act-check { flex:none; width:20px; height:20px; border-radius:50%; background:#e7f6ec; color:var(--good); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
@@ -268,10 +276,13 @@ export function renderReportHtml(params: {
   ${
     a.actions?.length
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Adviezen om uit te voeren</h2><span class="section-sub">op volgorde van belang</span></div>
+          <div class="section-head"><h2>Adviezen om uit te voeren</h2><span class="section-sub">in twee stappen, binnen elke stap op volgorde van belang</span></div>
           <div class="acts">
-          ${a.actions
-            .map((x, i) => {
+          ${actionsBySteps(a.actions)
+            .map(({ x, heading }, i) => {
+              const stepHeading = heading
+                ? `<div class="step-head step-head-acts"><span class="step-num">Stap ${heading.step}</span>${esc(heading.title)}<small>${esc(heading.intro)}</small></div>`
+                : "";
               const points = x.points ? `${String(x.points).replace(".", ",")} ${x.points === 1 ? "punt" : "punten"}` : "blokkade";
               // Elk inhoudelijk advies toont Nu en Voorstel. Een blokkade (techniek) heeft geen tekst om te vergelijken.
               const content = x.points > 0;
@@ -283,7 +294,7 @@ export function renderReportHtml(params: {
               const newBox = after
                 ? `<div class="act-text">${fillIns(esc(after))}</div>`
                 : `<div class="act-text act-empty">Schrijf deze tekst zelf. Gebruik de toets bij "Klaar als" hieronder.</div>`;
-              return `<article class="act">
+              return `${stepHeading}<article class="act">
                 <header class="act-head">
                   <span class="act-num">${i + 1}</span>
                   <h3 class="act-title">${esc(x.title)}</h3>
@@ -318,13 +329,19 @@ export function renderReportHtml(params: {
       <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel, kleur toont de prestatie</span></div>
       ${
         a.category_scores.length
-          ? a.category_scores
+          ? scoreGroups(a.category_scores)
               .map(
-                (c) => `<div class="rowscore">
+                (g) =>
+                  (g.title ? `<div class="step-head"><span class="step-num">Stap ${g.step}</span>${esc(g.title)}</div>` : "") +
+                  g.rows
+                    .map(
+                      (c) => `<div class="rowscore">
                   <div class="lbl">${esc(c.label)}<small>${esc(c.summary)}</small></div>
                   <div class="bar"><i style="width:${pct(c.score, c.max)}%;background:${barColor(c.score, c.max)}"></i></div>
                   <div class="num">${c.score}<span class="muted">/${c.max}</span></div>
                 </div>`,
+                    )
+                    .join(""),
               )
               .join("") +
             `<div class="rowtotal"><span>Totaalscore</span><span style="color:${bandColor}">${score}/100</span></div>`
@@ -545,4 +562,34 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const STEP_INTRO: Record<1 | 2, string> = {
+  1: "Een AI-tool gebruikt alleen pagina's die hij vindt en kan lezen. Begin daarom hier. Vermeldingen op andere sites tellen ook mee, maar die ziet deze scan niet.",
+  2: "Is je pagina gevonden, dan kiest de AI-tool welke pagina's hij als bron gebruikt. Deze adviezen maken je pagina daar geschikter voor.",
+};
+
+/**
+ * Deelt de onderdelen van de score in over de twee stappen. Een rapport van een
+ * oudere scorecard kent die indeling niet en blijft één lijst.
+ */
+function scoreGroups(rows: CategoryScore[]): Array<{ step: number; title: string; rows: CategoryScore[] }> {
+  const steps = rows.map((r) => stepOfDimension(r.key));
+  if (steps.some((s) => s === null)) return [{ step: 0, title: "", rows }];
+  return SCORECARD.steps
+    .map((s) => ({ step: s.step, title: s.title, rows: rows.filter((_, i) => steps[i] === s.step) }))
+    .filter((g) => g.rows.length > 0);
+}
+
+/** Zet de adviezen in de volgorde van de twee stappen en markeert waar een stap begint. */
+function actionsBySteps(
+  actions: GeoAction[],
+): Array<{ x: GeoAction; heading: { step: number; title: string; intro: string } | null }> {
+  const out: Array<{ x: GeoAction; heading: { step: number; title: string; intro: string } | null }> = [];
+  for (const s of SCORECARD.steps) {
+    // Een blokkade (0 punten) hoort altijd bij stap 1: zonder toegang wordt de pagina niet gevonden.
+    const inStep = actions.filter((a) => (a.points > 0 ? stepOfCriterion(a.criterion) : 1) === s.step);
+    inStep.forEach((x, i) => out.push({ x, heading: i === 0 ? { step: s.step, title: s.title, intro: STEP_INTRO[s.step] } : null }));
+  }
+  return out;
 }

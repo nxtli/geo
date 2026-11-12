@@ -10,10 +10,18 @@ describe("landingspagina", () => {
     for (const d of SCORECARD.dimensions) {
       expect(DIMENSION_POINTS[d.label]).toBe(d.criteria.reduce((n, c) => n + c.max, 0));
     }
-    expect(FEATURES.items.reduce((n, i) => n + i.points, 0)).toBe(100);
-    expect(FEATURES.items.map((i) => i.weight)).toEqual([
-      "Weegt zwaar", "Weegt zwaar", "Weegt gemiddeld", "Weegt gemiddeld",
-      "Weegt gemiddeld", "Weegt gemiddeld", "Weegt licht", "Weegt licht",
+    const items = FEATURES.steps.flatMap((s) => s.items);
+    expect(items.reduce((n, i) => n + i.points, 0)).toBe(100);
+    expect(items.length).toBe(SCORECARD.dimensions.length);
+    // De stappen op de pagina zijn dezelfde als in de scorecard.
+    for (const s of FEATURES.steps) {
+      for (const i of s.items) {
+        expect(SCORECARD.dimensions.find((d) => d.label === i.label)?.step).toBe(s.step);
+      }
+    }
+    expect(items.filter((i) => i.weight === "Weegt zwaar").map((i) => i.label)).toEqual([
+      "Eigen, concrete informatie",
+      "Aansluiting op de vraag",
     ]);
   });
   it("noemt het echte aantal vragen in de chat", () => {

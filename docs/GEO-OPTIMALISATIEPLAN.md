@@ -23,7 +23,7 @@ De module gebruikt het Marketingbrein als bron. Het brein levert het publiek, de
 
 | Onderdeel | v1 | v2 |
 |---|---|---|
-| Score | 6 categorieën, techniek 20 punten | 3 poortwachters zonder punten, 8 dimensies, vraagaansluiting 26 punten, eigen inbreng 10 punten |
+| Score | 6 categorieën, techniek 20 punten | 3 poortwachters zonder punten, 7 dimensies in 2 stappen, eigen concrete informatie 28 punten, vraagaansluiting 26 punten |
 | Bewijs | Princeton-cijfers als vaste waarheid | Bewijsbasis met bron, jaar en bewijskracht per criterium |
 | llms.txt, schema, FAQ-opmaak | Tellen mee | Hygiëne zonder punten |
 | AI-bots | ClaudeBot als zoekbot | Zoekbots, trainingsbots en gebruikersbots gescheiden, door een parser beoordeeld |
@@ -64,8 +64,7 @@ Het model staat als data in de code. Elk criterium heeft: punten, bewijskracht, 
 | Dimensie | Punten | Bewijskracht | Voedt uit het brein |
 |---|---|---|---|
 | Aansluiting op de vraag | 26 | Sterk | Veelgestelde vragen, publieken, keuzecriteria |
-| Concrete, controleerbare informatie | 18 | Sterk | Producten en aanbod |
-| Eigen inbreng | 10 | Richtlijn | Eigen onderzoek, cases, klantgesprekken |
+| Eigen, concrete informatie | 28 | Sterk voor concrete feiten, richtlijn voor eigen inbreng | Producten en aanbod, eigen onderzoek, cases, klantgesprekken |
 | Citeerbare antwoorden | 13 | Middel | Positionering |
 | Bewijs en bronnen | 10 | Middel | Cases, cijfers |
 | Actualiteit | 5 | Sterk bij tijdgevoelige vragen | Key Moment roadmap |

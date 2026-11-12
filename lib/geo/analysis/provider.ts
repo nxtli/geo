@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GeoAnalysisInput, GeoAnalysisResult, GeoUsage } from "../types";
-import { CURRENT_RUBRIC_VERSION, GEO_MAX_SCORE, LEGACY_RUBRIC_VERSION, rubricFor, type RubricCategory } from "./rubric";
+import { CURRENT_RUBRIC_VERSION, CRITERIA_RUBRIC_VERSIONS, GEO_MAX_SCORE, LEGACY_RUBRIC_VERSION, rubricFor, type RubricCategory } from "./rubric";
 import { normalizeCriteria, scoreFromCriteria } from "./scorecard";
 import { SCORECARD } from "../knowledge";
 
@@ -212,7 +212,8 @@ export function parseAnalysisResult(value: unknown): GeoAnalysisResult {
  * plafond zodra een poortwachter faalt.
  */
 export function rescore(parsed: GeoAnalysisResult): GeoAnalysisResult {
-  if (parsed.rubric_version === CURRENT_RUBRIC_VERSION && parsed.criteria.length) {
+  if (CRITERIA_RUBRIC_VERSIONS.includes(parsed.rubric_version) && parsed.criteria.length) {
+    parsed.rubric_version = CURRENT_RUBRIC_VERSION;
     parsed.criteria = normalizeCriteria(parsed.criteria);
     parsed.category_scores = scoreFromCriteria(parsed.criteria).category_scores;
   }

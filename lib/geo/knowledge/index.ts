@@ -36,7 +36,14 @@ export interface Criterion {
 export interface Dimension {
   key: string;
   label: string;
+  /** 1 = gevonden worden, 2 = als bron gekozen en gebruikt worden. */
+  step: 1 | 2;
   criteria: Criterion[];
+}
+export interface ScoreStep {
+  step: 1 | 2;
+  title: string;
+  short: string;
 }
 export interface Gate {
   id: string;
@@ -59,6 +66,7 @@ export const SCORECARD = scorecardJson as unknown as {
   verdict_values: Record<"voldoet" | "deels" | "niet", number>;
   gates: Gate[];
   dimensions: Dimension[];
+  steps: ScoreStep[];
   hygiene: Array<{ id: string; name: string; evidence: string[] }>;
 };
 
@@ -99,4 +107,15 @@ export function criterionWeight(c: Criterion): number {
 /** True als de kennisbank over de herzieningsdatum heen is. */
 export function evidenceIsStale(today = new Date()): boolean {
   return today.toISOString().slice(0, 10) > EVIDENCE.review_before;
+}
+
+/** In welke stap valt een criterium? Poortwachters en onbekende ids horen bij stap 1. */
+export function stepOfCriterion(id: string): 1 | 2 {
+  const d = SCORECARD.dimensions.find((x) => x.criteria.some((c) => c.id === id));
+  return d?.step ?? 1;
+}
+
+/** In welke stap valt een onderdeel van de score? Null bij een onderdeel uit een oudere scorecard. */
+export function stepOfDimension(key: string): 1 | 2 | null {
+  return SCORECARD.dimensions.find((x) => x.key === key)?.step ?? null;
 }

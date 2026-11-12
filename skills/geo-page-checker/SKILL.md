@@ -181,13 +181,14 @@ Gebruik de dimensies en punten uit `references/geo-checklist.md`:
 | Dimensie | Punten | Kern |
 |---|---|---|
 | Aansluiting op de vraag | 26 | Beantwoordt de pagina de vragen en keuzecriteria van de koper? |
-| Concrete, controleerbare informatie | 18 | Prijs, specificaties, diepgang, vergelijking |
-| Eigen inbreng | 10 | Eigen onderzoek, eigen data, cases en klantgesprekken, eigen methode of standpunt |
+| Eigen, concrete informatie | 28 | Prijs, specificaties, diepgang, vergelijking, plus eigen onderzoek, eigen data, cases, eigen methode of standpunt |
 | Citeerbare antwoorden | 13 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
 | Bewijs en bronnen | 10 | Cijfers met bron, citaat met naam, controleerbare claims |
 | Actualiteit | 5 | Zichtbare datum met jaartal, actuele gegevens |
 | Afzender en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
 | Paginabasis | 8 | Koppen, titel, ankerteksten, pagina-ervaring |
+
+De dimensies vallen in twee stappen. Stap 1, gevonden worden: Afzender en vertrouwen, Paginabasis, Actualiteit, plus de poortwachters. Stap 2, als bron gekozen en gebruikt worden: Eigen, concrete informatie, Aansluiting op de vraag, Citeerbare antwoorden, Bewijs en bronnen.
 
 De drie poortwachters (zoekbots toegelaten, indexeerbaar, tekst in de HTML) krijgen geen punten.
 Faalt er een, dan is de score hooguit 20. Structured data, llms.txt en canonical meld je als

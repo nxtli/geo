@@ -43,7 +43,7 @@ describe("scoren uit oordelen", () => {
   it("nvt telt niet mee en verlaagt de score niet", () => {
     const r = parseAnalysisResult({ short_summary: "x", criteria: verdicts("voldoet", { G4: "nvt", F3: "nvt", D1: "nvt" }) });
     expect(r.visibility_score).toBe(100);
-    expect(r.rubric_version).toBe("2");
+    expect(r.rubric_version).toBe(SCORECARD.version);
   });
   it("een oud resultaat zonder versie blijft op de oude rubric", () => {
     const old = rubricFor("1").map((c) => ({ key: c.key, label: c.label, score: c.max, max: c.max, summary: "" }));
@@ -154,5 +154,25 @@ describe("zonder taalmodel en met een afwijkende merknaam", () => {
     finalizeAnalysis(r, input);
     expect(r.subject_name).toBe("Marketing AI Team");
     expect(r.scope_notes[0]).toContain("NXTLI");
+  });
+});
+
+describe("twee stappen en samengevoegd onderdeel", () => {
+  it("eigen inbreng en concrete informatie vormen samen het zwaarste onderdeel", () => {
+    const d = SCORECARD.dimensions.find((x) => x.key === "eigen_concrete_informatie")!;
+    expect(d.criteria.map((c) => c.id)).toEqual(["B1", "B2", "B3", "B4", "U1", "U2", "U3"]);
+    const pts = (k: string) => SCORECARD.dimensions.find((x) => x.key === k)!.criteria.reduce((s, c) => s + c.max, 0);
+    expect(pts("eigen_concrete_informatie")).toBe(28);
+    for (const x of SCORECARD.dimensions) expect(pts(x.key)).toBeLessThanOrEqual(28);
+  });
+  it("elk onderdeel hoort bij stap 1 of stap 2", () => {
+    expect(SCORECARD.steps.map((s) => s.step)).toEqual([1, 2]);
+    for (const x of SCORECARD.dimensions) expect([1, 2]).toContain(x.step);
+  });
+  it("een rapport van versie 2 krijgt dezelfde score in de nieuwe indeling", () => {
+    const r = parseAnalysisResult({ short_summary: "x", rubric_version: "2", criteria: verdicts("deels", { A1: "voldoet", B1: "niet" }) });
+    expect(r.rubric_version).toBe(SCORECARD.version);
+    expect(r.category_scores.map((c) => c.key)).toContain("eigen_concrete_informatie");
+    expect(r.category_scores.reduce((s, c) => s + c.score, 0)).toBe(r.visibility_score);
   });
 });

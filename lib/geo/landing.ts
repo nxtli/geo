@@ -15,18 +15,17 @@
 export const LANDING_UPDATED = { iso: "2026-11-12", label: "12 november 2026" };
 
 export const CRITERIA_COUNT = 27;
-export const DIMENSION_COUNT = 8;
+export const DIMENSION_COUNT = 7;
 
 /** Punten per onderdeel van de scorecard. */
 export const DIMENSION_POINTS: Record<string, number> = {
-  "Aansluiting op de vraag": 26,
-  "Concrete, controleerbare informatie": 18,
-  "Citeerbare antwoorden": 13,
-  "Eigen inbreng": 10,
-  "Bewijs en bronnen": 10,
-  "Afzender en vertrouwen": 10,
   Paginabasis: 8,
   Actualiteit: 5,
+  "Afzender en vertrouwen": 10,
+  "Aansluiting op de vraag": 26,
+  "Eigen, concrete informatie": 28,
+  "Citeerbare antwoorden": 13,
+  "Bewijs en bronnen": 10,
 };
 
 const points = (label: string) => DIMENSION_POINTS[label] ?? 0;
@@ -97,46 +96,43 @@ export const PROBLEM = {
   source: SOURCES.tian,
 };
 
+const feature = (label: string, body: string) => ({ label, body, points: points(label), weight: weightLabel(points(label)) });
+
 export const FEATURES = {
   eyebrow: "De criteria",
   title: "Wat beoordeelt de GEO-scan?",
-  intro: `De scan beoordeelt één pagina op ${CRITERIA_COUNT} criteria in ${word(DIMENSION_COUNT)} onderdelen. Samen bepalen ze je score tot 100. Hoe sterker het bewijs uit onderzoek, hoe zwaarder een onderdeel weegt.`,
-  items: [
+  intro: `De scan beoordeelt één pagina op ${CRITERIA_COUNT} criteria in ${word(DIMENSION_COUNT)} onderdelen. Die volgen twee stappen. Eerst moet een AI-tool je pagina vinden. Daarna kiest hij welke pagina's hij als bron gebruikt.`,
+  steps: [
     {
-      label: "Aansluiting op de vraag",
-      body: "Beantwoordt de pagina de vragen van jouw klant? Staat erbij voor wie het aanbod is?",
+      step: 1,
+      title: "Zorg dat een AI-tool je pagina vindt",
+      intro: "Een AI-tool gebruikt alleen pagina's die hij vindt en kan lezen.",
+      items: [
+        feature("Afzender en vertrouwen", "Is duidelijk welk bedrijf het aanbiedt? Staat er een deskundige met naam en functie?"),
+        feature("Paginabasis", "Heeft de pagina één hoofdkop, logische tussenkoppen, een duidelijke titel en links met een heldere tekst?"),
+        feature("Actualiteit", "Toont de pagina een datum met jaartal? Zijn de gegevens actueel?"),
+      ],
     },
     {
-      label: "Concrete, controleerbare informatie",
-      body: "Staan de prijs, de voorwaarden en een vergelijking met alternatieven op de pagina?",
+      step: 2,
+      title: "Zorg dat je pagina als bron wordt gekozen en gebruikt",
+      intro: "Hier zit het zwaartepunt van de score.",
+      items: [
+        feature("Eigen, concrete informatie", "Staat er informatie die alleen jij hebt? Denk aan je prijs, je voorwaarden, eigen cijfers, ervaring uit de praktijk en je eigen methode."),
+        feature("Aansluiting op de vraag", "Beantwoordt de pagina de vragen van jouw klant? Staat erbij voor wie het aanbod is?"),
+        feature("Citeerbare antwoorden", "Staat het antwoord vooraan? Begrijp je het ook zonder de rest van de pagina te lezen?"),
+        feature("Bewijs en bronnen", "Hebben cijfers een bron? Staat er een citaat van een klant of expert met naam?"),
+      ],
     },
-    {
-      label: "Citeerbare antwoorden",
-      body: "Staat het antwoord vooraan? Begrijp je het ook zonder de rest van de pagina te lezen?",
-    },
-    {
-      label: "Eigen inbreng",
-      body: "Bevat de pagina eigen cijfers, ervaring uit de praktijk of een eigen methode?",
-    },
-    {
-      label: "Bewijs en bronnen",
-      body: "Hebben cijfers een bron? Staat er een citaat van een klant of expert met naam?",
-    },
-    {
-      label: "Afzender en vertrouwen",
-      body: "Is duidelijk welk bedrijf het aanbiedt? Staat er een deskundige met naam en functie?",
-    },
-    {
-      label: "Paginabasis",
-      body: "Heeft de pagina één hoofdkop, logische tussenkoppen, een duidelijke titel en links met een heldere tekst?",
-    },
-    {
-      label: "Actualiteit",
-      body: "Toont de pagina een datum met jaartal? Zijn de gegevens actueel?",
-    },
-  ].map((i) => ({ ...i, points: points(i.label), weight: weightLabel(points(i.label)) })),
+  ],
   gates:
     "Vooraf controleert de scan drie dingen. Mogen de zoekrobots van AI-tools je pagina ophalen? Mag de pagina in zoekresultaten staan? Staat de tekst in de pagina zelf, en niet alleen in een script? Gaat er één mis, dan blijft je score laag, hoe goed de tekst ook is.",
+  weighting:
+    "Het gewicht volgt het onderzoek. Prijs, specificaties en aansluiting op de vraag zijn in experimenten getest. Dat eigen inhoud zwaar telt, is ons standpunt. Google noemt unieke inhoud de belangrijkste factor, maar een experiment daarover bestaat nog niet.",
+  weightingSource: {
+    label: "Google, Optimizing your website for generative AI features on Google Search",
+    url: "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+  },
 };
 
 export const LIMITS = {
@@ -204,14 +200,14 @@ export const REPORT = {
   eyebrow: "Het rapport",
   title: "Wat staat er in het rapport?",
   intro:
-    "Je krijgt een score tot 100, de opbouw per onderdeel en de adviezen op volgorde van belang. Elk advies laat zien wat er nu staat en geeft een tekstvoorstel dat je direct overneemt.",
+    "Je krijgt een score tot 100, de opbouw per onderdeel en de adviezen in twee stappen. Elk advies laat zien wat er nu staat en geeft een tekstvoorstel dat je direct overneemt.",
   exampleNote: "Voorbeeld met verzonnen gegevens. Jouw rapport gaat over jouw pagina.",
   example: {
     domain: "jouwbedrijf.nl/dienst",
     score: 52,
     bars: [
       { label: "Aansluiting op de vraag", got: 15, max: points("Aansluiting op de vraag") },
-      { label: "Concrete, controleerbare informatie", got: 5, max: points("Concrete, controleerbare informatie") },
+      { label: "Eigen, concrete informatie", got: 9, max: points("Eigen, concrete informatie") },
       { label: "Afzender en vertrouwen", got: 10, max: points("Afzender en vertrouwen") },
     ],
     action: {
@@ -224,7 +220,7 @@ export const REPORT = {
   },
   includes: [
     "De score en de opbouw per onderdeel",
-    "De adviezen op volgorde van belang, met punten en inspanning",
+    "De adviezen in twee stappen: eerst gevonden worden, dan als bron gekozen worden",
     "Bij elk advies de huidige tekst en een voorstel",
     "De antwoorden van vijf AI-tools op de vraag wat zij over je merk weten",
   ],

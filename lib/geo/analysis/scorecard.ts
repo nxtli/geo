@@ -36,7 +36,7 @@ export function scoreFromCriteria(criteria: CriterionResult[]): { category_score
       g += c.max * VALUE[r.verdict];
       a += c.max;
       if (r.verdict === "voldoet") ok++;
-      else if (r.finding) notes.push(`${c.id}: ${r.finding}`);
+      else if (r.finding) notes.push(r.finding);
     }
     got += g;
     assessed += a;

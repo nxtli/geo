@@ -25,3 +25,51 @@ describe("afzender", () => {
     expect(nx).toContain("#0c90a1");
   });
 });
+
+import { renderEmailHtml, renderEmailText } from "../email/service";
+import { factsOnlyResult } from "../analysis/providers/facts";
+
+describe("bevestigingsmail", () => {
+  const base = (factsOnlyResult as unknown as (i: unknown, r: string) => import("../types").GeoAnalysisResult)(
+    { company_name: "Voorbeeld BV", homepage_url: "https://voorbeeld.nl", questions: ["a"], page_text: "x" },
+    "test",
+  );
+  const scored = {
+    ...base,
+    unscored_reason: null,
+    visibility_score: 62,
+    short_summary: "De pagina is leesbaar voor AI-tools, maar mist concrete prijzen.",
+    actions: [
+      { title: "Zet de prijs op de pagina", why: "AI-tools halen concrete bedragen aan." },
+      { title: "Beantwoord de hoofdvraag in de eerste alinea", why: "" },
+    ],
+  } as unknown as import("../types").GeoAnalysisResult;
+  const params = {
+    to: "x@example.com",
+    name: "Sanne de Vries",
+    companyName: "Voorbeeld BV",
+    reportHtml: "",
+    reportUrl: "/api/geo/report/abc",
+    pageUrl: "https://www.voorbeeld.nl/diensten/",
+    brand: BRANDS.mat,
+  };
+
+  it("gebruikt de voornaam, de pagina en een volledig adres", () => {
+    const html = renderEmailHtml({ ...params, analysis: scored });
+    expect(html).toContain("Je rapport is klaar, Sanne");
+    expect(html).not.toContain("homepage");
+    expect(html).toContain("voorbeeld.nl/diensten");
+    expect(html).toContain('href="https://geo.marketingaiteam.com/api/geo/report/abc"');
+    expect(html).toContain("Zet de prijs op de pagina");
+    expect(html).toContain("marketing-ai-team-logo.png");
+  });
+
+  it("toont geen 0/100 als er geen score is", () => {
+    const html = renderEmailHtml({ ...params, analysis: base });
+    const text = renderEmailText({ ...params, analysis: base });
+    expect(base.unscored_reason).toBeTruthy();
+    expect(html).toContain("Geen score");
+    expect(html).not.toContain("/100");
+    expect(text).toContain("Paginascore: Geen score");
+  });
+});

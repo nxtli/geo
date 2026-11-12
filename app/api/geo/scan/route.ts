@@ -251,7 +251,9 @@ export async function POST(request: Request): Promise<Response> {
           companyName: lead.company_name,
           analysis,
           reportHtml,
-          reportUrl,
+          // Volledig adres: een mailprogramma kan niets met een pad.
+          reportUrl: baseUrl ? `${baseUrl}${reportUrl}` : reportUrl,
+          pageUrl: lead.homepage_url,
           brand,
         });
         if (scan && email.sent) {

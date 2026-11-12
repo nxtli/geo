@@ -9,6 +9,8 @@ import {
   MAX_FOLLOW_UPS,
   TOTAL_PROGRESS_STEPS,
   needsCharlieReply,
+  isFiller,
+  CONTENT_STEPS,
 } from "@/lib/geo/charlie";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { suggestEmailFix } from "@/lib/geo/email-typo";
@@ -86,6 +88,7 @@ export function CharlieChat({
 
   const initialized = React.useRef(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const resultRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
   const pushCharlie = React.useCallback(async (text: string, delay = 650) => {
@@ -106,12 +109,16 @@ export function CharlieChat({
   }, [isOpen, pushCharlie]);
 
   // Keep the latest message in view.
+  // Het resultaat begint bovenaan: de bezoeker leest eerst de score.
   React.useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, typing, phase, processingIndex]);
+    const box = scrollRef.current;
+    if (!box) return;
+    const card = phase === "success" ? resultRef.current : null;
+    const top = card
+      ? card.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12
+      : box.scrollHeight;
+    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  }, [messages, typing, phase, processingIndex, result]);
 
   // Focus the field when a new question is ready.
   React.useEffect(() => {
@@ -306,8 +313,14 @@ export function CharlieChat({
 
     const plainValid =
       !!typed && (step.inputType === "email" || step.inputType === "url") && !validate(typed);
+    // "ga door" of "prima" is geen inhoud. Zonder genoteerd antwoord helpt Charlie eerst.
+    const emptyFiller = !!typed && !pending && CONTENT_STEPS.includes(step.key) && isFiller(typed);
+    if (emptyFiller && followUps >= MAX_FOLLOW_UPS) {
+      setInputError("Vul hier kort je eigen antwoord in.");
+      return;
+    }
     const wantsReply =
-      !!typed && !plainValid && followUps < MAX_FOLLOW_UPS && (pending !== null || followUps > 0 || needsCharlieReply(typed));
+      !!typed && !plainValid && followUps < MAX_FOLLOW_UPS && (pending !== null || followUps > 0 || emptyFiller || needsCharlieReply(typed));
 
     let value = typed;
     let ack: string | null = null;
@@ -321,7 +334,8 @@ export function CharlieChat({
       setTyping(false);
 
       if (ai) {
-        const candidate = ai.value ?? pending;
+        const aiValue = ai.value && !isFiller(ai.value) ? ai.value : null;
+        const candidate = aiValue ?? pending;
         // Een optionele vraag mag zonder antwoord klaar zijn.
         const candidateOk = candidate ? !validate(candidate) : Boolean(step.optional);
         if (!ai.done || !candidateOk) {
@@ -338,7 +352,11 @@ export function CharlieChat({
         // Geen antwoord gekregen: ga verder met wat er staat.
         // Een losse vraag is geen antwoord. Bij een optionele stap blijft het veld dan leeg.
         const onlyQuestion = step.optional && !pending && needsCharlieReply(typed);
-        value = onlyQuestion ? "" : pending ? `${pending}, ${typed}` : typed;
+        if (emptyFiller) {
+          setInputError("Vul hier kort je eigen antwoord in.");
+          return;
+        }
+        value = onlyQuestion ? "" : pending ? (isFiller(typed) ? pending : `${pending}, ${typed}`) : typed;
         const err = value ? validate(value) : null;
         if (err) {
           setInputError(err);
@@ -589,7 +607,9 @@ export function CharlieChat({
             <ProcessingList activeIndex={processingIndex} progress={scanProgress} />
           )}
           {phase === "success" && result?.preview ? (
-            <ResultCard result={result} />
+            <div ref={resultRef}>
+              <ResultCard result={result} />
+            </div>
           ) : null}
           {phase === "error" && (
             <div className="rounded-2xl border border-warning/30 bg-warning/5 p-4 text-sm text-ink">

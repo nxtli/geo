@@ -179,6 +179,20 @@ export function needsCharlieReply(answer: string): boolean {
   return HELP_RE.test(answer);
 }
 
+/**
+ * Een kort woord om door te gaan, zoals "ga door" of "prima". Zo'n woord is
+ * geen antwoord op een inhoudelijke vraag en komt dus nooit in het rapport.
+ */
+const FILLER_RE =
+  /^(ga( maar)? (door|verder)|door|verder|volgende|ok[eé]?|oke|prima|goed|top|ja|nee|akkoord|doe maar|geen|geen idee|weet ik niet|n\.?v\.?t\.?)[\s.!]*$/i;
+
+export function isFiller(answer: string): boolean {
+  return FILLER_RE.test(answer.trim());
+}
+
+/** Vragen waarbij het antwoord inhoud moet zijn. */
+export const CONTENT_STEPS: GeoFieldKey[] = ["offer_description", "target_audience", "desired_queries"];
+
 /** Zoveel keer per stap mag Charlie doorvragen. Daarna gaat de lijst verder. */
 export const MAX_FOLLOW_UPS = 3;
 

@@ -81,3 +81,14 @@ describe("communicatierichtlijn", () => {
     }
   });
 });
+
+import { isFiller } from "../charlie";
+
+describe("isFiller", () => {
+  it("herkent woorden om door te gaan", () => {
+    for (const w of ["ga door", "Ga maar door.", "prima", "ok", "oké", "verder", "geen idee"]) expect(isFiller(w)).toBe(true);
+  });
+  it("laat echte antwoorden met rust", () => {
+    for (const w of ["goede boekhoudsoftware", "ja, AI in marketing", "prima koffie voor kantoren"]) expect(isFiller(w)).toBe(false);
+  });
+});

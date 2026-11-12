@@ -58,7 +58,7 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     placeholder: "jij@bedrijf.nl",
     inputType: "email",
     validate: fieldValidators.email,
-    ack: () => "Daar stuur ik je rapport naartoe.",
+    ack: (v) => `Ik stuur je rapport naar ${v}. Klopt dat niet, typ dan het juiste adres.`,
   },
   {
     key: "company_name",

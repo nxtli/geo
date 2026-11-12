@@ -11,6 +11,8 @@ import {
   needsCharlieReply,
 } from "@/lib/geo/charlie";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
+import { suggestEmailFix } from "@/lib/geo/email-typo";
+import { fieldValidators } from "@/lib/geo/validation";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
 import { CharlieAvatar } from "./CharlieAvatar";
 import { Button, cn } from "./primitives";
@@ -46,6 +48,8 @@ export function CharlieChat({
   // Charlie vroeg door bij deze stap: wat er al genoteerd is en hoe vaak.
   const [pending, setPending] = React.useState<string | null>(null);
   const [followUps, setFollowUps] = React.useState(0);
+  // Charlie vroeg of een e-mailadres met een waarschijnlijke tikfout klopt.
+  const [emailCheck, setEmailCheck] = React.useState<{ original: string; suggestion: string } | null>(null);
   const [consent, setConsent] = React.useState(false);
   const [processingIndex, setProcessingIndex] = React.useState(0);
   const [scanProgress, setScanProgress] = React.useState(0);
@@ -164,6 +168,54 @@ export function CharlieChat({
     // Een geldig e-mailadres of een geldige URL is een antwoord, ook met een
     // vraagteken erin. Anders: reageer echt als de bezoeker iets vraagt, of als
     // Charlie bij deze stap al een vraag terug stelde.
+    const say = (text: string) => setMessages((m) => [...m, { id: nextId(), from: "charlie", text }]);
+    const echo = (text: string) => setMessages((m) => [...m, { id: nextId(), from: "user", text }]);
+
+    // Een e-mailadres bij een latere vraag is een verbetering van het adres.
+    if (step.key !== "email" && answers.email && typed && !/\s/.test(typed) && !fieldValidators.email(typed)) {
+      setInputError(null);
+      setInput("");
+      echo(typed);
+      setAnswers((a) => ({ ...a, email: typed }));
+      say(`Aangepast. Ik stuur je rapport naar ${typed}.`);
+      await pushCharlie(step.prompt, 500);
+      return;
+    }
+
+    if (step.key === "email" && typed) {
+      // Antwoord op "Bedoel je ...?"
+      if (emailCheck) {
+        const yes = /^(ja|j|yes|klopt|inderdaad|dat bedoel ik)\b/i.test(typed);
+        const no = /^(nee|n|no|niet)\b/i.test(typed);
+        const chosen = yes ? emailCheck.suggestion : no ? emailCheck.original : typed;
+        const err = fieldValidators.email(chosen);
+        if (err) {
+          setInputError("Typ ja, nee of je e-mailadres.");
+          return;
+        }
+        setInputError(null);
+        setInput("");
+        echo(typed);
+        setEmailCheck(null);
+        setAnswers((a) => ({ ...a, email: chosen }));
+        say(yes || no ? `Ik stuur je rapport naar ${chosen}.` : step.ack ? step.ack(chosen) : "");
+        await advance();
+        return;
+      }
+      // Eerste invoer: vraag door bij een waarschijnlijke tikfout.
+      if (!fieldValidators.email(typed)) {
+        const suggestion = suggestEmailFix(typed);
+        if (suggestion) {
+          setInputError(null);
+          setInput("");
+          echo(typed);
+          setEmailCheck({ original: typed, suggestion });
+          say(`Bedoel je ${suggestion}? Typ ja of nee, of typ je adres opnieuw.`);
+          return;
+        }
+      }
+    }
+
     // "sla over" bij een optionele vraag is geen inhoud en geen vraag aan Charlie.
     const skipWord = /^(sla\b.*over|overslaan|skip|nee|geen|n\.?v\.?t\.?|weet ik niet|geen idee)\b[\s.!]*$/i.test(typed);
     if (step.optional && skipWord && !pending) {

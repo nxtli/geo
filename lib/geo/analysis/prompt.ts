@@ -1,5 +1,6 @@
 import type { BuyerContext, GeoAnalysisInput } from "../types";
 import { EVIDENCE, getEvidence, SCORECARD } from "../knowledge";
+import { CHARLIE_VOICE, VOICE_REPORT } from "../voice";
 
 /**
  * Analyse-prompt. De criteria en de aannames komen uit de kennisbank
@@ -70,7 +71,12 @@ Overige velden
 - strengths / weaknesses: elk hooguit drie, concreet, met verwijzing naar het criterium-id.
 - recommended_faq_questions: hooguit vijf klantvragen die de pagina niet beantwoordt. Neem de opgegeven klantvragen als basis. "why" zegt bij welk publiek de vraag hoort.
 
-Schrijf helder Nederlands op B1-niveau: korte, actieve zinnen, geen jargon zonder uitleg, geen hype. Geef uitsluitend het gevraagde JSON terug.`;
+Zo communiceer je
+${CHARLIE_VOICE}
+
+${VOICE_REPORT}
+
+Geef uitsluitend het gevraagde JSON terug.`;
 
 /** Koperskennis uit de chatvelden, als er geen Marketingbrein is. */
 export function buyerFromLead(input: GeoAnalysisInput): BuyerContext {

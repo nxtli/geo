@@ -46,10 +46,10 @@ export interface CharlieStep {
 export const CHARLIE_STEPS: CharlieStep[] = [
   {
     key: "name",
-    prompt: "Laten we beginnen. Wat is je naam?",
+    prompt: "Wat is je naam?",
     placeholder: "Bijv. Sanne",
     validate: fieldValidators.required,
-    ack: (v) => `Leuk je te ontmoeten, ${v.split(" ")[0]}.`,
+    ack: (v) => `Dank je, ${v.split(" ")[0]}.`,
   },
   {
     key: "email",
@@ -58,7 +58,7 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     placeholder: "jij@bedrijf.nl",
     inputType: "email",
     validate: fieldValidators.email,
-    ack: () => "Top, daar stuur ik je rapport straks naartoe.",
+    ack: () => "Daar stuur ik je rapport naartoe.",
   },
   {
     key: "company_name",
@@ -76,11 +76,11 @@ export const CHARLIE_STEPS: CharlieStep[] = [
   },
   {
     key: "homepage_url",
-    prompt: "Wat is de URL van je homepage?",
+    prompt: "Welke pagina wil je laten scannen? Plak het adres van de pagina.",
     placeholder: "https://jouwbedrijf.nl",
     inputType: "url",
     validate: fieldValidators.url,
-    ack: () => "Mooi, ik heb je website.",
+    ack: () => "Ik heb de pagina.",
   },
   {
     key: "offer_description",
@@ -89,12 +89,12 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     multiline: true,
     validate: fieldValidators.required,
     ack: () =>
-      "Duidelijk. Ik kijk straks vooral naar hoe helder je expertise, aanbod en autoriteit naar voren komen.",
+      "Duidelijk. Ik kijk straks of je pagina dit aanbod concreet uitlegt.",
   },
   {
     key: "target_audience",
     prompt: "Voor welke doelgroep wil je gevonden worden?",
-    placeholder: "Bijv. mkb-ondernemers in de bouw, marketmanagers bij scale-ups…",
+    placeholder: "Bijv. mkb-ondernemers in de bouw, marketingmanagers bij groeiende bedrijven…",
     multiline: true,
     validate: fieldValidators.required,
     ack: () => "Genoteerd.",
@@ -107,16 +107,16 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     multiline: true,
     validate: fieldValidators.required,
     ack: () =>
-      "Goed. AI-systemen geven vaak voorkeur aan content die concreet, gestructureerd en betrouwbaar is. Daar ga ik je homepage op beoordelen.",
+      "Genoteerd. Ik toets straks of je pagina deze vragen beantwoordt.",
   },
   {
     key: "competitors",
     prompt:
-      "Zijn er concurrenten of voorbeeldsites die je vaak tegenkomt? (optioneel, sla gerust over)",
+      "Welke concurrenten kom je vaak tegen? Deze vraag mag je overslaan.",
     placeholder: "Bijv. concurrent.nl, voorbeeld.com",
     multiline: true,
     optional: true,
-    ack: () => "Bedankt, dat helpt me bij de vergelijking.",
+    ack: () => "Genoteerd.",
   },
 ];
 
@@ -128,8 +128,8 @@ export interface CharlieProcessingStep {
 
 export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   {
-    label: "Website ophalen",
-    detail: "Ik haal je homepage op, plus robots.txt en llms.txt.",
+    label: "Pagina ophalen",
+    detail: "Ik haal je pagina op en kijk of AI-tools erbij mogen.",
   },
   {
     label: "Content analyseren",
@@ -137,11 +137,11 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   },
   {
     label: "AI-vindbaarheid beoordelen",
-    detail: "Ik scoor op de criteria waar AI-systemen op letten.",
+    detail: "Ik beoordeel de pagina op 27 punten.",
   },
   {
     label: "Verbeterpunten formuleren",
-    detail: "Ik bepaal waar de grootste kansen liggen.",
+    detail: "Ik zet de adviezen op volgorde van effect.",
   },
   {
     label: "Rapport genereren",
@@ -151,11 +151,11 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
 
 export const CHARLIE_COPY = {
   reviewLead: "Ik heb alles. Vink hieronder het vakje aan en start de scan.",
-  scanningLead: "Top! Ik ga je pagina analyseren. Even geduld…",
+  scanningLead: "Ik start de scan van je pagina.",
   scanningStatus: "Charlie voert je scan uit.",
   scanningSubtle: "Dit duurt één tot twee minuten. Laat dit venster open.",
   successLead:
-    "Je scan is klaar. Ik heb de belangrijkste kansen hieronder voor je samengevat.",
+    "Je scan is klaar. Hieronder staan de belangrijkste uitkomsten.",
   emailNote: (email: string) =>
     `Ik heb het volledige rapport ook naar ${email} gestuurd.`,
   errorFallback:

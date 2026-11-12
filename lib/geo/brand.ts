@@ -45,7 +45,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       role: "AI-analist bij NXTLI",
       avatar: "/charlie.jpg",
       intro:
-        "Tof! Ik ben Charlie, AI-analist bij NXTLI. Ik ga in een paar stappen bekijken hoe geschikt jouw homepage is voor AI-zoekmachines. Laten we beginnen.",
+        "Hoi, ik ben Charlie, AI-analist bij NXTLI. Ik bekijk in een paar stappen hoe geschikt je pagina is voor AI-zoekmachines.",
     },
     cta: {
       label: "Plan een sessie",
@@ -104,7 +104,7 @@ export const BRANDS: Record<BrandId, Brand> = {
       role: "CRO-specialist in het Marketing AI Team",
       avatar: "/charlie-mat.jpg",
       intro:
-        "Hoi! Ik ben Charlie, CRO-specialist in het Marketing AI Team. Ik bekijk in een paar stappen hoe geschikt jouw pagina is voor AI-zoekmachines. Laten we beginnen.",
+        "Hoi, ik ben Charlie, CRO-specialist in het Marketing AI Team. Ik bekijk in een paar stappen hoe geschikt je pagina is voor AI-zoekmachines.",
     },
     cta: {
       label: "Plan een demo",

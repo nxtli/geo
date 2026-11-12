@@ -193,6 +193,23 @@ ai_answer_comparison (het ideale antwoord volgens de GEO-rubriek), llm_visibilit
 missing_signals, content_gaps, recommended_pages, recommended_faq_questions,
 quick_wins, thirty_day_action_plan, suggested_homepage_copy_improvements.
 
+### Hoe Charlie communiceert
+
+De communicatierichtlijn staat op één plek: `lib/geo/voice.ts`.
+
+- `CHARLIE_VOICE`: de algemene richtlijn van het Marketing AI Team, letterlijk.
+- `VOICE_CHAT`: de toepassing in het smalle chatvenster (kort, geen opsommingen,
+  één vraag tegelijk).
+- `VOICE_REPORT`: de toepassing in de analyse en het rapport (velden zonder
+  opmaak, geen verdiepingsvragen maar `[invullen: ...]`, voorstellen in de toon
+  van de pagina zelf).
+
+De chat (`lib/geo/charlie-reply.ts`) en de analyse (`lib/geo/analysis/prompt.ts`)
+laden deze teksten in hun instructie. De vaste teksten van de vragenlijst, het
+rapport en de mail zijn met de hand geschreven volgens dezelfde richtlijn. Een
+test bewaakt dat de vaste chatteksten geen uitroeptekens, gedachtestreepjes of
+het woord "homepage" bevatten.
+
 ### Charlie beantwoordt vragen in de chat
 
 De vragenlijst is vast (`lib/geo/charlie.ts`). Stelt een bezoeker in een antwoord

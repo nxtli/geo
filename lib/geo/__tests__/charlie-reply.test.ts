@@ -47,3 +47,27 @@ describe("prompts", () => {
     expect(p).toContain("<bericht>");
   });
 });
+
+import { GEO_SYSTEM_PROMPT } from "../analysis/prompt";
+import { CHARLIE_VOICE } from "../voice";
+import { CHARLIE_STEPS, CHARLIE_COPY } from "../charlie";
+
+describe("communicatierichtlijn", () => {
+  it("staat in de chat en in de analyse", () => {
+    expect(buildCharlieSystemPrompt(BRANDS.mat)).toContain(CHARLIE_VOICE);
+    expect(GEO_SYSTEM_PROMPT).toContain(CHARLIE_VOICE);
+    expect(GEO_SYSTEM_PROMPT).toContain("Volg daar de toon en de aanspreekvorm van de pagina zelf");
+  });
+  it("vaste teksten van de chat: geen uitroeptekens, geen gedachtestreepjes, geen 'homepage'", () => {
+    const texts = [
+      ...CHARLIE_STEPS.flatMap((s) => [s.prompt, s.ack ? s.ack("Sanne de Vries") : ""]),
+      ...Object.values(CHARLIE_COPY).map((v) => (typeof v === "function" ? v("x@example.com") : v)),
+      BRANDS.mat.charlie.intro,
+      BRANDS.nxtli.charlie.intro,
+    ];
+    for (const t of texts) {
+      expect(t).not.toMatch(/[!—–]/);
+      expect(t.toLowerCase()).not.toContain("homepage");
+    }
+  });
+});

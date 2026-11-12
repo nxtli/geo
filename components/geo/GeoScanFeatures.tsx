@@ -10,8 +10,16 @@ export function GeoScanFeatures() {
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.items.map((f) => (
             <Card key={f.label}>
-              <div className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
-                {f.points} punten
+              <div
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                  f.weight === "Weegt zwaar"
+                    ? "bg-brand text-brand-fg"
+                    : f.weight === "Weegt gemiddeld"
+                      ? "bg-brand-soft text-brand"
+                      : "bg-elevated text-muted"
+                }`}
+              >
+                {f.weight}
               </div>
               <h3 className="mt-3 font-display text-base font-semibold text-ink">{f.label}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{f.body}</p>

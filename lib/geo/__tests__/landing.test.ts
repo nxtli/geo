@@ -11,6 +11,10 @@ describe("landingspagina", () => {
       expect(DIMENSION_POINTS[d.label]).toBe(d.criteria.reduce((n, c) => n + c.max, 0));
     }
     expect(FEATURES.items.reduce((n, i) => n + i.points, 0)).toBe(100);
+    expect(FEATURES.items.map((i) => i.weight)).toEqual([
+      "Weegt zwaar", "Weegt zwaar", "Weegt gemiddeld", "Weegt gemiddeld",
+      "Weegt gemiddeld", "Weegt gemiddeld", "Weegt licht", "Weegt licht",
+    ]);
   });
   it("noemt het echte aantal vragen in de chat", () => {
     expect(CHARLIE_STEPS.length).toBe(9);

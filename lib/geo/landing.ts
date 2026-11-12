@@ -31,6 +31,17 @@ export const DIMENSION_POINTS: Record<string, number> = {
 
 const points = (label: string) => DIMENSION_POINTS[label] ?? 0;
 
+/**
+ * De pagina toont het gewicht van een onderdeel in drie gradaties. De exacte
+ * punten staan in het rapport. Een getal op twee cijfers suggereert hier meer
+ * zekerheid dan het onderzoek biedt.
+ */
+export function weightLabel(pts: number): "Weegt zwaar" | "Weegt gemiddeld" | "Weegt licht" {
+  if (pts >= 15) return "Weegt zwaar";
+  if (pts >= 10) return "Weegt gemiddeld";
+  return "Weegt licht";
+}
+
 const count = ["nul", "één", "twee", "drie", "vier", "vijf", "zes", "zeven", "acht", "negen", "tien"];
 const word = (n: number) => count[n] ?? String(n);
 
@@ -81,7 +92,7 @@ export const PROBLEM = {
 export const FEATURES = {
   eyebrow: "De criteria",
   title: "Wat beoordeelt de GEO-scan?",
-  intro: `De scan beoordeelt één pagina op ${CRITERIA_COUNT} criteria in ${word(DIMENSION_COUNT)} onderdelen. Samen tellen de onderdelen op tot 100 punten. Het onderdeel met het sterkste bewijs weegt het zwaarst.`,
+  intro: `De scan beoordeelt één pagina op ${CRITERIA_COUNT} criteria in ${word(DIMENSION_COUNT)} onderdelen. Samen bepalen ze je score tot 100. Hoe sterker het bewijs uit onderzoek, hoe zwaarder een onderdeel weegt.`,
   items: [
     {
       label: "Aansluiting op de vraag",
@@ -115,7 +126,7 @@ export const FEATURES = {
       label: "Actualiteit",
       body: "Toont de pagina een datum met jaartal? Zijn de gegevens actueel?",
     },
-  ].map((i) => ({ ...i, points: points(i.label) })),
+  ].map((i) => ({ ...i, points: points(i.label), weight: weightLabel(points(i.label)) })),
   gates:
     "Vooraf controleert de scan drie dingen. Mogen de zoekrobots van AI-tools je pagina ophalen? Mag de pagina in zoekresultaten staan? Staat de tekst in de pagina zelf, en niet alleen in een script? Gaat er één mis, dan blijft je score laag, hoe goed de tekst ook is.",
 };

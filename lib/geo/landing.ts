@@ -157,7 +157,7 @@ export const LIMITS = {
     },
     {
       title: "Genoemd worden is nog geen aanbeveling",
-      body: "Je wilt dat een AI-tool je aanbeveelt. Dat hangt ook af van je bekendheid en van wat anderen over je schrijven. In ruim 100.000 AI-antwoorden stonden wereldmerken in 73% van de relevante antwoorden en kleine merken in 11%. Een andere studie zag dat AI-tools vaak bronnen van derden kiezen boven pagina's van het merk zelf. Een scan van één pagina ziet dat niet.",
+      body: "Je wilt dat een AI-tool je aanbeveelt. Dat hangt ook af van je bekendheid en van wat anderen over je schrijven. In ruim 100.000 AI-antwoorden stonden wereldmerken in 73% van de relevante antwoorden en kleine merken in 11%. Van alle bronvermeldingen ging 2,9% naar de eigen site van het merk. Een andere studie zag hetzelfde patroon: AI-tools kiezen vaak bronnen van derden. Beide studies komen van partijen die zelf GEO-diensten verkopen. Een scan van één pagina ziet dit niet.",
       sources: [SOURCES.chen, SOURCES.kumar],
     },
     {

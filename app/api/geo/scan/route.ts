@@ -21,6 +21,7 @@ import {
   isSupabaseConfigured,
   updateScanRequest,
 } from "@/lib/geo/supabase/service";
+import { isTestEmail } from "@/lib/geo/test-emails";
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
@@ -103,8 +104,10 @@ export async function POST(request: Request): Promise<Response> {
         // drift before the email column exists) must NOT take the whole scan
         // endpoint down. The global daily cap is the hard credit backstop.
         let prior: Awaited<ReturnType<typeof findCompletedScanByEmail>> = null;
+        // Testadressen (lib/geo/test-emails.ts) mogen vaker scannen.
+        const testAddress = isTestEmail(lead.email);
         try {
-          prior = await findCompletedScanByEmail(lead.email);
+          if (!testAddress) prior = await findCompletedScanByEmail(lead.email);
         } catch (dedupError) {
           logError("api.geo.scan.dedup", dedupError);
         }
@@ -154,7 +157,7 @@ export async function POST(request: Request): Promise<Response> {
         // above is then a no-op): throttle repeat emails so a missing DB can't
         // enable unlimited paid scans. Configure Postgres for an authoritative,
         // cross-instance gate.
-        if (!isSupabaseConfigured() && wasRecentlyScanned(lead.email)) {
+        if (!testAddress && !isSupabaseConfigured() && wasRecentlyScanned(lead.email)) {
           send({
             type: "error",
             message:

@@ -6,6 +6,7 @@ import { sendGeoReportEmail } from "@/lib/geo/email/service";
 import { reportPath } from "@/lib/geo/report/serve";
 import { allow, clientIp, requestBaseUrl, sameOrigin } from "@/lib/geo/request";
 import { findCompletedScanByEmail, getScanForReport } from "@/lib/geo/supabase/service";
+import { isTestEmail } from "@/lib/geo/test-emails";
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
@@ -37,6 +38,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ known: false }, { status: 400 });
   const { email, action } = parsed.data;
+
+  // Een testadres mag vaker scannen, dus de chat meldt geen eerdere scan.
+  if (isTestEmail(email)) return NextResponse.json({ known: false, sent: false });
 
   const prior = await findCompletedScanByEmail(email);
   if (action === "check") return NextResponse.json({ known: Boolean(prior) });

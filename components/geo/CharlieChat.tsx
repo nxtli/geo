@@ -208,8 +208,10 @@ export function CharlieChat({
         ack = ai.reply;
       } else {
         // Geen antwoord gekregen: ga verder met wat er staat.
-        value = pending ? `${pending}, ${typed}` : typed;
-        const err = validate(value);
+        // Een losse vraag is geen antwoord. Bij een optionele stap blijft het veld dan leeg.
+        const onlyQuestion = step.optional && !pending && needsCharlieReply(typed);
+        value = onlyQuestion ? "" : pending ? `${pending}, ${typed}` : typed;
+        const err = value ? validate(value) : null;
         if (err) {
           setInputError(err);
           return;

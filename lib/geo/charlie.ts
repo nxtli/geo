@@ -159,10 +159,10 @@ export const CHARLIE_COPY = {
   emailNote: (email: string) =>
     `Ik heb het volledige rapport ook naar ${email} gestuurd.`,
   priorKnown:
-    "Met dit e-mailadres is al een gratis scan gedaan. Per adres is er één gratis scan. Zal ik het rapport van die scan opnieuw naar je mailen? Typ ja. Je kunt ook een ander e-mailadres typen.",
+    "Met dit e-mailadres is al een gratis scan gedaan. Per adres is er één gratis scan. Zal ik het rapport van die scan opnieuw naar je mailen? Typ ja. Wil je meer pagina's laten beoordelen, plan dan een demo met de knop hieronder.",
   priorResent: (email: string) => `Ik heb het rapport opnieuw gestuurd naar ${email}. Kijk ook in je map met ongewenste mail.`,
   priorResendFailed: "Het opnieuw versturen lukt nu niet. Probeer het later nog eens.",
-  priorDeclined: "Prima. Je kunt deze chat sluiten, of een ander e-mailadres typen voor een nieuwe scan.",
+  priorDeclined: "Prima, dan stuur ik niets.",
   priorCorrection: "Met dat adres is al een scan gedaan. Ik houd je eerdere adres aan.",
   errorFallback:
     "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",

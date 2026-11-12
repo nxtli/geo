@@ -244,6 +244,7 @@ export function CharlieChat({
           setInput("");
           echo(typed);
           say(CHARLIE_COPY.priorDeclined);
+          await pushCharlie(brand.cta.chatLine, 500);
           return;
         }
         if (fieldValidators.email(typed)) {
@@ -613,6 +614,18 @@ export function CharlieChat({
               }}
               onSend={handleSend}
             />
+          )}
+
+          {/* Er is al een scan gedaan met dit adres: bied ook de demo aan. */}
+          {phase === "asking" && priorEmail && (
+            <a
+              href={STRATEGY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="geo-btn-primary mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-brand-fg shadow-soft transition-all hover:shadow-glow"
+            >
+              {brand.cta.label} <ArrowRightIcon className="h-4 w-4" />
+            </a>
           )}
 
           {phase === "consent" && (

@@ -159,6 +159,7 @@ export function renderReportHtml(params: {
   .act-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; color:var(--subtle); }
   .act-new .act-label { color:var(--brand); }
   .act-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .act-empty { color:#8a94a6; font-style:italic; }
   .fill { background:#fff4d6; border-radius:4px; padding:0 4px; color:#7a4b00; font-weight:600; }
   .act-done { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0 42px; font-size:14px; color:var(--muted); }
   .act-check { flex:none; width:20px; height:20px; border-radius:50%; background:#e7f6ec; color:var(--good); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
@@ -272,8 +273,16 @@ export function renderReportHtml(params: {
           ${a.actions
             .map((x, i) => {
               const points = x.points ? `${String(x.points).replace(".", ",")} ${x.points === 1 ? "punt" : "punten"}` : "blokkade";
+              // Elk inhoudelijk advies toont Nu en Voorstel. Een blokkade (techniek) heeft geen tekst om te vergelijken.
+              const content = x.points > 0;
               const before = x.before ? clip(x.before, 400) : "";
               const after = x.after ? clip(x.after, 700) : "";
+              const nowBox = before
+                ? `<div class="act-text">${esc(before)}</div>`
+                : `<div class="act-text act-empty">Dit staat nu niet op de pagina.</div>`;
+              const newBox = after
+                ? `<div class="act-text">${fillIns(esc(after))}</div>`
+                : `<div class="act-text act-empty">Schrijf deze tekst zelf. Gebruik de toets bij "Klaar als" hieronder.</div>`;
               return `<article class="act">
                 <header class="act-head">
                   <span class="act-num">${i + 1}</span>
@@ -287,10 +296,10 @@ export function renderReportHtml(params: {
                 </div>
                 <p class="act-why">${esc(x.why)}</p>
                 ${
-                  before || after
-                    ? `<div class="act-compare${before && after ? "" : " single"}">
-                        ${before ? `<div class="act-box act-now"><div class="act-label">Nu op de pagina</div><div class="act-text">${esc(before)}</div></div>` : ""}
-                        ${after ? `<div class="act-box act-new"><div class="act-label">Voorstel</div><div class="act-text">${fillIns(esc(after))}</div></div>` : ""}
+                  content || before || after
+                    ? `<div class="act-compare">
+                        <div class="act-box act-now"><div class="act-label">Nu op de pagina</div>${nowBox}</div>
+                        <div class="act-box act-new"><div class="act-label">Voorstel</div>${newBox}</div>
                       </div>`
                     : ""
                 }

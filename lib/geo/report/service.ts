@@ -5,6 +5,7 @@ import type {
 } from "../types";
 import { renderReportHtml } from "./template";
 import type { Brand } from "../brand";
+import { cleanForReader } from "./reader-text";
 
 /**
  * Report service — turns a raw AI analysis into the stored report record, the
@@ -18,7 +19,7 @@ export function buildReportHtml(params: {
   brand?: Brand;
 }): string {
   const date = formatDate(params.now ?? new Date());
-  return renderReportHtml({ lead: params.lead, analysis: params.analysis, date, brand: params.brand });
+  return renderReportHtml({ lead: params.lead, analysis: cleanForReader(params.analysis), date, brand: params.brand });
 }
 
 /** Maps an analysis onto the `geo_scan_reports` columns. */
@@ -47,8 +48,9 @@ export function buildReportRecord(params: {
 
 /** The compact summary Charlie shows in the chat. */
 export function buildPreview(
-  analysis: GeoAnalysisResult,
+  raw: GeoAnalysisResult,
 ): NonNullable<GeoScanResponse["preview"]> {
+  const analysis = cleanForReader(raw);
   return {
     visibility_score: analysis.visibility_score,
     category_scores: analysis.category_scores,

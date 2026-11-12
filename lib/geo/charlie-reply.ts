@@ -2,6 +2,7 @@ import { CHARLIE_STEPS, type GeoFieldKey } from "./charlie";
 import type { Brand } from "./brand";
 import { logError } from "./logger";
 import { CHARLIE_VOICE, VOICE_CHAT } from "./voice";
+import { CHAT_MODELS, candidates } from "./models";
 
 /**
  * Charlie geeft antwoord als een bezoeker in de chat zelf iets vraagt.
@@ -15,7 +16,7 @@ import { CHARLIE_VOICE, VOICE_CHAT } from "./voice";
  * terug. De chat valt dan terug op het vaste antwoord. Een scan loopt dus
  * nooit vast op dit onderdeel.
  */
-export const DEFAULT_CHAT_MODEL = "claude-haiku-4-5";
+export const DEFAULT_CHAT_MODEL = CHAT_MODELS[0];
 export const MAX_ANSWER_CHARS = 600;
 const TIMEOUT_MS = 12_000;
 
@@ -132,40 +133,45 @@ export async function generateCharlieReply(
 ): Promise<CharlieReply | null> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
-  const model = process.env.GEO_CHAT_MODEL || DEFAULT_CHAT_MODEL;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: ac.signal,
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 500,
-        system: buildCharlieSystemPrompt(brand),
-        messages: [{ role: "user", content: buildCharlieUserPrompt(input) }],
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      logError("charlie.reply", `responded ${res.status} (model ${model}) ${body.slice(0, 200)}`);
-      return null;
+    // Weigert de API het eerste model, dan volgt het vorige (lib/geo/models.ts).
+    for (const model of candidates("GEO_CHAT_MODEL", CHAT_MODELS)) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: ac.signal,
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          // Ruim: bij de nieuwe modellen tellen denktokens mee in deze limiet.
+          max_tokens: 1500,
+          system: buildCharlieSystemPrompt(brand),
+          messages: [{ role: "user", content: buildCharlieUserPrompt(input) }],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        logError("charlie.reply", `responded ${res.status} (model ${model}) ${body.slice(0, 200)}`);
+        if (res.status === 400 || res.status === 404) continue;
+        return null;
+      }
+      const json = await res.json();
+      const text = Array.isArray(json?.content)
+        ? json.content
+            .filter((b: { type?: string }) => b?.type === "text")
+            .map((b: { text?: string }) => b?.text ?? "")
+            .join("")
+        : "";
+      const parsed = parseCharlieReply(text);
+      if (!parsed) logError("charlie.reply", `antwoord van ${model} was geen bruikbare JSON`);
+      return parsed;
     }
-    const json = await res.json();
-    const text = Array.isArray(json?.content)
-      ? json.content
-          .filter((b: { type?: string }) => b?.type === "text")
-          .map((b: { text?: string }) => b?.text ?? "")
-          .join("")
-      : "";
-    const parsed = parseCharlieReply(text);
-    if (!parsed) logError("charlie.reply", "antwoord van het model was geen bruikbare JSON");
-    return parsed;
+    return null;
   } catch (error) {
     logError("charlie.reply", error);
     return null;

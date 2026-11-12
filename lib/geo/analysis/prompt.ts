@@ -54,13 +54,13 @@ ${ASSUMPTIONS}
 Geen effect aangetoond, dus geen advies als hefboom voor AI-vindbaarheid: ${NO_EFFECT}
 
 Adviezen ("actions")
-Geef voor de criteria met oordeel "niet" of "deels" een advies dat iemand vandaag kan uitvoeren. Geef er hooguit acht: kies de criteria met de meeste punten. De overige criteria krijgen automatisch een standaardadvies.
+Geef voor ELK criterium met oordeel "niet" of "deels" een advies dat iemand vandaag kan uitvoeren. Zijn het er meer dan twaalf, kies dan de twaalf criteria met de meeste punten.
 - "criterion": het id van het criterium.
 - "title": de handeling, in gebiedende wijs, specifiek voor deze pagina. Niet "voeg een prijs toe" maar "Zet onder de kop 'Tarieven' het bedrag per maand".
 - "why": wat je zag en wat het de lezer of de AI-tool kost. Noem geen percentages of beloofde stijgingen.
 - "where": de kop of alinea op de pagina waar de wijziging komt.
-- "before": de huidige tekst, letterlijk overgenomen van de pagina. Leeg als er niets staat.
-- "after": jouw voorstel in B1-Nederlands, klaar om te plakken. Gebruik alleen feiten die op de pagina of in de aangeleverde kennis staan. Wat ontbreekt schrijf je als [invullen: ...]. Verzin nooit prijzen, cijfers, namen of klantcitaten.
+- "before": de huidige tekst op de plek van de wijziging, letterlijk overgenomen van de pagina (maximaal 60 woorden). Zoek altijd eerst de passage die het dichtst bij het advies ligt. Alleen leeg als de pagina op deze plek echt niets heeft.
+- "after": altijd ingevuld. Jouw voorstel in B1-Nederlands, klaar om te plakken. Gebruik alleen feiten die op de pagina of in de aangeleverde kennis staan. Wat ontbreekt schrijf je als [invullen: ...]. Verzin nooit prijzen, cijfers, namen of klantcitaten.
 - "effort": laag (tekstwijziging), midden (nieuwe alinea of sectie), hoog (nieuwe pagina of techniek).
 Wijzig zo weinig mogelijk: een gerichte reparatie werkt beter dan een herschreven pagina.
 
@@ -68,7 +68,8 @@ Overige velden
 - short_summary: drie tot vier zinnen. Begin met de grootste belemmering. Zeg welke klantvraag de pagina het slechtst beantwoordt.
 - what_ai_understands / likely_ai_positioning: wat een AI-tool uit deze pagina kan opmaken over wie, wat en voor wie.
 - ai_answer_comparison: "current" = hoe een AI-tool het aanbod nu zou samenvatten op basis van deze pagina, met 3 tot 4 labels. "improved" = hoe dat klinkt na de adviezen, met alleen feiten van de pagina of [invullen: ...].
-- strengths / weaknesses: elk hooguit drie, concreet, met verwijzing naar het criterium-id.
+- strengths / weaknesses: elk hooguit drie, concreet.
+- De ids van de criteria (zoals A1 of U2) zijn alleen voor het veld "criterion". Noem ze nooit in een tekst die de lezer ziet, ook niet tussen haakjes.
 - recommended_faq_questions: hooguit vijf klantvragen die de pagina niet beantwoordt. Neem de opgegeven klantvragen als basis. "why" zegt bij welk publiek de vraag hoort.
 
 Zo communiceer je

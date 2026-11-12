@@ -70,14 +70,14 @@ voorbereid). Voor productie:
 | `SUPABASE_URL` | Opslag | |
 | `SUPABASE_SERVICE_ROLE_KEY` | Opslag | **SERVER ONLY** — nooit client-side |
 | `ANTHROPIC_API_KEY` | `geo-skill` + `claude` | SERVER ONLY — org die de skill bezit |
-| `GEO_ANALYSIS_MODEL` | optioneel | default `claude-sonnet-4-6` |
+| `GEO_ANALYSIS_MODEL` | optioneel | default `claude-sonnet-5-5`, terugval `claude-sonnet-4-6` (zie `lib/geo/models.ts`) |
 | `GEO_ANALYSIS_PROVIDER` | optioneel | `geo-skill` \| `claude` \| `mock` |
 | `OPENAI_API_KEY` | Multi-LLM tabel | ChatGPT-rij in "Wat AI over je zegt"; anders overgeslagen |
 | `GEMINI_API_KEY` | Multi-LLM tabel | Gemini-rij; anders overgeslagen |
 | `PERPLEXITY_API_KEY` | Multi-LLM tabel | Perplexity-rij; anders overgeslagen |
 | `XAI_API_KEY` | Multi-LLM tabel | Grok-rij; anders overgeslagen |
 | `GEO_AI_SEARCH` | optioneel | `off` = zet de HELE multi-LLM probe uit |
-| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` / `GEO_GROK_MODEL` | optioneel | defaults `gpt-4o-mini` / `gemini-2.5-flash` / `sonar` / `grok-4` |
+| `GEO_OPENAI_MODEL` / `GEO_GEMINI_MODEL` / `GEO_PERPLEXITY_MODEL` / `GEO_GROK_MODEL` | optioneel | defaults `gpt-6.1-terra` / `gemini-3.8-flash` / `fast` (Perplexity Agent API) / `grok-4.7`, elk met een terugval op het vorige model |
 | `GEO_SKILL_NAME` | optioneel | default `geo-page-checker` |
 | `GEO_SKILL_ID` | optioneel | sla naam-lookup over |
 | `GEO_SKILL_VERSION` | optioneel | default `latest` |
@@ -219,7 +219,7 @@ Charlie zegt, de opgeschoonde waarde voor het veld en of de stap klaar is. Legt
 Charlie een keuze voor, dan blijft de stap open, maximaal drie keer per stap.
 
 Het eindpunt gebruikt `ANTHROPIC_API_KEY` en het model uit `GEO_CHAT_MODEL`
-(standaard `claude-haiku-4-5`). Zonder sleutel, bij een fout of na 12 seconden
+(standaard `claude-haiku-5-5`). Zonder sleutel, bij een fout of na 12 seconden
 valt de chat terug op het vaste antwoord. Het eindpunt accepteert alleen verzoeken
 van de eigen site, maximaal 600 tekens per bericht en 25 verzoeken per 10 minuten
 per IP-adres.

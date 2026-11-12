@@ -1,4 +1,5 @@
 import type { GeoAnalysisResult } from "../types";
+import { cleanForReader } from "../report/reader-text";
 import { logError, logInfo } from "../logger";
 import { BRANDS, type Brand } from "../brand";
 
@@ -32,8 +33,9 @@ export interface SendResult {
 }
 
 export async function sendGeoReportEmail(
-  params: SendReportParams,
+  input: SendReportParams,
 ): Promise<SendResult> {
+  const params = { ...input, analysis: cleanForReader(input.analysis) };
   const apiKey = process.env.RESEND_API_KEY;
   // Aanhalingstekens om de waarde horen bij een .env-bestand, niet bij het adres.
   const from = process.env.GEO_EMAIL_FROM?.trim().replace(/^["']|["']$/g, "");

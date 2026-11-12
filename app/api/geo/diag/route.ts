@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { selectProvider } from "@/lib/geo/analysis";
+import { PROBE_MODELS, candidates } from "@/lib/geo/models";
 import { DEFAULT_ANALYSIS_MODEL } from "@/lib/geo/analysis/providers/claude";
 import { DEFAULT_GEO_SKILL_MODEL } from "@/lib/geo/analysis/providers/geo-skill";
 import { isSupabaseConfigured } from "@/lib/geo/supabase/service";
@@ -49,10 +50,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   // and with which model. Reports presence only — never the key or a live call.
   const aiSearchOff = process.env.GEO_AI_SEARCH === "off";
   const llmEngines = [
-    { engine: "ChatGPT (OpenAI)", configured: Boolean(process.env.OPENAI_API_KEY), model: process.env.GEO_OPENAI_MODEL || "gpt-4o-mini" },
-    { engine: "Gemini (Google)", configured: Boolean(process.env.GEMINI_API_KEY), model: process.env.GEO_GEMINI_MODEL || "gemini-2.5-flash" },
-    { engine: "Perplexity", configured: Boolean(process.env.PERPLEXITY_API_KEY), model: process.env.GEO_PERPLEXITY_MODEL || "sonar" },
-    { engine: "Grok (xAI)", configured: Boolean(process.env.XAI_API_KEY), model: process.env.GEO_GROK_MODEL || "grok-4" },
+    { engine: "ChatGPT (OpenAI)", configured: Boolean(process.env.OPENAI_API_KEY), model: candidates("GEO_OPENAI_MODEL", PROBE_MODELS.openai)[0] },
+    { engine: "Gemini (Google)", configured: Boolean(process.env.GEMINI_API_KEY), model: candidates("GEO_GEMINI_MODEL", PROBE_MODELS.gemini)[0] },
+    { engine: "Perplexity", configured: Boolean(process.env.PERPLEXITY_API_KEY), model: candidates("GEO_PERPLEXITY_MODEL", PROBE_MODELS.perplexity)[0] },
+    { engine: "Grok (xAI)", configured: Boolean(process.env.XAI_API_KEY), model: candidates("GEO_GROK_MODEL", PROBE_MODELS.grok)[0] },
     { engine: "Claude (Anthropic)", configured: hasKey, model },
   ];
 

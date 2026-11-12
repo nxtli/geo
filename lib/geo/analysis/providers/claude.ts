@@ -9,6 +9,7 @@ import {
 } from "../provider";
 import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
 import { logError } from "../../logger";
+import { ANALYSIS_MODELS, candidates } from "../../models";
 
 /**
  * Default analysis model. Sonnet is the deliberate choice: a public scan must
@@ -16,7 +17,7 @@ import { logError } from "../../logger";
  * Opus depth. Override with GEO_ANALYSIS_MODEL. Exported so the diagnostics
  * endpoint reports the model that will ACTUALLY run (no drift between code/docs).
  */
-export const DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-6";
+export const DEFAULT_ANALYSIS_MODEL = ANALYSIS_MODELS[0];
 
 /**
  * Per-request Anthropic timeout. Kept well under the route's maxDuration (120s)
@@ -58,11 +59,32 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     // Default to the fast Sonnet model (see DEFAULT_ANALYSIS_MODEL). Override
     // with GEO_ANALYSIS_MODEL. No extended thinking + low effort keeps latency
     // low; streaming avoids SDK request timeouts.
-    const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_ANALYSIS_MODEL;
+    // Weigert de API het eerste model (uitgezet, hernoemd, andere parameters),
+    // dan probeert de scan het volgende uit lib/geo/models.ts.
+    const models = candidates("GEO_ANALYSIS_MODEL", ANALYSIS_MODELS);
+    for (let i = 0; i < models.length; i++) {
+      try {
+        return await this.run(client, models[i], input, opts);
+      } catch (error) {
+        const status = (error as { status?: number })?.status;
+        const rejected = status === 400 || status === 404;
+        if (!rejected || i === models.length - 1) throw error;
+        logError("analysis.claude", `model ${models[i]} geweigerd (${status}), terugval op ${models[i + 1]}`);
+      }
+    }
+    throw new Error("no_analysis_model");
+  }
 
+  private async run(
+    client: Anthropic,
+    model: string,
+    input: GeoAnalysisInput,
+    opts?: GeoAnalysisOpts,
+  ): Promise<GeoAnalysisOutcome> {
     const params = {
       model,
-      max_tokens: 12000,
+      // Ruim: bij de nieuwe modellen tellen denktokens mee in deze limiet.
+      max_tokens: 24000,
       output_config: {
         effort: "low",
         format: { type: "json_schema", schema: geoAnalysisJsonSchema },

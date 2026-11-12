@@ -102,7 +102,7 @@ export const BRANDS: Record<BrandId, Brand> = {
     logoSuffix: "GEO-scan",
     charlie: {
       role: "CRO-specialist in het Marketing AI Team",
-      avatar: "https://marketingaiteam.com/agents/charlie.webp",
+      avatar: "/charlie-mat.jpg",
       intro:
         "Hoi! Ik ben Charlie, CRO-specialist in het Marketing AI Team. Ik bekijk in een paar stappen hoe geschikt jouw pagina is voor AI-zoekmachines. Laten we beginnen.",
     },

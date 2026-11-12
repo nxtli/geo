@@ -268,7 +268,7 @@ in te laden — één plek, de hele app volgt.
 ## PDF
 
 Standaard wordt het rapport als **self-contained HTML** geserveerd
-(`/api/geo/report/[id]`), wat de bezoeker via "Print → Opslaan als PDF" kan
+(`/<id>` (kort) en `/api/geo/report/[id]` (oud, blijft werken)), wat de bezoeker via "Print → Opslaan als PDF" kan
 downloaden. Voor een echte PDF: implementeer in `lib/geo/report/pdf.ts` één van
 de strategieën (Playwright/Puppeteer `page.pdf()`, of een externe
 PDF-service die de file in Supabase Storage zet) en zet `GEO_PDF_STRATEGY`.

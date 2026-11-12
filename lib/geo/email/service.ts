@@ -210,6 +210,7 @@ export function renderEmailHtml(p: SendReportParams): string {
     ${actionsHtml}
     <p style="color:#475569;line-height:1.6;margin:20px 0 14px">In het rapport staat per advies wat je aanpast, waar op de pagina en waarom.</p>
     <a href="${escapeHtml(link)}" style="display:inline-block;background:${c};color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Bekijk je volledige rapport</a>
+    <p style="color:#64748b;font-size:13px;line-height:1.5;margin:12px 0 0">Of open deze link: <a href="${escapeHtml(link)}" style="color:${c};word-break:break-all">${escapeHtml(link.replace(/^https?:\/\//, ""))}</a></p>
     <p style="color:#475569;line-height:1.6;margin-top:24px"><a href="${escapeHtml(strategyUrl(brand))}" style="color:${c}">${escapeHtml(brand.email.ctaLine)}</a>.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px"><tr>
       ${avatar ? `<td style="padding-right:12px"><img src="${escapeHtml(avatar)}" alt="Charlie" width="44" height="44" style="width:44px;height:44px;border-radius:22px;display:block;border:0"/></td>` : ""}

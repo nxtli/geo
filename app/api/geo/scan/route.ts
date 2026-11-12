@@ -6,6 +6,7 @@ import { parseAnalysisResult } from "@/lib/geo/analysis/provider";
 import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
+import { reportPath } from "@/lib/geo/report/serve";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
 import { getServerBrand } from "@/lib/geo/brand-server";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
@@ -109,7 +110,7 @@ export async function POST(request: Request): Promise<Response> {
         }
         if (prior?.analysis_result) {
           const priorAnalysis = parseAnalysisResult(prior.analysis_result);
-          const priorUrl = `/api/geo/report/${prior.id}`;
+          const priorUrl = reportPath(prior.id);
           await notifySlackNewLead({
             lead,
             status: "completed",
@@ -220,7 +221,7 @@ export async function POST(request: Request): Promise<Response> {
         const reportHtml = buildReportHtml({ lead, analysis, brand });
         putReportHtml(scanRequestId, reportHtml);
         const { pdfUrl } = await generatePdf({ html: reportHtml, scanRequestId });
-        const reportUrl = `/api/geo/report/${scanRequestId}`;
+        const reportUrl = reportPath(scanRequestId);
         progress(95, 4);
 
         // 5. Persist analysis + report.

@@ -49,7 +49,7 @@ describe("bevestigingsmail", () => {
     name: "Sanne de Vries",
     companyName: "Voorbeeld BV",
     reportHtml: "",
-    reportUrl: "/api/geo/report/abc",
+    reportUrl: "/dc59261c-5500-4493-98fd-5cda901a2c66",
     pageUrl: "https://www.voorbeeld.nl/diensten/",
     brand: BRANDS.mat,
   };
@@ -59,7 +59,8 @@ describe("bevestigingsmail", () => {
     expect(html).toContain("Je rapport is klaar, Sanne");
     expect(html).not.toContain("homepage");
     expect(html).toContain("voorbeeld.nl/diensten");
-    expect(html).toContain('href="https://geo.marketingaiteam.com/api/geo/report/abc"');
+    expect(html).toContain('href="https://geo.marketingaiteam.com/dc59261c-5500-4493-98fd-5cda901a2c66"');
+    expect(html).toContain("https://geo.marketingaiteam.com/charlie-mat.jpg");
     expect(html).toContain("Zet de prijs op de pagina");
     expect(html).toContain("marketing-ai-team-logo.png");
   });
@@ -71,5 +72,17 @@ describe("bevestigingsmail", () => {
     expect(html).toContain("Geen score");
     expect(html).not.toContain("/100");
     expect(text).toContain("Paginascore: Geen score");
+  });
+});
+
+import { isReportId, reportPath } from "../report/serve";
+
+describe("rapportadres", () => {
+  it("is kort en herkent alleen rapportnummers", () => {
+    expect(reportPath("dc59261c-5500-4493-98fd-5cda901a2c66")).toBe("/dc59261c-5500-4493-98fd-5cda901a2c66");
+    expect(isReportId("dc59261c-5500-4493-98fd-5cda901a2c66")).toBe(true);
+    expect(isReportId("local-dc59261c-5500-4493-98fd-5cda901a2c66")).toBe(true);
+    expect(isReportId("admin")).toBe(false);
+    expect(isReportId("favicon.ico")).toBe(false);
   });
 });

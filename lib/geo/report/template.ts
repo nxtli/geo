@@ -11,6 +11,11 @@ import { BRANDS, type Brand } from "../brand";
  * Category bars are colour-coded by performance and technical blockers are
  * escalated to the top so the report reads at a glance.
  */
+/** Markeert [invullen: ...] in een voorstel, zodat de lezer ziet wat nog ontbreekt. */
+function fillIns(escaped: string): string {
+  return escaped.replace(/\[invullen:[^\]]*\]/gi, (m) => `<span class="fill">${m}</span>`);
+}
+
 export function renderReportHtml(params: {
   lead: Pick<GeoLeadInput, "company_name" | "homepage_url" | "name">;
   analysis: GeoAnalysisResult;
@@ -135,6 +140,29 @@ export function renderReportHtml(params: {
   .cta-url { display:none; margin-top:12px; font-size:13px; color:#fff; }
   .foot { margin-top:34px; color:var(--subtle); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
   .muted { color:var(--muted); }
+  /* Adviezen: één kaart per advies, met Nu en Voorstel naast elkaar. */
+  .acts { display:grid; gap:16px; margin-top:6px; }
+  .act { border:1px solid var(--border); border-radius:16px; padding:20px 22px; background:#fff; }
+  .act-head { display:flex; align-items:flex-start; gap:12px; }
+  .act-num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .act-title { margin:0; font-size:17px; line-height:1.35; font-weight:700; letter-spacing:-0.01em; color:var(--ink); }
+  .act-chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0 42px; }
+  .chip { font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:#f1f4f8; color:var(--muted); white-space:nowrap; }
+  .chip-pts { background:var(--soft); color:var(--brand); }
+  .chip-where { white-space:normal; background:#fff; border:1px solid var(--border); font-weight:500; }
+  .act-why { margin:14px 0 0 42px; color:var(--ink); font-size:15px; line-height:1.6; }
+  .act-compare { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 0 42px; }
+  .act-compare.single { grid-template-columns:1fr; }
+  .act-box { border-radius:12px; padding:14px 16px; font-size:14.5px; line-height:1.6; }
+  .act-now { background:#f6f7f9; border:1px solid var(--border); color:var(--muted); }
+  .act-new { background:var(--soft); border:1px solid transparent; border-left:3px solid var(--brand); color:var(--ink); }
+  .act-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; color:var(--subtle); }
+  .act-new .act-label { color:var(--brand); }
+  .act-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .fill { background:#fff4d6; border-radius:4px; padding:0 4px; color:#7a4b00; font-weight:600; }
+  .act-done { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0 42px; font-size:14px; color:var(--muted); }
+  .act-check { flex:none; width:20px; height:20px; border-radius:50%; background:#e7f6ec; color:var(--good); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  @media (max-width:620px){ .act { padding:16px; } .act-chips, .act-why, .act-compare, .act-done { margin-left:0; } .act-compare { grid-template-columns:1fr; } }
   @media (max-width:620px){ .twocol{grid-template-columns:1fr;} .rowscore{grid-template-columns:1fr 80px 48px;} }
 
   /* Print / save-as-PDF: keep colours, avoid splitting cards, hide the button. */
@@ -143,7 +171,7 @@ export function renderReportHtml(params: {
     body { background:#fff; }
     .page { max-width:none; padding:0; }
     .printbtn { display:none !important; }
-    .card, .subcard, .rowscore, .tcheck, .section, .cta { break-inside: avoid; }
+    .card, .subcard, .rowscore, .tcheck, .cta, .act { break-inside: avoid; }
     /* Niet elke PDF-weergave bewaart klikbare links. Het adres staat er daarom ook als tekst. */
     .cta-url { display:block; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -240,19 +268,37 @@ export function renderReportHtml(params: {
     a.actions?.length
       ? `<section class="section"><div class="card">
           <div class="section-head"><h2>Adviezen om uit te voeren</h2><span class="section-sub">op volgorde van belang</span></div>
+          <div class="acts">
           ${a.actions
-            .map(
-              (x, i) => `<div class="tcheck" style="display:block">
-                <div class="lbl" style="flex:none">${i + 1}. ${esc(x.title)}</div>
-                <div class="det" style="margin-top:6px">${esc(x.why)}</div>
-                ${x.where ? `<div class="det"><strong>Waar:</strong> ${esc(x.where)}</div>` : ""}
-                ${x.before ? `<div class="det"><strong>Nu:</strong> <span style="white-space:pre-wrap">${esc(clip(x.before, 400))}</span></div>` : ""}
-                ${x.after ? `<div class="det"><strong>Voorstel:</strong> <span style="white-space:pre-wrap">${esc(clip(x.after, 700))}</span></div>` : ""}
-                <div class="det"><strong>Klaar als:</strong> ${esc(x.done_when)}</div>
-                <div class="det muted" style="font-size:12.5px">${esc(x.criterion)} · ${x.points ? `${String(x.points).replace(".", ",")} punten` : "blokkade"} · voor de ${esc(x.owner.toLowerCase())} · inspanning ${esc(x.effort)}</div>
-              </div>`,
-            )
+            .map((x, i) => {
+              const points = x.points ? `${String(x.points).replace(".", ",")} ${x.points === 1 ? "punt" : "punten"}` : "blokkade";
+              const before = x.before ? clip(x.before, 400) : "";
+              const after = x.after ? clip(x.after, 700) : "";
+              return `<article class="act">
+                <header class="act-head">
+                  <span class="act-num">${i + 1}</span>
+                  <h3 class="act-title">${esc(x.title)}</h3>
+                </header>
+                <div class="act-chips">
+                  <span class="chip chip-pts">${esc(points)}</span>
+                  <span class="chip">${esc(x.owner)}</span>
+                  <span class="chip">Inspanning: ${esc(x.effort)}</span>
+                  ${x.where ? `<span class="chip chip-where">${esc(clip(x.where, 90))}</span>` : ""}
+                </div>
+                <p class="act-why">${esc(x.why)}</p>
+                ${
+                  before || after
+                    ? `<div class="act-compare${before && after ? "" : " single"}">
+                        ${before ? `<div class="act-box act-now"><div class="act-label">Nu op de pagina</div><div class="act-text">${esc(before)}</div></div>` : ""}
+                        ${after ? `<div class="act-box act-new"><div class="act-label">Voorstel</div><div class="act-text">${fillIns(esc(after))}</div></div>` : ""}
+                      </div>`
+                    : ""
+                }
+                <div class="act-done"><span class="act-check">✓</span><span><strong>Klaar als:</strong> ${esc(x.done_when)}</span></div>
+              </article>`;
+            })
             .join("")}
+          </div>
         </div></section>`
       : ""
   }

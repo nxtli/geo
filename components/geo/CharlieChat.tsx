@@ -52,6 +52,8 @@ export function CharlieChat({
   const [followUps, setFollowUps] = React.useState(0);
   // Wat Charlie bij deze stap als laatste zei, zodat een kort "prima" context heeft.
   const [lastReply, setLastReply] = React.useState<string | null>(null);
+  // Het adres waar de rapportmail heen ging, voor de regel onder de knoppen.
+  const [mailedTo, setMailedTo] = React.useState<string | null>(null);
   // Charlie vroeg of een e-mailadres met een waarschijnlijke tikfout klopt.
   const [emailCheck, setEmailCheck] = React.useState<{ original: string; suggestion: string } | null>(null);
   // Met dit adres is al een scan gedaan. Charlie wacht op "ja" of een ander adres.
@@ -515,6 +517,7 @@ export function CharlieChat({
       await pushCharlie(data.message ?? CHARLIE_COPY.successLead, 500);
       if (!data.blocked) {
         if (data.email_queued) {
+          setMailedTo(payload.email);
           await pushCharlie(CHARLIE_COPY.emailNote(payload.email), 500);
         }
         await pushCharlie(brand.cta.chatLine, 600);
@@ -694,6 +697,9 @@ export function CharlieChat({
                 {brand.cta.label} <ArrowRightIcon className="h-4 w-4" />
               </a>
             </div>
+          )}
+          {phase === "success" && mailedTo && (
+            <p className="mt-2 px-1 text-center text-xs text-muted">{CHARLIE_COPY.emailHint(mailedTo)}</p>
           )}
 
           {(phase === "error" || phase === "closed") && (

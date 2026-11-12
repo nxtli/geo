@@ -157,7 +157,10 @@ export const CHARLIE_COPY = {
   successLead:
     "Je scan is klaar. Hieronder staan de belangrijkste uitkomsten.",
   emailNote: (email: string) =>
-    `Ik heb het volledige rapport ook naar ${email} gestuurd.`,
+    `Ik heb het volledige rapport ook naar ${email} gestuurd. Zie je de mail niet in je inbox? Kijk dan in je map Ongewenste e-mail.`,
+  /** Blijft onder de knoppen staan, ook als de chat naar de score springt. */
+  emailHint: (email: string) =>
+    `Het rapport staat ook in je mail (${email}). Niet in je inbox? Kijk in je map Ongewenste e-mail.`,
   priorKnown:
     "Met dit e-mailadres is al een gratis scan gedaan. Per adres is er één gratis scan. Zal ik het rapport van die scan opnieuw naar je mailen? Typ ja. Wil je meer pagina's laten beoordelen, plan dan een demo met de knop hieronder.",
   priorResent: (email: string) => `Ik heb het rapport opnieuw gestuurd naar ${email}. Kijk ook in je map met ongewenste mail.`,

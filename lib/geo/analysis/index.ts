@@ -170,11 +170,13 @@ export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisIn
       : [];
   result.scope_notes = [
     ...nameNote,
-    "Deze scan beoordeelt of één pagina geschikt is voor AI-zoekmachines. Hij meet niet hoe vaak een AI-tool het merk noemt of aanbeveelt.",
+    "De score is een indicatie en een richtlijn, geen garantie. Deze scan beoordeelt of één pagina geschikt is als bron voor AI-zoekmachines. Hij meet niet hoe vaak een AI-tool het merk noemt of aanbeveelt.",
+    "Gevonden worden komt vóór gekozen worden. Of een AI-tool je pagina vindt, hangt ook af van je positie in gewone zoekresultaten en je bekendheid. De adviezen in dit rapport helpen vooral bij de stap daarna: als bron gekozen worden.",
+    "Aanbevolen worden hangt ook af van wat anderen over je schrijven. AI-tools gebruiken ook bronnen van derden, zoals vakmedia, reviews en vergelijkingssites, en noemen bekende merken vaker. Die vermeldingen ziet een scan van één pagina niet. Werk daar apart aan.",
     (input.buyer?.origin ?? "bezoeker") === "marketingbrein"
       ? "De klantvragen komen uit goedgekeurde kennis in het Marketingbrein."
       : "De klantvragen zijn door de aanvrager ingevuld en niet getoetst bij kopers.",
-    "Niet gemeten: laadsnelheid, vermeldingen buiten de eigen site, blokkades door firewall of CDN.",
+    "Ook niet gemeten: laadsnelheid en blokkades door firewall of CDN.",
     `Kennisbank ${EVIDENCE.version}, herzien op ${EVIDENCE.reviewed}.${evidenceIsStale() ? " Let op: de kennisbank is toe aan herziening." : ""}`,
   ];
   return result;

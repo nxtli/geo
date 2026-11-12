@@ -67,6 +67,14 @@ export const SOURCES = {
   ahrefs: { label: "Ahrefs, We Tracked 1,885 Pages Adding Schema, mei 2026", url: "https://ahrefs.com/blog/schema-ai-citations/" },
   seranking: { label: "SE Ranking, onderzoek naar llms.txt onder 300.000 domeinen", url: "https://seranking.com/blog/llms-txt/" },
   survey: { label: "Martinez, A Critical Survey of Generative Engine Optimization, voorpublicatie juli 2026", url: "https://arxiv.org/abs/2607.14035" },
+  chen: {
+    label: "Chen e.a. (University of Toronto), Generative Engine Optimization: How to Dominate AI Search, voorpublicatie september 2025",
+    url: "https://arxiv.org/abs/2509.08919",
+  },
+  kumar: {
+    label: "Kumar (Ranqo), Measuring Brand Visibility Across AI Search Engines, voorpublicatie juni 2026",
+    url: "https://arxiv.org/abs/2606.20065",
+  },
 };
 
 export const PROBLEM = {
@@ -135,22 +143,27 @@ export const LIMITS = {
   eyebrow: "Eerlijk over de grenzen",
   title: "Wat meet de GEO-scan niet?",
   intro:
-    "GEO is een jong vakgebied. Veel is nog niet bewezen. De scan beoordeelt daarom alleen waar onderzoek voor bestaat. Je score is een indicatie en een richtlijn, geen garantie. De scan meet niet hoe vaak een AI-tool je merk noemt.",
+    "GEO is een jong vakgebied. Veel is nog niet bewezen. De scan beoordeelt daarom alleen waar onderzoek voor bestaat. Je score is een indicatie en een richtlijn, geen garantie. De scan meet niet hoe vaak een AI-tool je merk noemt of aanbeveelt.",
   items: [
     {
       title: "Eén AI-antwoord zegt weinig",
       body: "AI-antwoorden verschillen per keer en per tool. Voor een betrouwbaar beeld stel je dezelfde vraag meerdere keren. Een overzicht van 45 studies noemt zeven tot acht keer als startpunt.",
-      source: SOURCES.survey,
+      sources: [SOURCES.survey],
+    },
+    {
+      title: "Gevonden worden komt vóór gekozen worden",
+      body: "De scan beoordeelt of je pagina geschikt is als bron. Of een AI-tool je pagina vindt, hangt ook af van je positie in gewone zoekresultaten en je bekendheid. Hetzelfde overzicht vond geen techniek die de vindbaarheid op alle AI-tools blijvend verbetert.",
+      sources: [SOURCES.survey],
+    },
+    {
+      title: "Genoemd worden is nog geen aanbeveling",
+      body: "Je wilt dat een AI-tool je aanbeveelt. Dat hangt ook af van je bekendheid en van wat anderen over je schrijven. In ruim 100.000 AI-antwoorden stonden wereldmerken in 73% van de relevante antwoorden en kleine merken in 11%. Een andere studie zag dat AI-tools vaak bronnen van derden kiezen boven pagina's van het merk zelf. Een scan van één pagina ziet dat niet.",
+      sources: [SOURCES.chen, SOURCES.kumar],
     },
     {
       title: "Extra code voor zoekmachines geeft geen punten",
-      body: "Ahrefs volgde 1.885 pagina's die al als bron werden gebruikt en die schema-code kregen. Dat is code die een zoekmachine vertelt wat er op een pagina staat. De pagina's werden daarna niet meetbaar vaker als bron gekozen. Voor gewone zoekresultaten blijft schema-code nuttig.",
-      source: SOURCES.ahrefs,
-    },
-    {
-      title: "Een llms.txt-bestand ook niet",
-      body: "Een llms.txt-bestand is een wegwijzer voor AI-tools op je site. SE Ranking onderzocht bijna 300.000 websites en vond geen verband tussen zo'n bestand en hoe vaak een site als bron wordt genoemd.",
-      source: SOURCES.seranking,
+      body: "Ahrefs volgde 1.885 pagina's die schema-code kregen. Dat is code die een zoekmachine vertelt wat er op een pagina staat. De pagina's werden daarna niet meetbaar vaker als bron gekozen. Voor een llms.txt-bestand, een wegwijzer voor AI-tools, vond SE Ranking onder bijna 300.000 websites ook geen verband.",
+      sources: [SOURCES.ahrefs, SOURCES.seranking],
     },
   ],
   closing:
@@ -230,7 +243,7 @@ export function faqs(brandName: string): Array<{ q: string; a: string }> {
   return [
     {
       q: "Wat is GEO?",
-      a: "GEO staat voor Generative Engine Optimization. Je maakt een pagina geschikt om door AI-zoekmachines gevonden, begrepen en als bron vermeld te worden. Voorbeelden van AI-zoekmachines zijn ChatGPT, Claude, Gemini, Perplexity en de AI-overzichten van Google.",
+      a: "GEO staat voor Generative Engine Optimization. Je maakt een pagina geschikt om door AI-zoekmachines gevonden, begrepen, als bron vermeld en aanbevolen te worden. Voorbeelden van AI-zoekmachines zijn ChatGPT, Claude, Gemini, Perplexity en de AI-overzichten van Google.",
     },
     {
       q: "Wat kost de GEO-scan?",
@@ -249,8 +262,8 @@ export function faqs(brandName: string): Array<{ q: string; a: string }> {
       a: "De scan vraagt aan ChatGPT, Claude, Gemini, Perplexity en Grok wat zij over je merk weten. Je leest hun antwoorden in het rapport. De paginascore zelf geldt voor alle AI-zoekmachines.",
     },
     {
-      q: "Is een hoge score een garantie dat AI mij noemt?",
-      a: "Nee. De score is een indicatie en een richtlijn, geen garantie. De score zegt hoe geschikt je pagina is volgens het onderzoek van nu. Of een AI-tool je noemt, hangt ook af van de vraag, de concurrentie en hoe vaak je merk buiten je eigen site voorkomt.",
+      q: "Is een hoge score een garantie dat AI mij aanbeveelt?",
+      a: "Nee. De score is een indicatie en een richtlijn, geen garantie. De score zegt hoe geschikt je pagina is als bron, volgens het onderzoek van nu. Of een AI-tool je aanbeveelt, hangt ook af van de vraag, de concurrentie, je bekendheid en wat anderen over je schrijven.",
     },
     {
       q: "Wat gebeurt er met mijn gegevens?",

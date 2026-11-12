@@ -8,13 +8,17 @@ export function GeoLimits() {
       <Container>
         <SectionHeading eyebrow={LIMITS.eyebrow} title={LIMITS.title} intro={LIMITS.intro} />
 
-        <div className="mx-auto mt-12 grid max-w-5xl gap-5 md:grid-cols-3">
+        <div className="mx-auto mt-12 grid max-w-5xl gap-5 md:grid-cols-2">
           {LIMITS.items.map((i) => (
             <div key={i.title} className="rounded-2xl border border-border bg-surface p-6 shadow-soft">
               <h3 className="font-display text-base font-semibold text-ink">{i.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{i.body}</p>
-              <p className="mt-3 text-xs text-muted">
-                <SourceLink source={i.source} />
+              <p className="mt-3 space-y-1 text-xs text-muted">
+                {i.sources.map((src) => (
+                  <span key={src.url} className="block">
+                    <SourceLink source={src} />
+                  </span>
+                ))}
               </p>
             </div>
           ))}

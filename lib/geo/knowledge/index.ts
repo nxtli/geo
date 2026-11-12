@@ -74,7 +74,7 @@ export const GRADE_WEIGHT: Record<EvidenceGrade, number> = {
 
 /** Wie een advies oppakt in het Marketing AI Team. */
 export const OWNER_LABEL: Record<OwnerRole, string> = {
-  schrijver: "Martine (tekst)",
+  schrijver: "Tekstschrijver",
   developer: "Webbouwer",
   mens: "Marketeer",
 };

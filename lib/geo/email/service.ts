@@ -35,7 +35,8 @@ export async function sendGeoReportEmail(
   params: SendReportParams,
 ): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.GEO_EMAIL_FROM;
+  // Aanhalingstekens om de waarde horen bij een .env-bestand, niet bij het adres.
+  const from = process.env.GEO_EMAIL_FROM?.trim().replace(/^["']|["']$/g, "");
 
   if (!apiKey || !from) {
     logInfo("email", "mailer not configured — report email prepared, not sent");
@@ -79,9 +80,12 @@ async function deliver(opts: {
   });
 
   if (!res.ok) {
-    logError("email.send", `resend responded ${res.status}`);
+    // De melding van Resend zegt wat er mis is (afzender, domein, sleutel).
+    const detail = await res.text().catch(() => "");
+    logError("email.send", `resend responded ${res.status} ${detail.slice(0, 300)}`);
     return { sent: false };
   }
+  logInfo("email", `rapportmail verstuurd naar ${opts.to}`);
   return { sent: true };
 }
 

@@ -249,7 +249,7 @@ export function renderReportHtml(params: {
                 ${x.before ? `<div class="det"><strong>Nu:</strong> <span style="white-space:pre-wrap">${esc(clip(x.before, 400))}</span></div>` : ""}
                 ${x.after ? `<div class="det"><strong>Voorstel:</strong> <span style="white-space:pre-wrap">${esc(clip(x.after, 700))}</span></div>` : ""}
                 <div class="det"><strong>Klaar als:</strong> ${esc(x.done_when)}</div>
-                <div class="det muted" style="font-size:12.5px">${esc(x.criterion)} · ${x.points ? `${String(x.points).replace(".", ",")} punten` : "blokkade"} · ${esc(x.owner)} · inspanning ${esc(x.effort)} · bewijs: ${esc(x.evidence_grade)}${x.source ? ` (${esc(x.source)})` : ""}</div>
+                <div class="det muted" style="font-size:12.5px">${esc(x.criterion)} · ${x.points ? `${String(x.points).replace(".", ",")} punten` : "blokkade"} · voor de ${esc(x.owner.toLowerCase())} · inspanning ${esc(x.effort)}</div>
               </div>`,
             )
             .join("")}

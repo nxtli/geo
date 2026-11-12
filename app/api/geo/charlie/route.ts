@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerBrand } from "@/lib/geo/brand-server";
 import { CHARLIE_STEPS } from "@/lib/geo/charlie";
 import { generateCharlieReply, MAX_ANSWER_CHARS } from "@/lib/geo/charlie-reply";
+import { allow, clientIp, sameOrigin } from "@/lib/geo/request";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -35,40 +36,11 @@ const bodySchema = z.object({
     .optional(),
 });
 
-// Limiet per IP-adres. Geldt per serverinstantie, dus een rem en geen slot.
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_PER_WINDOW = 25;
-const hits = new Map<string, number[]>();
-
-function allow(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    hits.set(ip, recent);
-    return false;
-  }
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) hits.clear();
-  return true;
-}
-
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
   if (!sameOrigin(request)) return NextResponse.json({ reply: null }, { status: 403 });
 
-  const ip = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "onbekend";
-  if (!allow(ip)) return NextResponse.json({ reply: null }, { status: 429 });
+  // 25 verzoeken per 10 minuten per IP-adres.
+  if (!allow("charlie.ip", clientIp(request), 25, 10 * 60 * 1000)) return NextResponse.json({ reply: null }, { status: 429 });
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ reply: null }, { status: 400 });

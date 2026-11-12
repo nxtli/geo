@@ -19,7 +19,7 @@ import { Button, cn } from "./primitives";
 import { useBrand } from "./brand-context";
 import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons";
 
-type Phase = "asking" | "consent" | "scanning" | "success" | "error";
+type Phase = "asking" | "consent" | "scanning" | "success" | "error" | "closed";
 
 const DEFAULT_STRATEGY_URL =
   process.env.NEXT_PUBLIC_GEO_STRATEGY_CALL_URL ||
@@ -50,6 +50,8 @@ export function CharlieChat({
   const [followUps, setFollowUps] = React.useState(0);
   // Charlie vroeg of een e-mailadres met een waarschijnlijke tikfout klopt.
   const [emailCheck, setEmailCheck] = React.useState<{ original: string; suggestion: string } | null>(null);
+  // Met dit adres is al een scan gedaan. Charlie wacht op "ja" of een ander adres.
+  const [priorEmail, setPriorEmail] = React.useState<string | null>(null);
   const [consent, setConsent] = React.useState(false);
   const [processingIndex, setProcessingIndex] = React.useState(0);
   const [scanProgress, setScanProgress] = React.useState(0);
@@ -124,6 +126,21 @@ export function CharlieChat({
     };
   }, [isOpen]);
 
+  /** Is er met dit adres al een scan gedaan, of: mail dat rapport opnieuw. */
+  async function priorRequest(email: string, action: "check" | "resend"): Promise<{ known: boolean; sent?: boolean }> {
+    try {
+      const res = await fetch("/api/geo/prior", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, action }),
+      });
+      if (!res.ok) return { known: false };
+      return await res.json();
+    } catch {
+      return { known: false };
+    }
+  }
+
   /** Vraagt een echt antwoord op. Null: gebruik het vaste antwoord. */
   async function askCharlie(
     key: string,
@@ -176,20 +193,72 @@ export function CharlieChat({
       setInputError(null);
       setInput("");
       echo(typed);
-      setAnswers((a) => ({ ...a, email: typed }));
-      say(`Aangepast. Ik stuur je rapport naar ${typed}.`);
+      setTyping(true);
+      const prior = await priorRequest(typed, "check");
+      setTyping(false);
+      if (prior.known) {
+        say(CHARLIE_COPY.priorCorrection);
+      } else {
+        setAnswers((a) => ({ ...a, email: typed }));
+        say(`Aangepast. Ik stuur je rapport naar ${typed}.`);
+      }
       await pushCharlie(step.prompt, 500);
       return;
     }
 
     if (step.key === "email" && typed) {
+      /** Neemt het adres aan, tenzij er al een scan mee is gedaan. */
+      const acceptEmail = async (email: string) => {
+        setTyping(true);
+        const prior = await priorRequest(email, "check");
+        setTyping(false);
+        if (prior.known) {
+          setPriorEmail(email);
+          say(CHARLIE_COPY.priorKnown);
+          return;
+        }
+        setPriorEmail(null);
+        setAnswers((a) => ({ ...a, email }));
+        if (step.ack) say(step.ack(email));
+        await advance();
+      };
+
+      // Antwoord op "Zal ik het rapport opnieuw mailen?"
+      if (priorEmail && !emailCheck) {
+        const yes = /^(ja|j|yes|graag|doe maar|stuur)\b/i.test(typed);
+        const no = /^(nee|n|no|niet)\b/i.test(typed);
+        if (yes) {
+          setInputError(null);
+          setInput("");
+          echo(typed);
+          setTyping(true);
+          const res = await priorRequest(priorEmail, "resend");
+          setTyping(false);
+          say(res.sent ? CHARLIE_COPY.priorResent(priorEmail) : CHARLIE_COPY.priorResendFailed);
+          await pushCharlie(brand.cta.chatLine, 500);
+          setPhase("closed");
+          return;
+        }
+        if (no) {
+          setInputError(null);
+          setInput("");
+          echo(typed);
+          say(CHARLIE_COPY.priorDeclined);
+          return;
+        }
+        if (fieldValidators.email(typed)) {
+          setInputError("Typ ja, nee of een ander e-mailadres.");
+          return;
+        }
+        // Een ander adres: ga hieronder verder als nieuwe invoer.
+      }
+
       // Antwoord op "Bedoel je ...?"
       if (emailCheck) {
         const yes = /^(ja|j|yes|klopt|inderdaad|dat bedoel ik)\b/i.test(typed);
         const no = /^(nee|n|no|niet)\b/i.test(typed);
         const chosen = yes ? emailCheck.suggestion : no ? emailCheck.original : typed;
-        const err = fieldValidators.email(chosen);
-        if (err) {
+        if (fieldValidators.email(chosen)) {
           setInputError("Typ ja, nee of je e-mailadres.");
           return;
         }
@@ -197,22 +266,23 @@ export function CharlieChat({
         setInput("");
         echo(typed);
         setEmailCheck(null);
-        setAnswers((a) => ({ ...a, email: chosen }));
-        say(yes || no ? `Ik stuur je rapport naar ${chosen}.` : step.ack ? step.ack(chosen) : "");
-        await advance();
+        await acceptEmail(chosen);
         return;
       }
-      // Eerste invoer: vraag door bij een waarschijnlijke tikfout.
+
+      // Nieuwe invoer: vraag door bij een waarschijnlijke tikfout.
       if (!fieldValidators.email(typed)) {
+        setInputError(null);
+        setInput("");
+        echo(typed);
         const suggestion = suggestEmailFix(typed);
         if (suggestion) {
-          setInputError(null);
-          setInput("");
-          echo(typed);
           setEmailCheck({ original: typed, suggestion });
           say(`Bedoel je ${suggestion}? Typ ja of nee, of typ je adres opnieuw.`);
           return;
         }
+        await acceptEmail(typed);
+        return;
       }
     }
 
@@ -479,7 +549,7 @@ export function CharlieChat({
         </header>
 
         {/* Progress */}
-        {phase !== "success" && phase !== "error" ? (
+        {phase !== "success" && phase !== "error" && phase !== "closed" ? (
           <div className="px-5 pt-3">
             <div className="flex items-center justify-between text-[11px] font-medium text-subtle">
               <span>
@@ -587,7 +657,7 @@ export function CharlieChat({
             </div>
           )}
 
-          {phase === "error" && (
+          {(phase === "error" || phase === "closed") && (
             <a
               href={STRATEGY_URL}
               target="_blank"

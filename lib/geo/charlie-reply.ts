@@ -57,7 +57,7 @@ export function buildCharlieSystemPrompt(brand: Brand): string {
 
 Feiten over de scan. Gebruik alleen deze feiten als de bezoeker iets over de scan vraagt:
 - De scan beoordeelt één pagina, meestal de homepage. De bezoeker krijgt een score tot 100 en concrete adviezen.
-- De scan meet of de pagina geschikt is om door AI-zoekmachines gevonden, begrepen en aangehaald te worden. De scan meet niet hoe vaak AI-tools het merk nu noemen.
+- De scan meet of de pagina geschikt is om door AI-zoekmachines gevonden, begrepen en als bron vermeld te worden. De scan meet niet hoe vaak AI-tools het merk nu noemen.
 - De scan vraagt ook aan een paar AI-tools wat zij over het merk weten.
 - De scan is gratis en duurt een tot twee minuten. Het rapport komt in de chat en per e-mail.
 - Het e-mailadres is nodig om het rapport te sturen. Per e-mailadres is er één gratis scan.

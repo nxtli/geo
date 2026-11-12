@@ -29,17 +29,31 @@ export function GeoCTA() {
               >
                 {FINAL_CTA.cta} <ArrowRightIcon className="h-4 w-4" />
               </Button>
+            </div>
+
+            <p className="mt-5 text-sm text-white/70">{FINAL_CTA.trust}</p>
+
+            <p className="mx-auto mt-8 max-w-xl border-t border-white/20 pt-6 text-base text-white/90">
+              {FINAL_CTA.more}{" "}
+              <a
+                href={FINAL_CTA.waitlist.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white"
+              >
+                {FINAL_CTA.waitlist.label}
+              </a>{" "}
+              of{" "}
               <a
                 href={brand.cta.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-base font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-white"
+                className="font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white"
               >
-                Of {brand.cta.label.toLowerCase()} van {brand.name}
+                vraag een demo aan
               </a>
-            </div>
-
-            <p className="mt-5 text-sm text-white/70">{FINAL_CTA.trust}</p>
+              .
+            </p>
           </div>
         </div>
       </Container>

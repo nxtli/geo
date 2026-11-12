@@ -24,7 +24,7 @@ export const DIMENSION_POINTS: Record<string, number> = {
   "Citeerbare antwoorden": 13,
   "Eigen inbreng": 10,
   "Bewijs en bronnen": 10,
-  "Entiteit en vertrouwen": 10,
+  "Afzender en vertrouwen": 10,
   Paginabasis: 8,
   Actualiteit: 5,
 };
@@ -35,13 +35,13 @@ const count = ["nul", "één", "twee", "drie", "vier", "vijf", "zes", "zeven", "
 const word = (n: number) => count[n] ?? String(n);
 
 export const HERO = {
-  title: "Gratis GEO-scan: is jouw pagina geschikt voor",
+  title: "Gratis GEO-scan: hoe geschikt is jouw pagina voor",
   titleAccent: "AI-zoekmachines?",
-  lede: "Jouw klant stelt zijn vraag aan ChatGPT, Gemini of Perplexity. De AI-tool geeft één antwoord en haalt daarbij een paar pagina's aan. Charlie beoordeelt of jouw pagina daar geschikt voor is en schrijft de verbeteringen voor je uit.",
+  lede: "Steeds meer mensen stellen hun vragen aan ChatGPT, Claude of Gemini. Zo'n AI-tool geeft één antwoord en vermeldt daarbij een aantal bronnen. Met de GEO-scan zie je of jouw pagina geschikt is om als bron getoond te worden, en wat beter kan.",
   bullets: [
     `Een score tot 100, opgebouwd uit ${CRITERIA_COUNT} criteria`,
-    "Per advies: wat er nu staat en een tekstvoorstel om te plakken",
-    "Wat ChatGPT, Gemini, Perplexity, Grok en Claude over je merk zeggen",
+    "Bij elk advies zie je wat er nu staat en krijg je een tekstvoorstel",
+    "Je leest wat ChatGPT, Claude, Gemini, Perplexity en Grok over je merk zeggen",
   ],
   cta: "Scan mijn pagina gratis",
   secondary: "Bekijk wat je krijgt",
@@ -50,19 +50,19 @@ export const HERO = {
 
 export const SOURCES = {
   tian: {
-    label: "Tian e.a., Diagnosing and Repairing Citation Failures in GEO (2026)",
+    label: "Tian e.a. (Virginia Tech en Zhejiang University), Diagnosing and Repairing Citation Failures in GEO, voorpublicatie maart 2026",
     url: "https://arxiv.org/abs/2603.09296",
   },
-  ahrefs: { label: "Ahrefs, schema en AI-citaties", url: "https://ahrefs.com/blog/schema-ai-citations/" },
-  seranking: { label: "SE Ranking, llms.txt-studie", url: "https://seranking.com/blog/llms-txt/" },
-  survey: { label: "Critical Survey of GEO (2023-2026)", url: "https://arxiv.org/abs/2607.14035" },
+  ahrefs: { label: "Ahrefs, We Tracked 1,885 Pages Adding Schema, mei 2026", url: "https://ahrefs.com/blog/schema-ai-citations/" },
+  seranking: { label: "SE Ranking, onderzoek naar llms.txt onder 300.000 domeinen", url: "https://seranking.com/blog/llms-txt/" },
+  survey: { label: "Martinez, A Critical Survey of Generative Engine Optimization, voorpublicatie juli 2026", url: "https://arxiv.org/abs/2607.14035" },
 };
 
 export const PROBLEM = {
   eyebrow: "Waarom dit telt",
-  title: "Waarom haalt een AI-tool de ene pagina aan en de andere niet?",
+  title: "Waarom kiest een AI-tool de ene pagina als bron en de andere niet?",
   intro:
-    "Een AI-tool haalt een pagina aan als die pagina de vraag van de gebruiker concreet beantwoordt. Een hoge positie in Google is daarvoor niet genoeg.",
+    "Een AI-tool kiest een pagina als bron als die pagina de vraag van de gebruiker concreet beantwoordt. Een hoge positie in Google is daarvoor niet genoeg.",
   cards: [
     {
       title: "In Google sta je in een lijst",
@@ -74,7 +74,7 @@ export const PROBLEM = {
     },
   ],
   evidence:
-    "In een analyse van 949 gemiste citaties paste bij 62,2% de inhoud niet bij de vraag. Bij 10,1% lukte het ophalen of ontleden van de pagina niet. De onderzoekers maten in een testopstelling, niet bij live AI-tools.",
+    "Onderzoekers bekeken 949 gevallen waarin een AI-systeem een pagina niet als bron koos en een andere pagina wel. In 62% van die gevallen paste de pagina niet goed bij de vraag. In 10% lukte het niet om de pagina goed op te halen of te lezen. Ze maten dit in een testopstelling, niet bij ChatGPT of Gemini zelf.",
   source: SOURCES.tian,
 };
 
@@ -93,7 +93,7 @@ export const FEATURES = {
     },
     {
       label: "Citeerbare antwoorden",
-      body: "Staat het antwoord vooraan en is het los leesbaar? Is de taal stellig en onderbouwd?",
+      body: "Staat het antwoord vooraan? Begrijp je het ook zonder de rest van de pagina te lezen?",
     },
     {
       label: "Eigen inbreng",
@@ -104,12 +104,12 @@ export const FEATURES = {
       body: "Hebben cijfers een bron? Staat er een citaat van een klant of expert met naam?",
     },
     {
-      label: "Entiteit en vertrouwen",
-      body: "Is duidelijk wie het aanbiedt? Staat er een expert met naam en functie?",
+      label: "Afzender en vertrouwen",
+      body: "Is duidelijk welk bedrijf het aanbiedt? Staat er een deskundige met naam en functie?",
     },
     {
       label: "Paginabasis",
-      body: "Heeft de pagina één h1, logische koppen, een duidelijke titel en beschrijvende links?",
+      body: "Heeft de pagina één hoofdkop, logische tussenkoppen, een duidelijke titel en links met een heldere tekst?",
     },
     {
       label: "Actualiteit",
@@ -117,33 +117,33 @@ export const FEATURES = {
     },
   ].map((i) => ({ ...i, points: points(i.label) })),
   gates:
-    "Vooraf toetst de scan drie blokkades. Mogen AI-zoekbots de pagina ophalen? Is de pagina indexeerbaar? Staat de kerntekst in de HTML? Faalt er één, dan topt de scan je score af, hoe goed de tekst ook is.",
+    "Vooraf controleert de scan drie dingen. Mogen de zoekrobots van AI-tools je pagina ophalen? Mag de pagina in zoekresultaten staan? Staat de tekst in de pagina zelf, en niet alleen in een script? Gaat er één mis, dan blijft je score laag, hoe goed de tekst ook is.",
 };
 
 export const LIMITS = {
   eyebrow: "Eerlijk over de grenzen",
   title: "Wat meet de GEO-scan niet?",
   intro:
-    "De scan meet hoe geschikt je pagina is. De scan meet niet hoe vaak een AI-tool je merk noemt, en belooft geen plek in een antwoord.",
+    "GEO is een jong vakgebied. Veel is nog niet bewezen. De scan beoordeelt daarom alleen waar onderzoek voor bestaat. Je score is een indicatie en een richtlijn, geen garantie. De scan meet niet hoe vaak een AI-tool je merk noemt.",
   items: [
     {
       title: "Eén AI-antwoord zegt weinig",
-      body: "AI-antwoorden verschillen per keer en per tool. Een betrouwbare meting vraagt zeven tot acht herhalingen per vraag.",
+      body: "AI-antwoorden verschillen per keer en per tool. Voor een betrouwbaar beeld stel je dezelfde vraag meerdere keren. Een overzicht van 45 studies noemt zeven tot acht keer als startpunt.",
       source: SOURCES.survey,
     },
     {
-      title: "Schema-code geeft geen punten",
-      body: "Ahrefs testte 1.885 pagina's. JSON-LD toevoegen gaf geen meetbare stijging van AI-citaties. Schema blijft nuttig voor gewone zoekresultaten.",
+      title: "Extra code voor zoekmachines geeft geen punten",
+      body: "Ahrefs volgde 1.885 pagina's die al als bron werden gebruikt en die schema-code kregen. Dat is code die een zoekmachine vertelt wat er op een pagina staat. De pagina's werden daarna niet meetbaar vaker als bron gekozen. Voor gewone zoekresultaten blijft schema-code nuttig.",
       source: SOURCES.ahrefs,
     },
     {
       title: "Een llms.txt-bestand ook niet",
-      body: "SE Ranking onderzocht circa 300.000 domeinen. Een llms.txt-bestand had geen aantoonbaar effect op AI-citaties.",
+      body: "Een llms.txt-bestand is een wegwijzer voor AI-tools op je site. SE Ranking onderzocht bijna 300.000 websites en vond geen verband tussen zo'n bestand en hoe vaak een site als bron wordt genoemd.",
       source: SOURCES.seranking,
     },
   ],
   closing:
-    "Wat wel werkt, is een gerichte reparatie. In het onderzoek van Tian e.a. wijzigde de beste aanpak ongeveer 5% van de tekst. Daarom krijg je per advies één concrete wijziging en geen herschreven pagina.",
+    "Wat in onderzoek wel werkte, is een gerichte verbetering. De beste aanpak in de studie van Tian e.a. wijzigde ongeveer 5% van de tekst. Daarom krijg je bij elk advies één concrete wijziging en geen herschreven pagina. Verschijnt er nieuw, betrouwbaar onderzoek, dan passen we de scan aan.",
   closingSource: SOURCES.tian,
 };
 
@@ -166,7 +166,7 @@ export const HOW = {
     {
       n: "03",
       title: "Charlie beoordeelt je pagina",
-      body: "De scan haalt je pagina op, meet de techniek en beoordeelt de inhoud per criterium.",
+      body: "De scan haalt je pagina op, controleert de techniek en beoordeelt de tekst op elk criterium.",
     },
     {
       n: "04",
@@ -180,7 +180,7 @@ export const REPORT = {
   eyebrow: "Het rapport",
   title: "Wat staat er in het rapport?",
   intro:
-    "Je krijgt een score tot 100, de opbouw per onderdeel en de adviezen op volgorde van belang. Elk advies laat zien wat er nu staat en geeft een voorstel dat je direct plakt.",
+    "Je krijgt een score tot 100, de opbouw per onderdeel en de adviezen op volgorde van belang. Elk advies laat zien wat er nu staat en geeft een tekstvoorstel dat je direct overneemt.",
   exampleNote: "Voorbeeld met verzonnen gegevens. Jouw rapport gaat over jouw pagina.",
   example: {
     domain: "jouwbedrijf.nl/dienst",
@@ -188,7 +188,7 @@ export const REPORT = {
     bars: [
       { label: "Aansluiting op de vraag", got: 15, max: points("Aansluiting op de vraag") },
       { label: "Concrete, controleerbare informatie", got: 5, max: points("Concrete, controleerbare informatie") },
-      { label: "Entiteit en vertrouwen", got: 10, max: points("Entiteit en vertrouwen") },
+      { label: "Afzender en vertrouwen", got: 10, max: points("Afzender en vertrouwen") },
     ],
     action: {
       title: "Zet onder de kop 'Tarieven' het bedrag per maand",
@@ -201,14 +201,16 @@ export const REPORT = {
   includes: [
     "De score en de opbouw per onderdeel",
     "De adviezen op volgorde van belang, met punten en inspanning",
-    "Per advies: de huidige tekst en een voorstel",
+    "Bij elk advies de huidige tekst en een voorstel",
     "De antwoorden van vijf AI-tools op de vraag wat zij over je merk weten",
   ],
 };
 
 export const FINAL_CTA = {
   title: "Zie in vijf minuten waar je pagina punten laat liggen",
-  body: `Charlie beoordeelt je pagina op ${CRITERIA_COUNT} criteria en schrijft per advies een voorstel. Gratis, één scan per e-mailadres.`,
+  body: `Charlie beoordeelt je pagina op ${CRITERIA_COUNT} criteria en schrijft bij elk advies een voorstel. De scan is gratis en beoordeelt één pagina.`,
+  more: "Wil je meer pagina's laten scannen of je site laten herschrijven?",
+  waitlist: { label: "Meld je aan voor de wachtlijst", url: "https://marketingaiteam.com/#aanmelden" },
   cta: "Scan mijn pagina gratis",
   trust: "Geen technische kennis nodig. Je rapport staat direct in de chat en in je mail.",
 };
@@ -217,11 +219,11 @@ export function faqs(brandName: string): Array<{ q: string; a: string }> {
   return [
     {
       q: "Wat is GEO?",
-      a: "GEO staat voor Generative Engine Optimization. Je maakt een pagina geschikt om door AI-zoekmachines gevonden, begrepen en aangehaald te worden. Voorbeelden van AI-zoekmachines zijn ChatGPT, Gemini, Perplexity, Claude en de AI-overzichten van Google.",
+      a: "GEO staat voor Generative Engine Optimization. Je maakt een pagina geschikt om door AI-zoekmachines gevonden, begrepen en als bron vermeld te worden. Voorbeelden van AI-zoekmachines zijn ChatGPT, Claude, Gemini, Perplexity en de AI-overzichten van Google.",
     },
     {
       q: "Wat kost de GEO-scan?",
-      a: `De GEO-scan is gratis. Je krijgt één scan per e-mailadres. Wil je meer pagina's laten beoordelen, plan dan een demo van ${brandName}.`,
+      a: `De GEO-scan is gratis. Je laat één pagina beoordelen per e-mailadres. Wil je meer pagina's laten scannen of je site laten herschrijven, meld je dan aan voor de wachtlijst van ${brandName} of vraag een demo aan.`,
     },
     {
       q: "Hoe lang duurt de scan?",
@@ -233,11 +235,11 @@ export function faqs(brandName: string): Array<{ q: string; a: string }> {
     },
     {
       q: "Welke AI-tools neemt de scan mee?",
-      a: "De scan vraagt aan ChatGPT, Gemini, Perplexity, Grok en Claude wat zij over je merk weten. Je leest hun antwoorden in het rapport. De paginascore zelf geldt voor alle AI-zoekmachines.",
+      a: "De scan vraagt aan ChatGPT, Claude, Gemini, Perplexity en Grok wat zij over je merk weten. Je leest hun antwoorden in het rapport. De paginascore zelf geldt voor alle AI-zoekmachines.",
     },
     {
       q: "Is een hoge score een garantie dat AI mij noemt?",
-      a: "Nee. De score zegt hoe geschikt je pagina is. Of een AI-tool je noemt, hangt ook af van de vraag, de concurrentie en hoe vaak je merk buiten je eigen site voorkomt.",
+      a: "Nee. De score is een indicatie en een richtlijn, geen garantie. De score zegt hoe geschikt je pagina is volgens het onderzoek van nu. Of een AI-tool je noemt, hangt ook af van de vraag, de concurrentie en hoe vaak je merk buiten je eigen site voorkomt.",
     },
     {
       q: "Wat gebeurt er met mijn gegevens?",

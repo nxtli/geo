@@ -146,9 +146,9 @@ export const BRANDS: Record<BrandId, Brand> = {
       color: "#1767f2",
     },
     meta: {
-      title: "Gratis GEO-scan: is je pagina klaar voor AI-zoekmachines?",
+      title: "Gratis GEO-scan: hoe geschikt is je pagina voor AI-zoekmachines?",
       description:
-        "Gratis GEO-scan van het Marketing AI Team. Charlie beoordeelt je pagina op 27 criteria en geeft een score tot 100 met tekstvoorstellen. Klaar in vijf minuten.",
+        "Gratis GEO-scan van het Marketing AI Team. Zie in vijf minuten of je pagina geschikt is als bron voor ChatGPT, Claude en Gemini, en wat beter kan.",
     },
   },
 };

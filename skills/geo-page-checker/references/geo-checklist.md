@@ -62,7 +62,7 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 | E1 | De pagina toont een datum van laatste wijziging met jaartal | 3 | E-RECENCY (sterk) | Webbouwer | Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar. | De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging. |
 | E2 | De gegevens zijn actueel | 2 | E-RECENCY (sterk) | Marketeer | Werk prijzen, jaartallen en regelingen bij. | Geen verlopen data, prijzen of regelingen. |
 
-## Entiteit en vertrouwen (10 punten)
+## Afzender en vertrouwen (10 punten)
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|

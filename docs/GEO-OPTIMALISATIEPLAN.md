@@ -69,7 +69,7 @@ Het model staat als data in de code. Elk criterium heeft: punten, bewijskracht, 
 | Citeerbare antwoorden | 13 | Middel | Positionering |
 | Bewijs en bronnen | 10 | Middel | Cases, cijfers |
 | Actualiteit | 5 | Sterk bij tijdgevoelige vragen | Key Moment roadmap |
-| Entiteit en vertrouwen | 10 | Middel | Positionering, storytellers |
+| Afzender en vertrouwen | 10 | Middel | Positionering, storytellers |
 | Paginabasis | 8 | Richtlijn | Geen |
 
 De actuele punten per criterium staan in `lib/geo/knowledge/scorecard.json`.

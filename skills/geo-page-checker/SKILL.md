@@ -186,7 +186,7 @@ Gebruik de dimensies en punten uit `references/geo-checklist.md`:
 | Citeerbare antwoorden | 13 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
 | Bewijs en bronnen | 10 | Cijfers met bron, citaat met naam, controleerbare claims |
 | Actualiteit | 5 | Zichtbare datum met jaartal, actuele gegevens |
-| Entiteit en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
+| Afzender en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
 | Paginabasis | 8 | Koppen, titel, ankerteksten, pagina-ervaring |
 
 De drie poortwachters (zoekbots toegelaten, indexeerbaar, tekst in de HTML) krijgen geen punten.

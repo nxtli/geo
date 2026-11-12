@@ -301,7 +301,7 @@
     },
     {
       "key": "entiteit_vertrouwen",
-      "label": "Entiteit en vertrouwen",
+      "label": "Afzender en vertrouwen",
       "criteria": [
         {
           "id": "F1",

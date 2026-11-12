@@ -21,8 +21,9 @@ describe("parseCharlieReply", () => {
     const r = parseCharlieReply('Hier: {"reply":"Drie ideeën: a, b, c. Zal ik ze toevoegen?","value":"AI-sprekers Nederland","done":false}');
     expect(r).toEqual({ reply: "Drie ideeën: a, b, c. Zal ik ze toevoegen?", value: "AI-sprekers Nederland", done: false });
   });
-  it("is nooit klaar zonder waarde", () => {
-    expect(parseCharlieReply('{"reply":"Dat is nodig voor je rapport.","value":null,"done":true}')?.done).toBe(false);
+  it("geeft klaar zonder waarde door, de chat beslist of dat mag", () => {
+    const r = parseCharlieReply('{"reply":"Prima, die slaan we over.","value":null,"done":true}');
+    expect(r).toEqual({ reply: "Prima, die slaan we over.", value: null, done: true });
   });
   it("vervangt gedachtestreepjes en weigert rommel", () => {
     expect(parseCharlieReply('{"reply":"Goed — ik noteer het.","value":"x","done":true}')?.reply).toBe("Goed, ik noteer het.");

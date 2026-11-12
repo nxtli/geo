@@ -164,6 +164,19 @@ export function CharlieChat({
     // Een geldig e-mailadres of een geldige URL is een antwoord, ook met een
     // vraagteken erin. Anders: reageer echt als de bezoeker iets vraagt, of als
     // Charlie bij deze stap al een vraag terug stelde.
+    // "sla over" bij een optionele vraag is geen inhoud en geen vraag aan Charlie.
+    const skipWord = /^(sla\b.*over|overslaan|skip|nee|geen|n\.?v\.?t\.?|weet ik niet|geen idee)\b[\s.!]*$/i.test(typed);
+    if (step.optional && skipWord && !pending) {
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed }]);
+      setPending(null);
+      setFollowUps(0);
+      setAnswers((a) => ({ ...a, [step.key]: null }));
+      await advance();
+      return;
+    }
+
     const plainValid =
       !!typed && (step.inputType === "email" || step.inputType === "url") && !validate(typed);
     const wantsReply =
@@ -182,7 +195,8 @@ export function CharlieChat({
 
       if (ai) {
         const candidate = ai.value ?? pending;
-        const candidateOk = !!candidate && !validate(candidate);
+        // Een optionele vraag mag zonder antwoord klaar zijn.
+        const candidateOk = candidate ? !validate(candidate) : Boolean(step.optional);
         if (!ai.done || !candidateOk) {
           // Charlie wacht op een reactie. De stap blijft open.
           setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ai.reply }]);
@@ -190,7 +204,7 @@ export function CharlieChat({
           setFollowUps((n) => n + 1);
           return;
         }
-        value = candidate as string;
+        value = candidate ?? "";
         ack = ai.reply;
       } else {
         // Geen antwoord gekregen: ga verder met wat er staat.
@@ -228,12 +242,16 @@ export function CharlieChat({
       await pushCharlie(step.ack(value), 500);
     }
 
+    await advance();
+  }
+
+  /** Naar de volgende vraag, of naar de bevestiging na de laatste vraag. */
+  async function advance() {
     const next = stepIndex + 1;
+    setStepIndex(next);
     if (next < CHARLIE_STEPS.length) {
-      setStepIndex(next);
       await pushCharlie(CHARLIE_STEPS[next].prompt, 650);
     } else {
-      setStepIndex(next);
       setPhase("consent");
       await pushCharlie(CHARLIE_COPY.reviewLead, 600);
     }
@@ -392,7 +410,9 @@ export function CharlieChat({
             <CharlieAvatar size="md" withStatus />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-ink">{CHARLIE.name}</div>
-              <div className="text-xs text-muted">{brand.charlie.role}</div>
+              <div className="text-xs text-muted">
+                {phase === "scanning" ? CHARLIE_COPY.scanningStatus : brand.charlie.role}
+              </div>
             </div>
           </div>
           <button
@@ -462,6 +482,7 @@ export function CharlieChat({
               value={input}
               error={inputError}
               disabled={typing}
+              waiting={followUps > 0}
               onChange={(v) => {
                 setInput(v);
                 if (inputError) setInputError(null);
@@ -479,9 +500,16 @@ export function CharlieChat({
           )}
 
           {phase === "scanning" && (
-            <p className="px-1 py-2 text-center text-xs text-subtle">
-              {CHARLIE_COPY.scanningSubtle}
-            </p>
+            <div className="flex items-center justify-center gap-2.5 px-1 py-2" role="status" aria-live="polite">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand" />
+              </span>
+              <p className="text-sm text-ink">
+                <span className="font-semibold">{CHARLIE_COPY.scanningStatus}</span>{" "}
+                <span className="text-muted">{CHARLIE_COPY.scanningSubtle}</span>
+              </p>
+            </div>
           )}
 
           {phase === "success" && reportHref && (
@@ -527,11 +555,13 @@ const AskingInput = React.forwardRef<
     step: (typeof CHARLIE_STEPS)[number];
     value: string;
     error: string | null;
+    /** Charlie wacht op een reactie bij deze stap. */
+    waiting?: boolean;
     disabled: boolean;
     onChange: (v: string) => void;
     onSend: () => void;
   }
->(function AskingInput({ step, value, error, disabled, onChange, onSend }, ref) {
+>(function AskingInput({ step, value, error, disabled, waiting, onChange, onSend }, ref) {
   return (
     <div>
       <div
@@ -573,7 +603,11 @@ const AskingInput = React.forwardRef<
         <p className="mt-1.5 px-1 text-xs font-medium text-danger">{error}</p>
       ) : (
         <p className="mt-1.5 px-1 text-[11px] text-subtle">
-          {step.optional ? "Optioneel, druk op Enter om over te slaan" : "Druk op Enter om te versturen"}
+          {waiting
+            ? "Typ je reactie, of druk op Enter om verder te gaan"
+            : step.optional
+              ? "Optioneel, druk op Enter om over te slaan"
+              : "Druk op Enter om te versturen"}
         </p>
       )}
     </div>

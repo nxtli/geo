@@ -150,9 +150,10 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
 ];
 
 export const CHARLIE_COPY = {
-  reviewLead: "Mooi, ik heb alles. Klopt dit zo?",
+  reviewLead: "Ik heb alles. Vink hieronder het vakje aan en start de scan.",
   scanningLead: "Top! Ik ga je pagina analyseren. Even geduld…",
-  scanningSubtle: "Dit duurt meestal één tot twee minuten.",
+  scanningStatus: "Charlie voert je scan uit.",
+  scanningSubtle: "Dit duurt één tot twee minuten. Laat dit venster open.",
   successLead:
     "Je scan is klaar. Ik heb de belangrijkste kansen hieronder voor je samengevat.",
   emailNote: (email: string) =>

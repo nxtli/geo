@@ -6,18 +6,22 @@ import { BrandProvider } from "@/components/geo/brand-context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getServerBrand();
+  const siteName = brand.id === "mat" ? "Marketing AI Team" : brand.product;
   return {
     metadataBase: new URL(brand.siteUrl),
     title: { default: brand.meta.title, template: `%s | ${brand.product}` },
     description: brand.meta.description,
+    alternates: { canonical: "/" },
     openGraph: {
       title: brand.meta.title,
       description: brand.meta.description,
       url: brand.siteUrl,
-      siteName: brand.id === "mat" ? "Marketing AI Team" : brand.product,
+      siteName,
       locale: "nl_NL",
       type: "website",
+      images: [{ url: brand.logo.src.startsWith("http") ? brand.logo.src : `${brand.siteUrl}${brand.logo.src}`, alt: brand.logo.alt }],
     },
+    twitter: { card: "summary", title: brand.meta.title, description: brand.meta.description },
     robots: { index: true, follow: true },
   };
 }

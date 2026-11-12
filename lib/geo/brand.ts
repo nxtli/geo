@@ -116,9 +116,9 @@ export const BRANDS: Record<BrandId, Brand> = {
     consentLabel:
       "Ik ga akkoord dat NXTLI B.V., het bedrijf achter Marketing AI Team, mijn gegevens gebruikt om de scan uit te voeren en het rapport toe te sturen.",
     why: {
-      eyebrow: "Waarom Marketing AI Team",
-      title: "Van een losse scan naar een team dat je vindbaarheid bijhoudt",
-      body: "In het Marketing AI Team werken mensen en gespecialiseerde AI-collega's vanuit één Marketingbrein. Charlie beoordeelt je pagina's, Martine schrijft de verbeteringen en Brian meet het effect.",
+      eyebrow: "De afzender",
+      title: "Wie maakt de GEO-scan?",
+      body: "Het Marketing AI Team maakt de GEO-scan. Marketing AI Team is een platform van NXTLI B.V., het marketing AI-bureau dat Michiel Schoonhoven in 2017 mede oprichtte. In het platform werken mensen en AI-collega's vanuit één Marketingbrein. Charlie beoordeelt je pagina's, Martine schrijft de verbeteringen en Brian meet het effect.",
       points: [
         "Eén Marketingbrein met je publieken, klantvragen en aanbod",
         "AI-collega's met elk een eigen specialisme",
@@ -146,9 +146,9 @@ export const BRANDS: Record<BrandId, Brand> = {
       color: "#1767f2",
     },
     meta: {
-      title: "GEO-scan van het Marketing AI Team: is je pagina klaar voor AI-zoeken?",
+      title: "Gratis GEO-scan: is je pagina klaar voor AI-zoekmachines?",
       description:
-        "Charlie, CRO-specialist in het Marketing AI Team, beoordeelt gratis hoe geschikt jouw pagina is voor AI-zoekmachines en geeft adviezen die je direct uitvoert.",
+        "Gratis GEO-scan van het Marketing AI Team. Charlie beoordeelt je pagina op 27 criteria en geeft een score tot 100 met tekstvoorstellen. Klaar in vijf minuten.",
     },
   },
 };

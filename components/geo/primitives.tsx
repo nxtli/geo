@@ -114,3 +114,16 @@ export function Card({
     </div>
   );
 }
+
+/** Bronvermelding bij een cijfer of bewering. */
+export function SourceLink({ source }: { source: { label: string; url: string } }) {
+  return (
+    <span className="text-sm">
+      Bron:{" "}
+      <a href={source.url} target="_blank" rel="noopener noreferrer" className="underline decoration-border underline-offset-2 hover:text-brand">
+        {source.label}
+      </a>
+      .
+    </span>
+  );
+}

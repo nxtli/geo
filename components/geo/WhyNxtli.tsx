@@ -8,7 +8,7 @@ import { useBrand } from "./brand-context";
 export function WhyNxtli() {
   const { why } = useBrand();
   return (
-    <section className="py-20 sm:py-28">
+    <section id="over" className="scroll-mt-24 overflow-x-clip bg-elevated/50 py-20 sm:py-28">
       <Container>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>

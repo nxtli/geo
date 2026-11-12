@@ -1,72 +1,25 @@
 import { Card, Container, SectionHeading } from "./primitives";
-import {
-  BoltIcon,
-  DocIcon,
-  QuoteIcon,
-  SearchIcon,
-  ShieldIcon,
-  TargetIcon,
-} from "./icons";
-
-const FEATURES = [
-  {
-    icon: SearchIcon,
-    title: "Begrijpt AI wat je bedrijf doet?",
-    body: "Als AI niet begrijpt wat jij doet, sla je de eerste vraag al mis.",
-  },
-  {
-    icon: TargetIcon,
-    title: "Zijn je diensten en doelgroep helder?",
-    body: "Vaag aanbod = onzichtbaar voor AI. Wij checken of jouw propositie scherp genoeg is.",
-  },
-  {
-    icon: QuoteIcon,
-    title: "Beantwoord je de vragen van klanten?",
-    body: "AI beantwoordt vragen. Als jouw content die vragen niet beantwoordt, besta je niet voor AI.",
-  },
-  {
-    icon: DocIcon,
-    title: "Is je content citeerbaar?",
-    body: "Mag AI jou citeren? Alleen als je content concreet en helder genoeg is. Wij meten dat.",
-  },
-  {
-    icon: ShieldIcon,
-    title: "Zijn er signalen van vertrouwen?",
-    body: "Vertrouwt AI jou? Alleen als er bewijs is. Cases, cijfers en referenties tellen zwaar mee.",
-  },
-  {
-    icon: BoltIcon,
-    title: "Welke content mist nog?",
-    body: "Wat ontbreekt er nog? We benoemen exact welke content jou vaker in AI-antwoorden zet.",
-  },
-];
+import { FEATURES } from "@/lib/geo/landing";
 
 export function GeoScanFeatures() {
   return (
-    <section
-      id="wat-de-scan-analyseert"
-      className="scroll-mt-24 bg-elevated/50 py-20 sm:py-28"
-    >
+    <section id="wat-de-scan-beoordeelt" className="scroll-mt-24 bg-elevated/50 py-20 sm:py-28">
       <Container>
-        <SectionHeading
-          eyebrow="Wat de scan analyseert"
-          title="Dit bepaalt of AI jou noemt of overslaat"
-          intro="Charlie beoordeelt je homepage op de criteria die bepalen of AI je begrijpt, vertrouwt en aanbeveelt."
-        />
+        <SectionHeading eyebrow={FEATURES.eyebrow} title={FEATURES.title} intro={FEATURES.intro} />
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <Card key={f.title}>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <f.icon className="h-5 w-5" />
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.items.map((f) => (
+            <Card key={f.label}>
+              <div className="inline-flex rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
+                {f.points} punten
               </div>
-              <h3 className="mt-4 font-display text-base font-semibold text-ink">
-                {f.title}
-              </h3>
+              <h3 className="mt-3 font-display text-base font-semibold text-ink">{f.label}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{f.body}</p>
             </Card>
           ))}
         </div>
+
+        <p className="mx-auto mt-10 max-w-2xl text-center text-base leading-relaxed text-muted">{FEATURES.gates}</p>
       </Container>
     </section>
   );

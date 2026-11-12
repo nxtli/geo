@@ -71,6 +71,8 @@ export async function serveReport(request: Request, id: string): Promise<Respons
   const headers: Record<string, string> = {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "private, max-age=0, no-store",
+    // Een rapport is van één bezoeker en hoort niet in een zoekmachine.
+    "X-Robots-Tag": "noindex, nofollow",
   };
   if (download) {
     headers["Content-Disposition"] =

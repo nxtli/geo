@@ -6,7 +6,9 @@ import {
   CHARLIE_COPY,
   CHARLIE_PROCESSING_STEPS,
   CHARLIE_STEPS,
+  MAX_FOLLOW_UPS,
   TOTAL_PROGRESS_STEPS,
+  needsCharlieReply,
 } from "@/lib/geo/charlie";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
@@ -41,6 +43,9 @@ export function CharlieChat({
   const [input, setInput] = React.useState("");
   const [inputError, setInputError] = React.useState<string | null>(null);
   const [typing, setTyping] = React.useState(false);
+  // Charlie vroeg door bij deze stap: wat er al genoteerd is en hoe vaak.
+  const [pending, setPending] = React.useState<string | null>(null);
+  const [followUps, setFollowUps] = React.useState(0);
   const [consent, setConsent] = React.useState(false);
   const [processingIndex, setProcessingIndex] = React.useState(0);
   const [scanProgress, setScanProgress] = React.useState(0);
@@ -115,30 +120,113 @@ export function CharlieChat({
     };
   }, [isOpen]);
 
+  /** Vraagt een echt antwoord op. Null: gebruik het vaste antwoord. */
+  async function askCharlie(
+    key: string,
+    answer: string,
+  ): Promise<{ reply: string; value: string | null; done: boolean } | null> {
+    try {
+      const res = await fetch("/api/geo/charlie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: key,
+          answer: answer.slice(0, 600),
+          pending,
+          context: {
+            company_name: answers.company_name,
+            homepage_url: answers.homepage_url,
+            offer_description: answers.offer_description,
+            target_audience: answers.target_audience,
+            desired_queries: answers.desired_queries,
+          },
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data?.reply === "string" && data.reply ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSend() {
     if (phase !== "asking" || typing) return;
     const step = CHARLIE_STEPS[stepIndex];
-    const value = input.trim();
+    const typed = input.trim();
+    const validate = (v: string) => (step.validate ? step.validate(v) : null);
 
-    if (!value && !step.optional) {
+    if (!typed && !step.optional && !pending) {
       setInputError("Vul dit even in om verder te gaan.");
       return;
     }
-    if (value && step.validate) {
-      const err = step.validate(value);
-      if (err) {
-        setInputError(err);
-        return;
+
+    // Een geldig e-mailadres of een geldige URL is een antwoord, ook met een
+    // vraagteken erin. Anders: reageer echt als de bezoeker iets vraagt, of als
+    // Charlie bij deze stap al een vraag terug stelde.
+    const plainValid =
+      !!typed && (step.inputType === "email" || step.inputType === "url") && !validate(typed);
+    const wantsReply =
+      !!typed && !plainValid && followUps < MAX_FOLLOW_UPS && (pending !== null || followUps > 0 || needsCharlieReply(typed));
+
+    let value = typed;
+    let ack: string | null = null;
+
+    if (wantsReply) {
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed }]);
+      setTyping(true);
+      const ai = await askCharlie(step.key, typed);
+      setTyping(false);
+
+      if (ai) {
+        const candidate = ai.value ?? pending;
+        const candidateOk = !!candidate && !validate(candidate);
+        if (!ai.done || !candidateOk) {
+          // Charlie wacht op een reactie. De stap blijft open.
+          setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ai.reply }]);
+          if (candidateOk) setPending(candidate);
+          setFollowUps((n) => n + 1);
+          return;
+        }
+        value = candidate as string;
+        ack = ai.reply;
+      } else {
+        // Geen antwoord gekregen: ga verder met wat er staat.
+        value = pending ? `${pending}, ${typed}` : typed;
+        const err = validate(value);
+        if (err) {
+          setInputError(err);
+          return;
+        }
       }
+    } else {
+      // Na het maximum aan vervolgvragen: een kort "nee" of "verder" telt niet als inhoud.
+      const filler = /^(nee|ja|ok|oké|prima|verder|goed|top)\b[\s.!]*$/i.test(typed);
+      if (pending && (!typed || filler)) value = pending;
+      else if (typed && pending) value = `${pending}, ${typed}`;
+      if (value) {
+        const err = validate(value);
+        if (err) {
+          setInputError(err);
+          return;
+        }
+      }
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed || (pending ? "verder" : "overgeslagen") }]);
     }
 
-    setInputError(null);
-    setInput("");
-    const displayed = value || "overgeslagen";
-    setMessages((m) => [...m, { id: nextId(), from: "user", text: displayed }]);
+    setPending(null);
+    setFollowUps(0);
     setAnswers((a) => ({ ...a, [step.key]: value || null }));
 
-    if (step.ack && value) await pushCharlie(step.ack(value), 500);
+    if (ack) {
+      setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ack as string }]);
+    } else if (step.ack && value) {
+      await pushCharlie(step.ack(value), 500);
+    }
 
     const next = stepIndex + 1;
     if (next < CHARLIE_STEPS.length) {

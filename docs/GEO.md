@@ -193,6 +193,20 @@ ai_answer_comparison (het ideale antwoord volgens de GEO-rubriek), llm_visibilit
 missing_signals, content_gaps, recommended_pages, recommended_faq_questions,
 quick_wins, thirty_day_action_plan, suggested_homepage_copy_improvements.
 
+### Charlie beantwoordt vragen in de chat
+
+De vragenlijst is vast (`lib/geo/charlie.ts`). Stelt een bezoeker in een antwoord
+zelf een vraag, of vraagt die om suggesties, dan haalt de chat een echt antwoord op
+via `POST /api/geo/charlie` (`lib/geo/charlie-reply.ts`). Het model geeft terug wat
+Charlie zegt, de opgeschoonde waarde voor het veld en of de stap klaar is. Legt
+Charlie een keuze voor, dan blijft de stap open, maximaal drie keer per stap.
+
+Het eindpunt gebruikt `ANTHROPIC_API_KEY` en het model uit `GEO_CHAT_MODEL`
+(standaard `claude-haiku-4-5`). Zonder sleutel, bij een fout of na 12 seconden
+valt de chat terug op het vaste antwoord. Het eindpunt accepteert alleen verzoeken
+van de eigen site, maximaal 600 tekens per bericht en 25 verzoeken per 10 minuten
+per IP-adres.
+
 ### Multi-LLM zichtbaarheid ("Wat AI over je zegt")
 
 Naast de analyse vraagt de scan de échte LLM's (ChatGPT/OpenAI, Gemini/Google,

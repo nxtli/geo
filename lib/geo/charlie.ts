@@ -161,6 +161,20 @@ export const CHARLIE_COPY = {
     "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",
 };
 
+const HELP_RE =
+  /\?|\b(geen idee|weet (ik )?(het )?(nog )?niet|wat bedoel|hoe bedoel|snap (ik |het )?niet|suggesties?|voorbeeld(en)?|tips?|help|advies|wat raad)\b/i;
+
+/**
+ * Vraagt de bezoeker iets, of vraagt die om hulp? Dan geeft Charlie een echt
+ * antwoord (app/api/geo/charlie) in plaats van het vaste zinnetje.
+ */
+export function needsCharlieReply(answer: string): boolean {
+  return HELP_RE.test(answer);
+}
+
+/** Zoveel keer per stap mag Charlie doorvragen. Daarna gaat de lijst verder. */
+export const MAX_FOLLOW_UPS = 3;
+
 /** A consent step is appended after the scripted questions. */
 export const TOTAL_PROGRESS_STEPS = CHARLIE_STEPS.length + 1; // + consent
 

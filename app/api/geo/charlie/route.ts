@@ -24,6 +24,7 @@ const bodySchema = z.object({
   step: z.enum(STEP_KEYS),
   answer: z.string().trim().min(1).max(MAX_ANSWER_CHARS),
   pending: short,
+  lastReply: z.string().max(1000).nullish(),
   context: z
     .object({
       company_name: short,
@@ -51,6 +52,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       step: parsed.data.step as (typeof CHARLIE_STEPS)[number]["key"],
       answer: parsed.data.answer,
       pending: parsed.data.pending ?? null,
+      lastReply: parsed.data.lastReply ?? null,
       context: parsed.data.context,
     },
     brand,

@@ -48,6 +48,8 @@ export function CharlieChat({
   // Charlie vroeg door bij deze stap: wat er al genoteerd is en hoe vaak.
   const [pending, setPending] = React.useState<string | null>(null);
   const [followUps, setFollowUps] = React.useState(0);
+  // Wat Charlie bij deze stap als laatste zei, zodat een kort "prima" context heeft.
+  const [lastReply, setLastReply] = React.useState<string | null>(null);
   // Charlie vroeg of een e-mailadres met een waarschijnlijke tikfout klopt.
   const [emailCheck, setEmailCheck] = React.useState<{ original: string; suggestion: string } | null>(null);
   // Met dit adres is al een scan gedaan. Charlie wacht op "ja" of een ander adres.
@@ -154,6 +156,7 @@ export function CharlieChat({
           step: key,
           answer: answer.slice(0, 600),
           pending,
+          lastReply: lastReply ? lastReply.slice(0, 1000) : null,
           context: {
             company_name: answers.company_name,
             homepage_url: answers.homepage_url,
@@ -294,6 +297,7 @@ export function CharlieChat({
       setInput("");
       setMessages((m) => [...m, { id: nextId(), from: "user", text: typed }]);
       setPending(null);
+      setLastReply(null);
       setFollowUps(0);
       setAnswers((a) => ({ ...a, [step.key]: null }));
       await advance();
@@ -324,6 +328,7 @@ export function CharlieChat({
           // Charlie wacht op een reactie. De stap blijft open.
           setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ai.reply }]);
           if (candidateOk) setPending(candidate);
+          setLastReply(ai.reply);
           setFollowUps((n) => n + 1);
           return;
         }
@@ -358,6 +363,7 @@ export function CharlieChat({
     }
 
     setPending(null);
+    setLastReply(null);
     setFollowUps(0);
     setAnswers((a) => ({ ...a, [step.key]: value || null }));
 

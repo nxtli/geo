@@ -25,6 +25,8 @@ export interface CharlieReplyInput {
   answer: string;
   /** Wat er voor deze stap al stond, bij een vervolgbericht. */
   pending?: string | null;
+  /** Wat Charlie bij deze stap als laatste zei, bij een vervolgbericht. */
+  lastReply?: string | null;
   /** Eerdere antwoorden, voor context. */
   context?: Partial<Record<GeoFieldKey, string | null>>;
 }
@@ -79,6 +81,8 @@ Je geeft uitsluitend JSON terug, zonder tekst eromheen:
 
 - "reply": wat je tegen de bezoeker zegt.
 - "value": het antwoord van de bezoeker op de vraag van de stap, opgeschoond en zonder de vraag die de bezoeker stelde. Voeg jouw suggesties alleen toe als de bezoeker daar in dit bericht om vraagt of ze overneemt. Staat er bij "Al genoteerd" iets, bouw daar dan op voort. Null als de bezoeker nog geen antwoord gaf.
+- Staat er "Jouw vorige bericht bij deze stap", dan reageert de bezoeker daarop. Een kort "ja", "prima", "ok", "goed" of "doe maar" betekent dan: akkoord met wat jij voorstelde. Deed je suggesties, zet die suggesties dan in "value" en geef "done": true met een korte bevestiging. Vraag niet opnieuw wat de bezoeker bedoelt.
+- Is de stap verplicht, dan kan de scan niet zonder antwoord. Zeg nooit dat je zonder dit antwoord scant. Wil de bezoeker niets invullen of weet die het niet, doe dan zelf twee of drie suggesties op basis van de eerdere antwoorden en vraag of je die mag noteren.
 - Is de stap optioneel en wil de bezoeker overslaan of heeft die niets in te vullen, geef dan "value": null en "done": true, met een korte bevestiging.
 - "done": false als je de bezoeker een keuze voorlegt of als er nog geen antwoord is. Eindig "reply" dan met één korte vraag, bijvoorbeeld of je suggesties mag toevoegen. True als het antwoord compleet is. Stel dan geen vraag meer.`;
 }
@@ -91,8 +95,9 @@ export function buildCharlieUserPrompt(input: CharlieReplyInput): string {
     .join("\n");
   if (ctx) lines.push(`Eerdere antwoorden van de bezoeker:\n${ctx}`);
   lines.push(`Vraag van deze stap: ${step?.prompt ?? input.step}`);
-  if (step?.optional) lines.push("Deze stap is optioneel.");
+  lines.push(step?.optional ? "Deze stap is optioneel." : "Deze stap is verplicht.");
   if (input.pending) lines.push(`Al genoteerd voor deze stap: ${clip(input.pending, MAX_ANSWER_CHARS)}`);
+  if (input.lastReply) lines.push(`Jouw vorige bericht bij deze stap:\n${clip(input.lastReply, 900)}`);
   lines.push(`Bericht van de bezoeker:\n<bericht>\n${clip(input.answer, MAX_ANSWER_CHARS)}\n</bericht>`);
   return lines.join("\n\n");
 }

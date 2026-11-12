@@ -46,6 +46,16 @@ describe("prompts", () => {
     expect(p).not.toContain("niet tonen");
     expect(p).toContain("<bericht>");
   });
+  it("geeft Charlies vorige bericht mee, zodat een kort akkoord context heeft", () => {
+    const p = buildCharlieUserPrompt({
+      step: "desired_queries",
+      answer: "prima",
+      lastReply: "Ideeën: AI in marketing, GEO-scan. Mag ik die noteren?",
+    });
+    expect(p).toContain("Jouw vorige bericht bij deze stap:\nIdeeën: AI in marketing");
+    expect(p).toContain("Deze stap is verplicht.");
+    expect(buildCharlieUserPrompt({ step: "competitors", answer: "geen?" })).toContain("Deze stap is optioneel.");
+  });
 });
 
 import { GEO_SYSTEM_PROMPT } from "../analysis/prompt";

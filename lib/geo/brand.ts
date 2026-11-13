@@ -116,9 +116,9 @@ export const BRANDS: Record<BrandId, Brand> = {
     consentLabel:
       "Ik ga akkoord dat NXTLI B.V., het bedrijf achter Marketing AI Team, mijn gegevens gebruikt om de scan uit te voeren en het rapport toe te sturen.",
     why: {
-      eyebrow: "De afzender",
+      eyebrow: "",
       title: "Wie maakt de GEO-scan?",
-      body: "Het Marketing AI Team maakt de GEO-scan. Marketing AI Team is een platform van NXTLI B.V., het marketing AI-bureau dat Michiel Schoonhoven in 2017 mede oprichtte. In het platform werken mensen en AI-collega's vanuit één Marketingbrein. Charlie beoordeelt je pagina's, Martine schrijft de verbeteringen en Brian meet het effect.",
+      body: "Het Marketing AI Team maakt de GEO-scan. Marketing AI Team is een platform van NXTLI B.V., een marketing AI-bureau dat sinds 2017 bestaat. In het platform werken mensen en AI-collega's vanuit één Marketingbrein. Charlie beoordeelt je pagina's, Martine schrijft de verbeteringen en Brian meet het effect.",
       points: [
         "Eén Marketingbrein met je publieken, klantvragen en aanbod",
         "AI-collega's met elk een eigen specialisme",

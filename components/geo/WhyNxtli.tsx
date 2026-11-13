@@ -12,10 +12,12 @@ export function WhyNxtli() {
       <Container>
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-              {why.eyebrow}
-            </div>
-            <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            {why.eyebrow ? (
+              <div className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-brand">
+                {why.eyebrow}
+              </div>
+            ) : null}
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
               {why.title}
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted">{why.body}</p>

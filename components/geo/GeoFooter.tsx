@@ -21,7 +21,6 @@ export function GeoFooter() {
           <p className="max-w-md text-center text-xs leading-relaxed text-muted sm:text-right">{FOOTER.privacy}</p>
         </div>
         <div className="mt-6 space-y-1.5 text-center text-xs leading-relaxed text-muted sm:text-left">
-          <p>{FOOTER.responsible}</p>
           <p>
             <time dateTime={LANDING_UPDATED.iso}>{FOOTER.updated}</time>
             {brand.id === "mat" ? (

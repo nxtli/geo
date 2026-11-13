@@ -272,6 +272,5 @@ export const FAQ_HEADING = { eyebrow: "Veelgestelde vragen", title: "Veelgesteld
 
 export const FOOTER = {
   privacy: "NXTLI B.V. gebruikt je gegevens om je scan uit te voeren en je rapport te sturen.",
-  responsible: "Verantwoordelijk voor deze pagina: Michiel Schoonhoven, managing partner en mede-oprichter van NXTLI B.V.",
   updated: `Laatst bijgewerkt: ${LANDING_UPDATED.label}`,
 };

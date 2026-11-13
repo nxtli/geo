@@ -108,6 +108,56 @@ export interface CategoryScore {
   summary: string;
 }
 
+/** Oordeel per criterium van de scorecard. "nvt" = niet te beoordelen, telt niet mee. */
+export type CriterionVerdict = "voldoet" | "deels" | "niet" | "nvt";
+
+export interface CriterionResult {
+  /** Id uit lib/geo/knowledge/scorecard.json, bijvoorbeeld "B1". */
+  id: string;
+  verdict: CriterionVerdict;
+  /** Wat er op de pagina is gezien. */
+  finding: string;
+  /** Letterlijk citaat van de pagina als bewijs, of leeg. */
+  quote: string;
+}
+
+/** Eén concreet advies dat een mens of AI-collega direct kan uitvoeren. */
+export interface GeoAction {
+  title: string;
+  /** Criterium of poortwachter waar het advies bij hoort ("B1", "P1"). */
+  criterion: string;
+  why: string;
+  /** Waar op de pagina (kop, alinea, bestand). */
+  where: string;
+  /** Huidige tekst of code, letterlijk. Leeg als er niets staat. */
+  before: string;
+  /** Voorstel. Ontbrekende feiten staan als [invullen: ...]. */
+  after: string;
+  owner: string;
+  effort: "laag" | "midden" | "hoog";
+  /** Controleerbare toets: wanneer is dit advies af. */
+  done_when: string;
+  /** Punten die dit advies in de scorecard oplevert (0 bij poortwachters). */
+  points: number;
+  /** Bewijskracht van de onderliggende aanname + bron. */
+  evidence_grade: string;
+  source: string;
+}
+
+/** Kennis over de koper. Komt uit het Marketingbrein of uit de chat. */
+export interface BuyerContext {
+  /** Waar de kennis vandaan komt: bepaalt hoe stellig het rapport mag zijn. */
+  origin: "marketingbrein" | "bezoeker";
+  audiences: string[];
+  questions: Array<{ text: string; source: string; ref?: string }>;
+  decision_criteria: string[];
+  offers: string[];
+  competitors: string[];
+  positioning: string | null;
+  /** Kennis die ontbreekt en de analyse beperkt. */
+  gaps: string[];
+}
+
 export type TechnicalStatus = "goed" | "aandacht" | "blokker" | "onbekend";
 
 /** A single technical-check item, reported separately from the content score. */
@@ -135,6 +185,12 @@ export interface GeoAnalysisInput {
   robots_txt?: string | null;
   /** Whether /llms.txt was found. undefined = not checked. */
   llms_txt_present?: boolean;
+  /** Gemeten feiten uit HTML en headers (lib/geo/facts/page.ts). */
+  facts?: import("./facts/page").PageFacts | null;
+  /** Toegang per AI-bot, door de parser bepaald (lib/geo/facts/robots.ts). */
+  robots?: import("./facts/robots").RobotsReport | null;
+  /** Kennis over de koper uit het Marketingbrein. Zonder: afgeleid uit de chatvelden. */
+  buyer?: BuyerContext | null;
 }
 
 export interface GeoPageMetadata {
@@ -158,9 +214,25 @@ export interface GeoPageMetadata {
  * analysis provider (Claude, mock, or the existing NXTLI skill) must return.
  */
 export interface GeoAnalysisResult {
-  visibility_score: number; // 0-100, sum of category_scores
+  /** Versie van de rubric waarmee dit resultaat is gemaakt ("1" = oude scan). */
+  rubric_version: string;
+  visibility_score: number; // 0-100, sum of category_scores (capped when blocked)
   category_scores: CategoryScore[];
+  /** Oordeel per criterium (rubric 2). Leeg bij oude resultaten. */
+  criteria: CriterionResult[];
+  /** Concrete adviezen, op prioriteit. */
+  actions: GeoAction[];
+  /** Een poortwachter faalt: de score is afgetopt. */
+  blocked: boolean;
+  /** Reden waarom er geen score is (bijv. pagina niet opgehaald). Anders null. */
+  unscored_reason: string | null;
   technical_checks: TechnicalCheck[];
+  /** Gemeld, telt niet mee in de score (schema, llms.txt, canonical). */
+  hygiene: TechnicalCheck[];
+  /** Wat de scan wel en niet heeft gemeten. */
+  scope_notes: string[];
+  /** Het merk waar de beoordeling over gaat (van de pagina, anders ingevuld). */
+  subject_name?: string;
   short_summary: string;
   what_ai_understands: string;
   likely_ai_positioning: string;
@@ -216,8 +288,16 @@ export interface GeoScanResponse {
     short_summary: string;
     strengths: string[];
     quick_wins: string[];
+    /** Gezet als er geen score is; de chat toont dan de reden. */
+    unscored_reason?: string | null;
   };
   report_url?: string | null;
+  /**
+   * Het rapport zelf. De chat opent dit als de link niet werkt, bijvoorbeeld
+   * in een omgeving zonder database waar het rapport alleen in het geheugen van
+   * één serverinstantie staat.
+   */
+  report_html?: string;
   email_queued?: boolean;
   /**
    * True when the scan was blocked by the one-scan-per-email gate. The preview /

@@ -80,3 +80,107 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Marketing AI Team — huisstijl van marketingaiteam.com.
+ * Navy inkt, blauw naar cyaan, lettertype Geist, koppen licht en strak gezet,
+ * knoppen met een kleine afronding en een verloop.
+ */
+[data-brand="mat"] {
+  --bg: 255 255 255;
+  --surface: 255 255 255;
+  --elevated: 243 248 255;
+  --ink: 8 37 82;
+  --muted: 93 112 142;
+  --subtle: 133 150 176;
+  --border: 219 230 242;
+
+  --brand: 23 103 242;
+  --brand-fg: 255 255 255;
+  --brand-soft: 237 244 255;
+  --accent: 23 200 207;
+
+  --font-sans: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, Arial, sans-serif;
+  --font-display: var(--font-sans);
+}
+[data-brand="mat"] h1,
+[data-brand="mat"] h2 {
+  font-weight: 400 !important;
+  letter-spacing: -0.045em !important;
+}
+[data-brand="mat"] h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+[data-brand="mat"] .geo-btn-primary {
+  border-radius: 10px;
+  font-weight: 700;
+  background-image: linear-gradient(100deg, rgb(23 103 242), rgb(21 158 222));
+  box-shadow: 0 12px 30px rgb(23 103 242 / 0.2);
+}
+[data-brand="mat"] .geo-hero {
+  background-image: linear-gradient(115deg, rgb(248 251 255) 0%, rgb(237 247 255) 53%, rgb(245 254 255) 100%);
+}
+[data-brand="mat"] .geo-cta-panel {
+  background-image: linear-gradient(120deg, rgb(10 45 97), rgb(17 101 192) 62%, rgb(22 185 199));
+}
+[data-brand="mat"] .geo-cta-panel h2 {
+  color: #fff;
+}
+
+/*
+ * Kopbalk in de maten van marketingaiteam.com (gemeten op 12 november 2026):
+ * 88 px hoog, logo 218 px breed, menu 13 px met gewicht 650, knop 13 px.
+ * Op een telefoon: 72 px hoog en een logo van 170 px, net als daar.
+ */
+.mat-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  height: 88px;
+  padding: 0 max(28px, calc(50vw - 592px));
+  background: rgb(255 255 255 / 0.9);
+  border-bottom: 1px solid rgb(219 230 242 / 0.85);
+  box-shadow: 0 8px 28px rgb(6 40 90 / 0.05);
+}
+.mat-header .mat-brand { flex-shrink: 0; }
+.mat-header .mat-logo { display: block; width: 218px; height: auto; }
+.mat-header nav {
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+  font-weight: 650;
+  color: rgb(8 37 82);
+}
+.mat-header nav a:hover { color: rgb(23 103 242); }
+.mat-header-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 12px 17px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 750;
+  color: #fff;
+  background-image: linear-gradient(100deg, rgb(23 103 242), rgb(21 158 222));
+  box-shadow: 0 12px 30px rgb(23 103 242 / 0.2);
+  transition: 0.2s;
+}
+.mat-header-cta:hover { transform: translateY(-1px); }
+@media (max-width: 900px) {
+  .mat-header nav { display: none; }
+}
+@media (max-width: 700px) {
+  .mat-header { gap: 12px; padding-left: 18px; padding-right: 18px; }
+  .mat-header .mat-logo { width: 170px; }
+}
+@media (max-width: 600px) {
+  .mat-header { height: 72px; }
+}

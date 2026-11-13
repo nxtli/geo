@@ -2,7 +2,8 @@ import { fieldValidators } from "./validation";
 import type { GeoLeadInput } from "./types";
 
 /**
- * Charlie — the NXTLI AI-analist persona and the scripted chat flow.
+ * Charlie: de vaste chatflow. Rol, intro, toestemmingstekst en vervolgstap
+ * verschillen per afzender en staan in lib/geo/brand.ts.
  * Kept as a standalone, declarative config so the chat component stays dumb
  * and the persona/copy can be tuned without touching UI logic.
  *
@@ -12,10 +13,7 @@ import type { GeoLeadInput } from "./types";
 
 export const CHARLIE = {
   name: "Charlie",
-  role: "AI-analist bij NXTLI",
   avatarInitial: "C",
-  intro:
-    "Tof! Ik ben Charlie, AI-analist bij NXTLI. Ik ga in een paar stappen bekijken hoe goed jouw homepage vindbaar is in AI-antwoorden. Laten we beginnen.",
 };
 
 /** The key on GeoLeadInput each step writes to. */
@@ -48,10 +46,10 @@ export interface CharlieStep {
 export const CHARLIE_STEPS: CharlieStep[] = [
   {
     key: "name",
-    prompt: "Laten we beginnen. Wat is je naam?",
+    prompt: "Wat is je naam?",
     placeholder: "Bijv. Sanne",
     validate: fieldValidators.required,
-    ack: (v) => `Leuk je te ontmoeten, ${v.split(" ")[0]}.`,
+    ack: (v) => `Dank je, ${v.split(" ")[0]}.`,
   },
   {
     key: "email",
@@ -60,12 +58,12 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     placeholder: "jij@bedrijf.nl",
     inputType: "email",
     validate: fieldValidators.email,
-    ack: () => "Top, daar stuur ik je rapport straks naartoe.",
+    ack: (v) => `Ik stuur je rapport naar ${v}. Klopt dat niet, typ dan het juiste adres.`,
   },
   {
     key: "company_name",
-    prompt: "En wat is de naam van je bedrijf?",
-    placeholder: "Bijv. NXTLI",
+    prompt: "Voor welk bedrijf of merk is de pagina die je wilt scannen?",
+    placeholder: "De naam zoals klanten die kennen",
     validate: fieldValidators.required,
     ack: (v) => `Helder, ${v}.`,
   },
@@ -78,11 +76,11 @@ export const CHARLIE_STEPS: CharlieStep[] = [
   },
   {
     key: "homepage_url",
-    prompt: "Wat is de URL van je homepage?",
+    prompt: "Welke pagina wil je laten scannen? Plak het adres van de pagina.",
     placeholder: "https://jouwbedrijf.nl",
     inputType: "url",
     validate: fieldValidators.url,
-    ack: () => "Mooi, ik heb je website.",
+    ack: () => "Ik heb de pagina.",
   },
   {
     key: "offer_description",
@@ -91,12 +89,12 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     multiline: true,
     validate: fieldValidators.required,
     ack: () =>
-      "Duidelijk. Ik kijk straks vooral naar hoe helder je expertise, aanbod en autoriteit naar voren komen.",
+      "Duidelijk. Ik kijk straks of je pagina dit aanbod concreet uitlegt.",
   },
   {
     key: "target_audience",
     prompt: "Voor welke doelgroep wil je gevonden worden?",
-    placeholder: "Bijv. mkb-ondernemers in de bouw, marketmanagers bij scale-ups…",
+    placeholder: "Bijv. mkb-ondernemers in de bouw, marketingmanagers bij groeiende bedrijven…",
     multiline: true,
     validate: fieldValidators.required,
     ack: () => "Genoteerd.",
@@ -109,16 +107,16 @@ export const CHARLIE_STEPS: CharlieStep[] = [
     multiline: true,
     validate: fieldValidators.required,
     ack: () =>
-      "Goed. AI-systemen geven vaak voorkeur aan content die concreet, gestructureerd en betrouwbaar is. Daar ga ik je homepage op beoordelen.",
+      "Genoteerd. Ik toets straks of je pagina deze vragen beantwoordt.",
   },
   {
     key: "competitors",
     prompt:
-      "Zijn er concurrenten of voorbeeldsites die je vaak tegenkomt? (optioneel, sla gerust over)",
+      "Welke concurrenten kom je vaak tegen? Deze vraag mag je overslaan.",
     placeholder: "Bijv. concurrent.nl, voorbeeld.com",
     multiline: true,
     optional: true,
-    ack: () => "Bedankt, dat helpt me bij de vergelijking.",
+    ack: () => "Genoteerd.",
   },
 ];
 
@@ -130,8 +128,8 @@ export interface CharlieProcessingStep {
 
 export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   {
-    label: "Website ophalen",
-    detail: "Ik haal je homepage op, plus robots.txt en llms.txt.",
+    label: "Pagina ophalen",
+    detail: "Ik haal je pagina op en kijk of AI-tools erbij mogen.",
   },
   {
     label: "Content analyseren",
@@ -139,33 +137,67 @@ export const CHARLIE_PROCESSING_STEPS: CharlieProcessingStep[] = [
   },
   {
     label: "AI-vindbaarheid beoordelen",
-    detail: "Ik scoor op de criteria waar AI-systemen op letten.",
+    detail: "Ik beoordeel de pagina op 27 punten.",
   },
   {
     label: "Verbeterpunten formuleren",
-    detail: "Ik bepaal waar de grootste kansen liggen.",
+    detail: "Ik zet de adviezen op volgorde van effect.",
   },
   {
     label: "Rapport genereren",
-    detail: "Ik zet alles in jouw NXTLI-rapport.",
+    detail: "Ik zet alles in jouw rapport.",
   },
 ];
 
 export const CHARLIE_COPY = {
-  consentLabel:
-    "Ik ga akkoord dat NXTLI mijn gegevens gebruikt om de scan uit te voeren en het rapport toe te sturen.",
-  reviewLead: "Mooi, ik heb alles. Klopt dit zo?",
-  scanningLead: "Top! Ik ga je homepage analyseren in NXTLI-format. Even geduld…",
-  scanningSubtle: "Dit duurt meestal niet langer dan een minuutje.",
+  reviewLead: "Ik heb alles. Vink hieronder het vakje aan en start de scan.",
+  scanningLead: "Ik start de scan van je pagina.",
+  scanningStatus: "Charlie voert je scan uit.",
+  scanningSubtle: "Dit duurt één tot twee minuten. Laat dit venster open.",
   successLead:
-    "Je scan is klaar. Ik heb de belangrijkste kansen hieronder voor je samengevat.",
+    "Je scan is klaar. Hieronder staan de belangrijkste uitkomsten.",
   emailNote: (email: string) =>
-    `Ik heb het volledige rapport ook naar ${email} gestuurd.`,
+    `Ik heb het volledige rapport ook naar ${email} gestuurd. Zie je de mail niet in je inbox? Kijk dan in je map Ongewenste e-mail.`,
+  /** Blijft onder de knoppen staan, ook als de chat naar de score springt. */
+  emailHint: (email: string) =>
+    `Het rapport staat ook in je mail (${email}). Niet in je inbox? Kijk in je map Ongewenste e-mail.`,
+  priorKnown:
+    "Met dit e-mailadres is al een gratis scan gedaan. Per adres is er één gratis scan. Zal ik het rapport van die scan opnieuw naar je mailen? Typ ja. Wil je meer pagina's laten beoordelen, plan dan een demo met de knop hieronder.",
+  priorResent: (email: string) => `Ik heb het rapport opnieuw gestuurd naar ${email}. Kijk ook in je map met ongewenste mail.`,
+  priorResendFailed: "Het opnieuw versturen lukt nu niet. Probeer het later nog eens.",
+  priorDeclined: "Prima, dan stuur ik niets.",
+  priorCorrection: "Met dat adres is al een scan gedaan. Ik houd je eerdere adres aan.",
   errorFallback:
     "Er ging iets mis met de automatische scan. We hebben je aanvraag wel ontvangen en kunnen je rapport handmatig nasturen.",
-  finalCta:
-    "Wil je dat we dit voor je verbeteren? Plan een korte GEO-strategiesessie met NXTLI.",
 };
+
+const HELP_RE =
+  /\?|\b(geen idee|weet (ik )?(het )?(nog )?niet|wat bedoel|hoe bedoel|snap (ik |het )?niet|suggesties?|voorbeeld(en)?|tips?|help|advies|wat raad)\b/i;
+
+/**
+ * Vraagt de bezoeker iets, of vraagt die om hulp? Dan geeft Charlie een echt
+ * antwoord (app/api/geo/charlie) in plaats van het vaste zinnetje.
+ */
+export function needsCharlieReply(answer: string): boolean {
+  return HELP_RE.test(answer);
+}
+
+/**
+ * Een kort woord om door te gaan, zoals "ga door" of "prima". Zo'n woord is
+ * geen antwoord op een inhoudelijke vraag en komt dus nooit in het rapport.
+ */
+const FILLER_RE =
+  /^(ga( maar)? (door|verder)|door|verder|volgende|ok[eé]?|oke|prima|goed|top|ja|nee|akkoord|doe maar|geen|geen idee|weet ik niet|n\.?v\.?t\.?)[\s.!]*$/i;
+
+export function isFiller(answer: string): boolean {
+  return FILLER_RE.test(answer.trim());
+}
+
+/** Vragen waarbij het antwoord inhoud moet zijn. */
+export const CONTENT_STEPS: GeoFieldKey[] = ["offer_description", "target_audience", "desired_queries"];
+
+/** Zoveel keer per stap mag Charlie doorvragen. Daarna gaat de lijst verder. */
+export const MAX_FOLLOW_UPS = 3;
 
 /** A consent step is appended after the scripted questions. */
 export const TOTAL_PROGRESS_STEPS = CHARLIE_STEPS.length + 1; // + consent

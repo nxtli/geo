@@ -1,152 +1,100 @@
-# GEO-checklist
+<!-- Gegenereerd uit lib/geo/knowledge/*.json. Niet met de hand wijzigen. -->
 
-De criteria waarop je een pagina beoordeelt. Per categorie staan de checkpunten en waar je
-op let. Gebruik dit om te scoren én om de tips te onderbouwen. Tel niet mechanisch af -
-weeg of het gebrek een AI-model echt zou hinderen bij het begrijpen of citeren van de pagina.
+# Scorecard GEO (versie 3)
 
-## 1. Vindbaarheid & techniek (20 punten)
+Beoordeel elk criterium met **voldoet**, **deels**, **niet** of **niet te beoordelen**. Gok niet: wat je niet kunt zien, is niet te beoordelen en telt niet mee. Geef bij elk oordeel een letterlijk citaat van de pagina.
 
-Als een AI de pagina niet mag of kan lezen, is al het andere zinloos. Check eerst dit. De
-volledige technische meting (AI-bot toegang, rendering, snelheid/Core Web Vitals) staat in
-`technische-checklist.md` en rapporteer je in een apart blok; gebruik die bevindingen om deze
-categorie te onderbouwen.
+## Poortwachters (geen punten)
 
-- **Indexeerbaarheid.** Staat er `noindex` of `nofollow` in de meta robots-tag of in de
-  HTTP-header? Dat blokkeert zoekmachines én veel AI-crawlers. Dit is een harde blokker -
-  trek hier fors af en zet het bovenaan de tips.
-- **Schema aanwezig.** Heeft de pagina al JSON-LD structured data? Schema helpt een model de
-  pagina ondubbelzinnig te interpreteren (dit is een cursus, dit is de prijs, dit is de
-  aanbieder). Afwezigheid is een gemiste kans, geen blokker.
-  Let op: kun je schema niet inzien (geen browser, fetch knipt scripts weg), markeer het dan
-  als "niet te verifiëren" en trek er GEEN punten voor af - zie punt 4 van de technische
-  checklist. Onbekend is niet hetzelfde als afwezig.
-- **Crawlbaarheid van content.** Is de kerncontent in de HTML aanwezig, of pas na het
-  uitvoeren van JavaScript? Content die alleen client-side verschijnt, zien veel crawlers niet.
-- **Semantische HTML.** Echte koppen (h1/h2/h3) in logische hiërarchie, niet alles als
-  opgemaakte div. Modellen leunen op koppenstructuur om de pagina te begrijpen.
-- **Bonus (sitebreed, buiten de pagina-score):** bestaat er een `llms.txt`, een sitemap, en
-  zijn AI-crawlers toegestaan in `robots.txt`?
+Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
-## 2. Extraheerbare antwoorden (25 punten)
+- **P1. AI-zoekbots mogen de pagina ophalen.** Klaar als: robots.txt bevat geen Disallow voor deze pagina bij OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot en Bingbot. (E-BOTS)
+- **P2. Pagina is indexeerbaar en mag in snippets.** Klaar als: Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header. (E-INDEX)
+- **P3. Kerntekst staat in de HTML.** Klaar als: De koppen en de kerntekst staan in de HTML die de server teruggeeft, zonder JavaScript. (E-RENDER)
 
-Het zwaarst wegende onderdeel. AI citeert zinnen die ook los van hun context kloppen.
+## Paginabasis (8 punten)
 
-- **Directe samenvatting.** Staat er ergens één alinea die zelfstandig uitlegt wat dit is,
-  voor wie en wat het kost/oplevert? Dit blok wordt vaak letterlijk overgenomen.
-- **Zelfstandige zinnen.** Beginnen alinea's met een complete bewering, of met "Dat", "Hier",
-  "Daarom" die terugverwijst naar iets eerders? Verwijzende openingen zijn niet citeerbaar.
-- **Antwoord-eerst.** Komt het antwoord vóór de uitleg, of moet de lezer eerst een verhaal
-  door? AI pakt graag de eerste zin onder een kop.
-- **Definities en kernbegrippen.** Worden belangrijke termen expliciet en kort uitgelegd?
-- **Niet verstopt in sfeer.** Zit de feitelijke kern verstopt in wervende of metaforische
-  taal? Mooi voor de mens, onbruikbaar voor het model. Let op de balans met conversie:
-  adviseer een vorm die beide dient.
-- **Chunkbaarheid (KHK - korter, helderder, in chunks).** Staan de kernpunten in zelfstandige
-  blokken van ongeveer 40-120 woorden? Modellen knippen content in chunks; een alinea die in
-  een hap een vraag volledig beantwoordt is makkelijker te citeren dan een lange, vervlochten
-  lap tekst. Te lange of versnipperde alinea's = aandachtspunt.
-- **Semantic triplets (onderwerp - relatie - feit).** Bevatten zinnen een expliciete drieslag,
-  bijvoorbeeld "[De leergang] (onderwerp) duurt (relatie) zes weken (feit)"? Zulke complete,
-  feitelijke zinnen zijn voor een model eenduidig te interpreteren en te citeren; vooral sterk
-  in FAQ-antwoorden. Vage of onvolledige beweringen ("dat regelen wij") missen die structuur.
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| G1 | Eén h1 en logische koppen | 3 | E-PAGEBASE (richtlijn) | Webbouwer | Gebruik één h1 en daaronder h2 en h3 in echte heading-tags. | Precies één h1 en geen overgeslagen kopniveaus. |
+| G2 | Titel en beschrijving zeggen wat de pagina biedt | 1 | E-PAGEBASE (richtlijn) | Martine (tekst) | Noem in de title en de meta description het aanbod en het publiek. | Title en description noemen het aanbod en voor wie het is. |
+| G3 | Interne links hebben een beschrijvende ankertekst | 2 | E-PAGEBASE (richtlijn) | Martine (tekst) | Vervang lees meer en klik hier door een tekst die het doel van de link beschrijft. | Geen link met alleen lees meer, klik hier of meer info. |
+| G4 | Pagina-ervaring: snel, mobiel, toegankelijk | 2 | E-PAGEBASE (richtlijn) | Webbouwer | Comprimeer afbeeldingen, vul alt-teksten in en meet de Core Web Vitals. | LCP onder 2,5 seconde op mobiel en een alt-tekst bij elke inhoudelijke afbeelding. |
 
-## 3. Vraaggerichte structuur (20 punten)
+## Actualiteit (5 punten)
 
-AI koppelt content aan de vraag van de gebruiker. Hoe dichter je koppen bij echte vragen
-staan, hoe makkelijker dat matchen gaat.
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| E1 | De pagina toont een datum van laatste wijziging met jaartal | 3 | E-RECENCY (sterk) | Webbouwer | Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar. | De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging. |
+| E2 | De gegevens zijn actueel | 2 | E-RECENCY (sterk) | Marketeer | Werk prijzen, jaartallen en regelingen bij. | Geen verlopen data, prijzen of regelingen. |
 
-- **FAQ aanwezig.** Is er een vraag-en-antwoordsectie? Dit is het sterkste GEO-format dat er
-  is. Ontbreekt die, dan is dat bijna altijd de tip met de hoogste impact.
-- **Vraaggerichte koppen.** Matchen koppen met hoe mensen zoeken ("Wat kost X?", "Voor wie is
-  X?") of zijn ze puur wervend ("Dit verandert alles")? Wervend mag blijven als de FAQ het
-  vraagwerk doet - adviseer dan eventueel een neutrale subkop eronder.
-- **Scanbaarheid.** Korte alinea's, duidelijke tussenkoppen, eventueel lijstjes bij
-  opsombare info (stappen, wat-zit-erin). Helpt zowel mens als model de structuur te pakken.
-- **Logische opbouw.** Volgt de pagina een begrijpelijke lijn (wat → voor wie → hoe → bewijs
-- **Interne links & topical authority.** Linkt de pagina naar gerelateerde, ondersteunende
-  content (andere diensten, uitleg, cases)? Een pagina die deel is van een samenhangend cluster
-  overtuigt een model meer van je autoriteit op het onderwerp dan een losse, geisoleerde pagina.
-  Let op echte, beschrijvende ankerteksten (niet "lees meer").
-  → prijs → actie)?
-- **Taalniveau (B1).** Is de tekst op B1-niveau geschreven: actief, menselijk, korte zinnen,
-  zonder vakjargon of wollige formuleringen? Eenvoudige, eenduidige taal is voor zowel de lezer
-  als het model makkelijker te verwerken en te citeren. Veel jargon of lijdende vorm = aandachtspunt.
-- **Eén taak & duidelijke CTA.** Heeft de pagina één heldere hoofdtaak met een ondubbelzinnige
-  call-to-action (aanmelden, aanvragen, bellen)? Te veel concurrerende acties maken voor zowel de
-  bezoeker als het model onduidelijk wat de pagina wil - dat verzwakt de conversie en het signaal.
+## Afzender en vertrouwen (10 punten)
 
-## 4. Concrete feiten (15 punten)
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| F1 | Duidelijk wie het aanbiedt, wat en waar | 4 | E-ENTITY (zwak), E-RELEVANCE (sterk) | Martine (tekst) | Noem de organisatie, het aanbod en de vestigingsplaats of het werkgebied in één zin. | Eén zin op de pagina zegt wie wat aanbiedt en waar. |
+| F2 | Er is een auteur of expert met naam en functie | 3 | E-ENTITY (zwak) | Marketeer | Toon wie verantwoordelijk is voor de inhoud, met naam en functie. | Naam en functie van een verantwoordelijke staan op de pagina. |
+| F3 | Het merk wordt buiten de eigen site genoemd | 3 | E-ENTITY (zwak) | Marketeer | Lever feiten, prijzen en voorbeelden aan bij vakmedia en vergelijkingssites in jouw markt. | Minstens drie onafhankelijke sites noemen het merk met juiste feiten. |
 
-Modellen vertrouwen en citeren pagina's met harde, specifieke gegevens.
+## Aansluiting op de vraag (26 punten)
 
-- **Prijs.** Staat de prijs er expliciet (incl./excl. btw, bijkomende kosten)? Verstopte of
-  ontbrekende prijzen zijn een gemiste citatiekans.
-- **Tijd, plaats, duur.** Datum, locatie, duur, tijdsbeslag, groepsgrootte - alles wat een
-  concrete vraag beantwoordt.
-- **Specificaties.** Wat zit erin, wat krijg je, wat is inbegrepen. Concreet, niet vaag.
-- **Getallen boven bijvoeglijke naamwoorden.** "Max. 8 deelnemers" is sterker dan "kleine
-  groep"; "4.8 op 234 reviews" sterker dan "veel tevreden klanten".
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| A1 | De pagina beantwoordt de opgegeven klantvragen | 8 | E-RELEVANCE (sterk), E-BUYER (zwak) | Martine (tekst) | Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig. | Elke opgegeven klantvraag heeft op de pagina een antwoord dat los leesbaar is. |
+| A2 | De begrippen uit de vraag staan vroeg op de pagina | 6 | E-RELEVANCE (sterk), E-DEPTH (middel) | Martine (tekst) | Zet het onderwerp en het aanbod in de woorden van de klant in de h1 en de eerste alinea. | De h1 en de eerste 100 woorden noemen het aanbod en het onderwerp van de belangrijkste klantvraag. |
+| A3 | De pagina zegt voor wie het aanbod is | 6 | E-RELEVANCE (sterk), E-BUYER (zwak) | Martine (tekst) | Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat. | De eerste alinea noemt het publiek en de situatie waarin het aanbod past. |
+| A4 | De pagina behandelt de keuzecriteria van de koper | 4 | E-BUYER (zwak), E-DEPTH (middel) | Martine (tekst) | Behandel per keuzecriterium wat het aanbod biedt, met een feit of een getal. | Elk bekend keuzecriterium komt op de pagina terug met een concreet antwoord. |
+| A5 | Taal en regio passen bij de vraag | 2 | E-RELEVANCE (sterk) | Martine (tekst) | Schrijf in de taal van het publiek en noem het werkgebied. | Taal, valuta en werkgebied passen bij het publiek. |
 
-## 5. Entiteit & vertrouwen (10 punten)
+## Eigen, concrete informatie (28 punten)
 
-AI bouwt een beeld van wie achter de content zit. Duidelijke entiteiten worden eerder
-vertrouwd en herkend.
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| B1 | De prijs staat expliciet op de pagina | 7 | E-PRICE (sterk) | Marketeer | Zet een prijs, een vanaf-prijs of een prijsvoorbeeld op de pagina, met wat inbegrepen is. Wil je geen prijs noemen, leg dan uit waar de prijs van afhangt. | De pagina noemt een bedrag of legt in één alinea uit waar de prijs van afhangt. |
+| B2 | Specificaties en voorwaarden zijn concreet | 6 | E-PRICE (sterk) | Martine (tekst) | Vervang bijvoeglijke naamwoorden door getallen: duur, aantallen, levertijd, wat inbegrepen is. | Duur, omvang en inbegrepen onderdelen staan er als feitelijke zinnen met getallen. |
+| B3 | Het onderwerp is diepgaand behandeld | 3 | E-DEPTH (middel) | Martine (tekst) | Werk het proces, de werking of de aanpak uit in stappen. | Een lezer zonder voorkennis begrijpt wat er gebeurt na de eerste stap. |
+| B4 | De pagina vergelijkt met alternatieven | 2 | E-DEPTH (middel) | Martine (tekst) | Voeg een korte, eerlijke vergelijking toe met het meest voor de hand liggende alternatief. | De pagina noemt minstens één alternatief en het verschil. |
+| U1 | De pagina bevat eigen gegevens of eigen onderzoek | 4 | E-UNIQUE (richtlijn), E-EVIDENCE (middel) | Marketeer | Voeg een cijfer of uitkomst toe uit eigen onderzoek, eigen klantdata of een eigen meting. Zet erbij hoe het gemeten is: bij wie, wanneer en hoeveel. | Minstens één cijfer of uitkomst komt uit eigen onderzoek of eigen data, met herkomst (wie, wanneer, hoeveel). |
+| U2 | De pagina bevat ervaring uit de eigen praktijk | 3 | E-UNIQUE (richtlijn) | Marketeer | Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent. | Minstens één case of observatie uit klantgesprekken, met aanleiding, aanpak en uitkomst. |
+| U3 | De pagina bevat een eigen methode of onderbouwd standpunt | 3 | E-UNIQUE (richtlijn) | Marketeer | Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Geef een eigen methode een naam en beschrijf de stappen. | De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die. |
 
-- **Wie/wat/waar.** Is duidelijk welke organisatie dit aanbiedt, waar ze zit, en wie
-  eventueel de trainer/auteur/expert is?
-- **Expertise-signalen.** Wordt onderbouwd waarom deze aanbieder geloofwaardig is (ervaring,
-- **Auteur & E-E-A-T.** Staat er een herkenbare auteur of verantwoordelijke met een korte bio
-  en relevante credentials (ervaring, functie, certificering)? Een byline, een gevulde
-  over-pagina en idealiter `Person`-schema laten een model zien dat er een geloofwaardige
-  menselijke bron achter de content zit. Anonieme content wordt minder vertrouwd en geciteerd.
-  klanten, certificering)?
-- **Koppeling aan bekende entiteiten.** Worden namen van mensen, organisaties of locaties
-  genoemd die een model kan herkennen en koppelen?
-- **Consistentie.** Geen tegenstrijdige of dubbele/foutieve labels (bijvoorbeeld twee
-  verschillende dingen met dezelfde kop) - dat ondermijnt het vertrouwen.
-- **Unieke invalshoek.** Heeft de pagina een eigen visie, een herkenbaar eigen model, of een
-  onderscheidende term/aanpak die alleen deze aanbieder gebruikt? Originele content (een eigen
-  raamwerk, een eigen benaming, een uitgesproken standpunt) wordt door modellen eerder als bron
-  herkend en geciteerd dan inwisselbare, generieke tekst die overal terugkomt.
+## Citeerbare antwoorden (13 punten)
 
-## 6. Bewijs, bronnen & actualiteit (10 punten)
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| C1 | Het antwoord staat eerst en is los leesbaar | 6 | E-RELEVANCE (sterk), E-TARGETED (middel) | Martine (tekst) | Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen. | De eerste zin onder elke kop klopt zonder de rest van de pagina. |
+| C2 | De taal is stellig en onderbouwd | 4 | E-CONFIDENT (middel) | Martine (tekst) | Vervang voorbehouden (kan, mogelijk, vaak) door een feit met een getal of een bron. | Kernclaims bevatten geen voorbehoud zonder onderbouwing. |
+| C3 | De pagina spreekt zichzelf niet tegen | 3 | E-CONFIDENT (middel) | Marketeer | Maak prijzen, namen en cijfers op de hele pagina gelijk. | Elk feit komt op de pagina maar in één versie voor. |
 
-Een van de sterkst onderbouwde GEO-hefbomen. Het Princeton GEO-onderzoek (KDD 2024) liet zien
-dat het toevoegen van statistieken (+41% zichtbaarheid), expertcitaten (+28%) en bronvermelding
-(tot +115% voor lager-rankende content) de kans om geciteerd te worden meetbaar verhoogt. Weeg
-deze punten daarom zwaar, ook al telt de categorie formeel 10 punten.
+## Bewijs en bronnen (10 punten)
 
-- **Statistieken & cijfers.** Staan er concrete, controleerbare getallen in de tekst (percentages,
-  aantallen, onderzoeksuitkomsten)? Modellen citeren graag harde cijfers - mits onderbouwd.
-- **Citaten van experts.** Worden uitspraken van een expert, klant of bron letterlijk geciteerd
-  (met naam en functie)? Een citaat is een zelfstandig, citeerbaar tekstblok.
-- **Bronvermelding.** Worden claims gekoppeld aan een herkenbare bron (onderzoek, organisatie,
-  publicatie), idealiter met een link? Dit verhoogt vertrouwen en citeerbaarheid sterk.
+| Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
+|---|---|---|---|---|---|---|
+| D1 | Cijfers hebben een bron | 4 | E-EVIDENCE (middel) | Martine (tekst) | Zet bij elk cijfer de bron en het jaar. | Elk cijfer heeft een bron of een toelichting hoe het gemeten is. |
+| D2 | Er staat een citaat van een klant of expert met naam | 3 | E-EVIDENCE (middel) | Marketeer | Plaats een echte quote met naam, functie en organisatie. | Minstens één quote met naam, functie en organisatie. |
+| D3 | Claims zijn controleerbaar | 3 | E-EVIDENCE (middel), E-CONFIDENT (middel) | Martine (tekst) | Onderbouw superlatieven met een bron of schrap ze. | Geen claim als beste of meest gekozen zonder bron. |
 
-- **Reviews als tekst.** Staan er volledige quotes (met naam, functie, organisatie), of alleen
-  een kaal cijfer? Tekst kan geciteerd worden, een los cijfer nauwelijks.
-- **Cijfers met bron.** Worden claims onderbouwd met getallen, en idealiter een bron?
-- **Datums met jaartal.** "Dinsdag 9 juni" zonder jaar leest een model mogelijk als verlopen.
-  Zet het jaartal erbij en geef aan of iets herhaaldelijk plaatsvindt.
-- **Versheidssignalen.** Een zichtbare publicatie- of update-datum helpt het model inschatten
-  of de info actueel is.
-- **Externe bevestiging (off-page, buiten de pagina-score).** Wordt het merk ook buiten de eigen
-  site genoemd: citaties, vermeldingen, reviews op platforms, gastbijdragen, vakbronnen? Dit is
-  een sterk GEO-signaal (sociale autoriteit), maar het valt buiten een on-page check. Rapporteer
-  het als aandachtspunt/signaal, tel het niet mee in de pagina-score, en verwijs voor structurele
-  meting naar de GEO-meter/monitoring.
+## Hygiëne (melden, geen punten)
 
-## Lezer-lens (CRO) - naast de GEO-score, niet meegeteld
+- **Structured data (JSON-LD)**: Het toevoegen van JSON-LD gaf geen meetbare stijging van AI-citaties: +2,4% in AI Mode, +2,2% in ChatGPT, -4,6% in AI Overviews. Google vraagt geen speciale schema voor AI-functies.
+- **llms.txt**: llms.txt heeft geen aantoonbaar effect op AI-citaties. Google noemt zulke bestanden onnodig.
+- **Canonical**: Semantische HTML, goede pagina-ervaring en weinig dubbele inhoud blijven de basis. Google behandelt optimalisatie voor AI-functies als onderdeel van SEO.
 
-GEO maakt een pagina citeerbaar voor het model; deze lens checkt of de pagina ook de mens
-overtuigt (de lezerskolom uit Martin's criteria). Niet meegeteld in de 100 punten, maar wel
-apart rapporteren. Botst een CRO-punt met een GEO-punt, adviseer dan een vorm die beide dient.
+## Rekenregels
 
-- **Herkenning.** Ziet de lezer in de eerste regels direct dat dit over hem en zijn situatie gaat?
-- **Urgentie.** Wordt een concrete behoefte of probleem benoemd waar de lezer iets mee moet?
-- **Heldere belofte.** Weet de lezer binnen een paar seconden wat hij krijgt of wat het oplevert?
-- **Bewijs.** Maken reviews, cases of cijfers de belofte geloofwaardig? (overlapt met categorie 6)
-- **Actie.** Is de volgende stap duidelijk en laagdrempelig? (overlapt met "Een taak & CTA")
-- **Overtuigingsprincipes.** Worden sociale bewijskracht, autoriteit of schaarste ingezet,
-  zonder te overdrijven?
-- **Scanbaarheid & eenvoud.** Is de tekst kort, actief en makkelijk te verwerken? (overlapt met B1)
+- Voldoet = alle punten, deels = de helft, niet = nul.
+- Niet te beoordelen telt niet mee. De score wordt berekend over de rest.
+- Prioriteit van een advies = verloren punten × bewijskracht (feit en sterk 1,0, middel 0,7, richtlijn 0,5, zwak 0,4).
+- De score meet de geschiktheid van de pagina. Hij zegt niet hoe vaak een AI-tool het merk noemt of aanbeveelt.
+
+## Vorm van een advies
+
+Elk advies heeft zeven onderdelen:
+
+1. **Actie**: de handeling, specifiek voor deze pagina.
+2. **Waarom**: wat je zag.
+3. **Waar**: de kop of alinea.
+4. **Nu**: de huidige tekst, letterlijk.
+5. **Voorstel**: plak-klare tekst. Ontbrekende feiten als `[invullen: ...]`. Verzin geen feiten.
+6. **Wie**: de eigenaar uit de tabel.
+7. **Klaar als**: de toets uit de tabel.

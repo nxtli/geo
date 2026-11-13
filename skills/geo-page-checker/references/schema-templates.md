@@ -28,7 +28,8 @@ rich result en wat **aanbevolen** is.
 - **Event** - een eenmalig of gepland evenement met datum en locatie.
 - **Article** / **NewsArticle** / **BlogPosting** - een blog, nieuwsbericht of inhoudelijk artikel.
 - **FAQPage** - zodra er een door de aanbieder geschreven FAQ op de pagina staat (een
-  gezaghebbend antwoord per vraag). Vrijwel elke pagina die je verbetert krijgt dit.
+  gezaghebbend antwoord per vraag). Google toont sinds 7 mei 2026 geen FAQ-rich-results meer.
+  Het type blijft geldig, maar voeg het alleen toe als de site al schema onderhoudt.
 - **HowTo** - een stappenplan/instructie ("hoe doe je X").
 - **Review** / **AggregateRating** - om reviews machine-leesbaar te maken. Altijd genest in het
   Product, Course, Service, LocalBusiness of de Organization. Gebruik alleen echte cijfers.
@@ -385,8 +386,7 @@ Altijd geschikt zodra er een door de aanbieder geschreven FAQ op de pagina staat
 > Gebruik **FAQPage** alleen voor een eigen, gezaghebbende Q&A (een antwoord per vraag). Voor
 > forum-/community-pagina's waar een vraag meerdere gebruikersantwoorden heeft, gebruik je
 > **QAPage** (een `Question` met `acceptedAnswer` en/of `suggestedAnswer`, plus `answerCount`).
-> Meng ze niet. (Google toont FAQ-rich-results sinds 2023 beperkt, maar de markup blijft waardevol
-> voor AI-extractie/GEO.)
+> Meng ze niet. (Google toont sinds 7 mei 2026 geen FAQ-rich-results meer; de markup blijft geldig.)
 
 ## HowTo
 

@@ -6,17 +6,24 @@ import {
   CHARLIE_COPY,
   CHARLIE_PROCESSING_STEPS,
   CHARLIE_STEPS,
+  MAX_FOLLOW_UPS,
   TOTAL_PROGRESS_STEPS,
+  needsCharlieReply,
+  isFiller,
+  CONTENT_STEPS,
 } from "@/lib/geo/charlie";
 import type { GeoLeadInput, GeoScanResponse } from "@/lib/geo/types";
+import { suggestEmailFix } from "@/lib/geo/email-typo";
+import { fieldValidators } from "@/lib/geo/validation";
 import { ChatMessage, TypingIndicator, type ChatMessageData } from "./ChatMessage";
 import { CharlieAvatar } from "./CharlieAvatar";
 import { Button, cn } from "./primitives";
+import { useBrand } from "./brand-context";
 import { ArrowRightIcon, CheckIcon, CloseIcon, DocIcon, SendIcon } from "./icons";
 
-type Phase = "asking" | "consent" | "scanning" | "success" | "error";
+type Phase = "asking" | "consent" | "scanning" | "success" | "error" | "closed";
 
-const STRATEGY_URL =
+const DEFAULT_STRATEGY_URL =
   process.env.NEXT_PUBLIC_GEO_STRATEGY_CALL_URL ||
   "https://nxtli.com/michiel-schoonhoven-agenda/";
 
@@ -31,6 +38,8 @@ export function CharlieChat({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const brand = useBrand();
+  const STRATEGY_URL = brand.id === "nxtli" ? DEFAULT_STRATEGY_URL : brand.cta.url;
   const [messages, setMessages] = React.useState<ChatMessageData[]>([]);
   const [stepIndex, setStepIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Partial<GeoLeadInput>>({});
@@ -38,13 +47,50 @@ export function CharlieChat({
   const [input, setInput] = React.useState("");
   const [inputError, setInputError] = React.useState<string | null>(null);
   const [typing, setTyping] = React.useState(false);
+  // Charlie vroeg door bij deze stap: wat er al genoteerd is en hoe vaak.
+  const [pending, setPending] = React.useState<string | null>(null);
+  const [followUps, setFollowUps] = React.useState(0);
+  // Wat Charlie bij deze stap als laatste zei, zodat een kort "prima" context heeft.
+  const [lastReply, setLastReply] = React.useState<string | null>(null);
+  // Het adres waar de rapportmail heen ging, voor de regel onder de knoppen.
+  const [mailedTo, setMailedTo] = React.useState<string | null>(null);
+  // Charlie vroeg of een e-mailadres met een waarschijnlijke tikfout klopt.
+  const [emailCheck, setEmailCheck] = React.useState<{ original: string; suggestion: string } | null>(null);
+  // Met dit adres is al een scan gedaan. Charlie wacht op "ja" of een ander adres.
+  const [priorEmail, setPriorEmail] = React.useState<string | null>(null);
   const [consent, setConsent] = React.useState(false);
   const [processingIndex, setProcessingIndex] = React.useState(0);
   const [scanProgress, setScanProgress] = React.useState(0);
   const [result, setResult] = React.useState<GeoScanResponse | null>(null);
+  // Link naar het rapport. Standaard de server-URL; werkt die niet (geen
+  // database, andere serverinstantie), dan een lokale kopie van het rapport.
+  const [reportHref, setReportHref] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const url = result?.report_url ?? null;
+    const html = result?.report_html;
+    setReportHref(url);
+    if (!url || !html) return;
+    let blobUrl: string | null = null;
+    let cancelled = false;
+    fetch(url, { method: "GET", cache: "no-store" })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .then((ok) => {
+        if (ok || cancelled) return;
+        // <base> zodat het logo en andere paden vanaf de site laden.
+        const withBase = html.replace(/<head([^>]*)>/i, `<head$1><base href="${window.location.origin}/">`);
+        blobUrl = URL.createObjectURL(new Blob([withBase], { type: "text/html;charset=utf-8" }));
+        setReportHref(blobUrl);
+      });
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [result]);
 
   const initialized = React.useRef(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const resultRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
   const pushCharlie = React.useCallback(async (text: string, delay = 650) => {
@@ -59,18 +105,22 @@ export function CharlieChat({
     if (!isOpen || initialized.current) return;
     initialized.current = true;
     (async () => {
-      await pushCharlie(CHARLIE.intro, 350);
+      await pushCharlie(brand.charlie.intro, 350);
       await pushCharlie(CHARLIE_STEPS[0].prompt, 700);
     })();
   }, [isOpen, pushCharlie]);
 
   // Keep the latest message in view.
+  // Het resultaat begint bovenaan: de bezoeker leest eerst de score.
   React.useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, typing, phase, processingIndex]);
+    const box = scrollRef.current;
+    if (!box) return;
+    const card = phase === "success" ? resultRef.current : null;
+    const top = card
+      ? card.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12
+      : box.scrollHeight;
+    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  }, [messages, typing, phase, processingIndex, result]);
 
   // Focus the field when a new question is ready.
   React.useEffect(() => {
@@ -87,37 +137,272 @@ export function CharlieChat({
     };
   }, [isOpen]);
 
+  /** Is er met dit adres al een scan gedaan, of: mail dat rapport opnieuw. */
+  async function priorRequest(email: string, action: "check" | "resend"): Promise<{ known: boolean; sent?: boolean }> {
+    try {
+      const res = await fetch("/api/geo/prior", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, action }),
+      });
+      if (!res.ok) return { known: false };
+      return await res.json();
+    } catch {
+      return { known: false };
+    }
+  }
+
+  /** Vraagt een echt antwoord op. Null: gebruik het vaste antwoord. */
+  async function askCharlie(
+    key: string,
+    answer: string,
+  ): Promise<{ reply: string; value: string | null; done: boolean } | null> {
+    try {
+      const res = await fetch("/api/geo/charlie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: key,
+          answer: answer.slice(0, 600),
+          pending,
+          lastReply: lastReply ? lastReply.slice(0, 1000) : null,
+          context: {
+            company_name: answers.company_name,
+            homepage_url: answers.homepage_url,
+            offer_description: answers.offer_description,
+            target_audience: answers.target_audience,
+            desired_queries: answers.desired_queries,
+          },
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data?.reply === "string" && data.reply ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSend() {
     if (phase !== "asking" || typing) return;
     const step = CHARLIE_STEPS[stepIndex];
-    const value = input.trim();
+    const typed = input.trim();
+    const validate = (v: string) => (step.validate ? step.validate(v) : null);
 
-    if (!value && !step.optional) {
+    if (!typed && !step.optional && !pending) {
       setInputError("Vul dit even in om verder te gaan.");
       return;
     }
-    if (value && step.validate) {
-      const err = step.validate(value);
-      if (err) {
-        setInputError(err);
+
+    // Een geldig e-mailadres of een geldige URL is een antwoord, ook met een
+    // vraagteken erin. Anders: reageer echt als de bezoeker iets vraagt, of als
+    // Charlie bij deze stap al een vraag terug stelde.
+    const say = (text: string) => setMessages((m) => [...m, { id: nextId(), from: "charlie", text }]);
+    const echo = (text: string) => setMessages((m) => [...m, { id: nextId(), from: "user", text }]);
+
+    // Een e-mailadres bij een latere vraag is een verbetering van het adres.
+    if (step.key !== "email" && answers.email && typed && !/\s/.test(typed) && !fieldValidators.email(typed)) {
+      setInputError(null);
+      setInput("");
+      echo(typed);
+      setTyping(true);
+      const prior = await priorRequest(typed, "check");
+      setTyping(false);
+      if (prior.known) {
+        say(CHARLIE_COPY.priorCorrection);
+      } else {
+        setAnswers((a) => ({ ...a, email: typed }));
+        say(`Aangepast. Ik stuur je rapport naar ${typed}.`);
+      }
+      await pushCharlie(step.prompt, 500);
+      return;
+    }
+
+    if (step.key === "email" && typed) {
+      /** Neemt het adres aan, tenzij er al een scan mee is gedaan. */
+      const acceptEmail = async (email: string) => {
+        setTyping(true);
+        const prior = await priorRequest(email, "check");
+        setTyping(false);
+        if (prior.known) {
+          setPriorEmail(email);
+          say(CHARLIE_COPY.priorKnown);
+          return;
+        }
+        setPriorEmail(null);
+        setAnswers((a) => ({ ...a, email }));
+        if (step.ack) say(step.ack(email));
+        await advance();
+      };
+
+      // Antwoord op "Zal ik het rapport opnieuw mailen?"
+      if (priorEmail && !emailCheck) {
+        const yes = /^(ja|j|yes|graag|doe maar|stuur)\b/i.test(typed);
+        const no = /^(nee|n|no|niet)\b/i.test(typed);
+        if (yes) {
+          setInputError(null);
+          setInput("");
+          echo(typed);
+          setTyping(true);
+          const res = await priorRequest(priorEmail, "resend");
+          setTyping(false);
+          say(res.sent ? CHARLIE_COPY.priorResent(priorEmail) : CHARLIE_COPY.priorResendFailed);
+          await pushCharlie(brand.cta.chatLine, 500);
+          setPhase("closed");
+          return;
+        }
+        if (no) {
+          setInputError(null);
+          setInput("");
+          echo(typed);
+          say(CHARLIE_COPY.priorDeclined);
+          await pushCharlie(brand.cta.chatLine, 500);
+          return;
+        }
+        if (fieldValidators.email(typed)) {
+          setInputError("Typ ja, nee of een ander e-mailadres.");
+          return;
+        }
+        // Een ander adres: ga hieronder verder als nieuwe invoer.
+      }
+
+      // Antwoord op "Bedoel je ...?"
+      if (emailCheck) {
+        const yes = /^(ja|j|yes|klopt|inderdaad|dat bedoel ik)\b/i.test(typed);
+        const no = /^(nee|n|no|niet)\b/i.test(typed);
+        const chosen = yes ? emailCheck.suggestion : no ? emailCheck.original : typed;
+        if (fieldValidators.email(chosen)) {
+          setInputError("Typ ja, nee of je e-mailadres.");
+          return;
+        }
+        setInputError(null);
+        setInput("");
+        echo(typed);
+        setEmailCheck(null);
+        await acceptEmail(chosen);
+        return;
+      }
+
+      // Nieuwe invoer: vraag door bij een waarschijnlijke tikfout.
+      if (!fieldValidators.email(typed)) {
+        setInputError(null);
+        setInput("");
+        echo(typed);
+        const suggestion = suggestEmailFix(typed);
+        if (suggestion) {
+          setEmailCheck({ original: typed, suggestion });
+          say(`Bedoel je ${suggestion}? Typ ja of nee, of typ je adres opnieuw.`);
+          return;
+        }
+        await acceptEmail(typed);
         return;
       }
     }
 
-    setInputError(null);
-    setInput("");
-    const displayed = value || "overgeslagen";
-    setMessages((m) => [...m, { id: nextId(), from: "user", text: displayed }]);
+    // "sla over" bij een optionele vraag is geen inhoud en geen vraag aan Charlie.
+    const skipWord = /^(sla\b.*over|overslaan|skip|nee|geen|n\.?v\.?t\.?|weet ik niet|geen idee)\b[\s.!]*$/i.test(typed);
+    if (step.optional && skipWord && !pending) {
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed }]);
+      setPending(null);
+      setLastReply(null);
+      setFollowUps(0);
+      setAnswers((a) => ({ ...a, [step.key]: null }));
+      await advance();
+      return;
+    }
+
+    const plainValid =
+      !!typed && (step.inputType === "email" || step.inputType === "url") && !validate(typed);
+    // "ga door" of "prima" is geen inhoud. Zonder genoteerd antwoord helpt Charlie eerst.
+    const emptyFiller = !!typed && !pending && CONTENT_STEPS.includes(step.key) && isFiller(typed);
+    if (emptyFiller && followUps >= MAX_FOLLOW_UPS) {
+      setInputError("Vul hier kort je eigen antwoord in.");
+      return;
+    }
+    const wantsReply =
+      !!typed && !plainValid && followUps < MAX_FOLLOW_UPS && (pending !== null || followUps > 0 || emptyFiller || needsCharlieReply(typed));
+
+    let value = typed;
+    let ack: string | null = null;
+
+    if (wantsReply) {
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed }]);
+      setTyping(true);
+      const ai = await askCharlie(step.key, typed);
+      setTyping(false);
+
+      if (ai) {
+        const aiValue = ai.value && !isFiller(ai.value) ? ai.value : null;
+        const candidate = aiValue ?? pending;
+        // Een optionele vraag mag zonder antwoord klaar zijn.
+        const candidateOk = candidate ? !validate(candidate) : Boolean(step.optional);
+        if (!ai.done || !candidateOk) {
+          // Charlie wacht op een reactie. De stap blijft open.
+          setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ai.reply }]);
+          if (candidateOk) setPending(candidate);
+          setLastReply(ai.reply);
+          setFollowUps((n) => n + 1);
+          return;
+        }
+        value = candidate ?? "";
+        ack = ai.reply;
+      } else {
+        // Geen antwoord gekregen: ga verder met wat er staat.
+        // Een losse vraag is geen antwoord. Bij een optionele stap blijft het veld dan leeg.
+        const onlyQuestion = step.optional && !pending && needsCharlieReply(typed);
+        if (emptyFiller) {
+          setInputError("Vul hier kort je eigen antwoord in.");
+          return;
+        }
+        value = onlyQuestion ? "" : pending ? (isFiller(typed) ? pending : `${pending}, ${typed}`) : typed;
+        const err = value ? validate(value) : null;
+        if (err) {
+          setInputError(err);
+          return;
+        }
+      }
+    } else {
+      // Na het maximum aan vervolgvragen: een kort "nee" of "verder" telt niet als inhoud.
+      const filler = /^(nee|ja|ok|oké|prima|verder|goed|top)\b[\s.!]*$/i.test(typed);
+      if (pending && (!typed || filler)) value = pending;
+      else if (typed && pending) value = `${pending}, ${typed}`;
+      if (value) {
+        const err = validate(value);
+        if (err) {
+          setInputError(err);
+          return;
+        }
+      }
+      setInputError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: nextId(), from: "user", text: typed || (pending ? "verder" : "overgeslagen") }]);
+    }
+
+    setPending(null);
+    setLastReply(null);
+    setFollowUps(0);
     setAnswers((a) => ({ ...a, [step.key]: value || null }));
 
-    if (step.ack && value) await pushCharlie(step.ack(value), 500);
+    if (ack) {
+      setMessages((m) => [...m, { id: nextId(), from: "charlie", text: ack as string }]);
+    } else if (step.ack && value) {
+      await pushCharlie(step.ack(value), 500);
+    }
 
+    await advance();
+  }
+
+  /** Naar de volgende vraag, of naar de bevestiging na de laatste vraag. */
+  async function advance() {
     const next = stepIndex + 1;
+    setStepIndex(next);
     if (next < CHARLIE_STEPS.length) {
-      setStepIndex(next);
       await pushCharlie(CHARLIE_STEPS[next].prompt, 650);
     } else {
-      setStepIndex(next);
       setPhase("consent");
       await pushCharlie(CHARLIE_COPY.reviewLead, 600);
     }
@@ -232,9 +517,10 @@ export function CharlieChat({
       await pushCharlie(data.message ?? CHARLIE_COPY.successLead, 500);
       if (!data.blocked) {
         if (data.email_queued) {
+          setMailedTo(payload.email);
           await pushCharlie(CHARLIE_COPY.emailNote(payload.email), 500);
         }
-        await pushCharlie(CHARLIE_COPY.finalCta, 600);
+        await pushCharlie(brand.cta.chatLine, 600);
       }
     } catch {
       stop();
@@ -263,7 +549,7 @@ export function CharlieChat({
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Chat met Charlie, de AI-analist van NXTLI"
+      aria-label={`Chat met Charlie, ${brand.charlie.role}`}
     >
       <div
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm animate-fade-in"
@@ -276,7 +562,9 @@ export function CharlieChat({
             <CharlieAvatar size="md" withStatus />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-ink">{CHARLIE.name}</div>
-              <div className="text-xs text-muted">{CHARLIE.role}</div>
+              <div className="text-xs text-muted">
+                {phase === "scanning" ? CHARLIE_COPY.scanningStatus : brand.charlie.role}
+              </div>
             </div>
           </div>
           <button
@@ -289,7 +577,7 @@ export function CharlieChat({
         </header>
 
         {/* Progress */}
-        {phase !== "success" && phase !== "error" ? (
+        {phase !== "success" && phase !== "error" && phase !== "closed" ? (
           <div className="px-5 pt-3">
             <div className="flex items-center justify-between text-[11px] font-medium text-subtle">
               <span>
@@ -322,7 +610,9 @@ export function CharlieChat({
             <ProcessingList activeIndex={processingIndex} progress={scanProgress} />
           )}
           {phase === "success" && result?.preview ? (
-            <ResultCard result={result} />
+            <div ref={resultRef}>
+              <ResultCard result={result} />
+            </div>
           ) : null}
           {phase === "error" && (
             <div className="rounded-2xl border border-warning/30 bg-warning/5 p-4 text-sm text-ink">
@@ -346,12 +636,25 @@ export function CharlieChat({
               value={input}
               error={inputError}
               disabled={typing}
+              waiting={followUps > 0}
               onChange={(v) => {
                 setInput(v);
                 if (inputError) setInputError(null);
               }}
               onSend={handleSend}
             />
+          )}
+
+          {/* Er is al een scan gedaan met dit adres: bied ook de demo aan. */}
+          {phase === "asking" && priorEmail && (
+            <a
+              href={STRATEGY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="geo-btn-primary mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-brand-fg shadow-soft transition-all hover:shadow-glow"
+            >
+              {brand.cta.label} <ArrowRightIcon className="h-4 w-4" />
+            </a>
           )}
 
           {phase === "consent" && (
@@ -363,15 +666,22 @@ export function CharlieChat({
           )}
 
           {phase === "scanning" && (
-            <p className="px-1 py-2 text-center text-xs text-subtle">
-              {CHARLIE_COPY.scanningSubtle}
-            </p>
+            <div className="flex items-center justify-center gap-2.5 px-1 py-2" role="status" aria-live="polite">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand" />
+              </span>
+              <p className="text-sm text-ink">
+                <span className="font-semibold">{CHARLIE_COPY.scanningStatus}</span>{" "}
+                <span className="text-muted">{CHARLIE_COPY.scanningSubtle}</span>
+              </p>
+            </div>
           )}
 
-          {phase === "success" && result?.report_url && (
+          {phase === "success" && reportHref && (
             <div className="flex flex-col gap-2 sm:flex-row">
               <a
-                href={result.report_url}
+                href={reportHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-brand-fg shadow-soft transition-all hover:shadow-glow"
@@ -384,19 +694,22 @@ export function CharlieChat({
                 rel="noopener noreferrer"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand"
               >
-                Plan een sessie <ArrowRightIcon className="h-4 w-4" />
+                {brand.cta.label} <ArrowRightIcon className="h-4 w-4" />
               </a>
             </div>
           )}
+          {phase === "success" && mailedTo && (
+            <p className="mt-2 px-1 text-center text-xs text-muted">{CHARLIE_COPY.emailHint(mailedTo)}</p>
+          )}
 
-          {phase === "error" && (
+          {(phase === "error" || phase === "closed") && (
             <a
               href={STRATEGY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand"
             >
-              Neem contact op met NXTLI <ArrowRightIcon className="h-4 w-4" />
+              {brand.cta.errorLabel} <ArrowRightIcon className="h-4 w-4" />
             </a>
           )}
         </div>
@@ -411,11 +724,13 @@ const AskingInput = React.forwardRef<
     step: (typeof CHARLIE_STEPS)[number];
     value: string;
     error: string | null;
+    /** Charlie wacht op een reactie bij deze stap. */
+    waiting?: boolean;
     disabled: boolean;
     onChange: (v: string) => void;
     onSend: () => void;
   }
->(function AskingInput({ step, value, error, disabled, onChange, onSend }, ref) {
+>(function AskingInput({ step, value, error, disabled, waiting, onChange, onSend }, ref) {
   return (
     <div>
       <div
@@ -457,7 +772,11 @@ const AskingInput = React.forwardRef<
         <p className="mt-1.5 px-1 text-xs font-medium text-danger">{error}</p>
       ) : (
         <p className="mt-1.5 px-1 text-[11px] text-subtle">
-          {step.optional ? "Optioneel, druk op Enter om over te slaan" : "Druk op Enter om te versturen"}
+          {waiting
+            ? "Typ je reactie, of druk op Enter om verder te gaan"
+            : step.optional
+              ? "Optioneel, druk op Enter om over te slaan"
+              : "Druk op Enter om te versturen"}
         </p>
       )}
     </div>
@@ -473,6 +792,7 @@ function ConsentInput({
   onToggle: () => void;
   onStart: () => void;
 }) {
+  const consentLabel = useBrand().consentLabel;
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-muted">
@@ -482,7 +802,7 @@ function ConsentInput({
           onChange={onToggle}
           className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
         />
-        <span>{CHARLIE_COPY.consentLabel}</span>
+        <span>{consentLabel}</span>
       </label>
       <Button
         size="lg"
@@ -565,30 +885,35 @@ function ProcessingList({
 function ResultCard({ result }: { result: GeoScanResponse }) {
   const p = result.preview!;
   const score = p.visibility_score;
-  const tone =
-    score >= 70 ? "text-success" : score >= 45 ? "text-warning" : "text-danger";
+  const unscored = Boolean(p.unscored_reason);
+  const tone = unscored
+    ? "text-subtle"
+    : score >= 70 ? "text-success" : score >= 45 ? "text-warning" : "text-danger";
   return (
     <div className="animate-fade-up space-y-4 rounded-2xl border border-border bg-surface p-4 shadow-soft">
       <div className="flex items-center gap-4">
         <div className="text-center">
           <div className={cn("font-display text-4xl font-bold leading-none", tone)}>
-            {score}
+            {unscored ? "–" : score}
           </div>
           <div className="text-[10px] uppercase tracking-wide text-subtle">/ 100</div>
         </div>
         <div className="flex-1">
           <div className="text-xs font-semibold uppercase tracking-wide text-brand">
-            AI Visibility Score
+            {unscored ? "Geen score" : "Paginascore"}
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-elevated">
             <div
               className="h-full rounded-full bg-gradient-to-r from-brand to-accent"
-              style={{ width: `${score}%` }}
+              style={{ width: `${unscored ? 0 : score}%` }}
             />
           </div>
         </div>
       </div>
       <p className="text-sm leading-relaxed text-muted">{p.short_summary}</p>
+      {unscored ? (
+        <p className="text-xs leading-relaxed text-subtle">{p.unscored_reason}</p>
+      ) : null}
       {p.category_scores?.length > 0 && (
         <div>
           <div className="mb-1.5 text-xs font-semibold text-ink">Opbouw van de score</div>

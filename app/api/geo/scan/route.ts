@@ -6,7 +6,9 @@ import { parseAnalysisResult } from "@/lib/geo/analysis/provider";
 import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
 import { putReportHtml } from "@/lib/geo/report/store";
+import { reportPath } from "@/lib/geo/report/serve";
 import { sendGeoReportEmail } from "@/lib/geo/email/service";
+import { getServerBrand } from "@/lib/geo/brand-server";
 import { notifySlackNewLead } from "@/lib/geo/notify/slack";
 import { upsertHubspotContact } from "@/lib/geo/notify/hubspot";
 import { ensureSchemaOnce } from "@/lib/geo/supabase/migrate";
@@ -19,10 +21,11 @@ import {
   isSupabaseConfigured,
   updateScanRequest,
 } from "@/lib/geo/supabase/service";
+import { isTestEmail } from "@/lib/geo/test-emails";
 import { logError } from "@/lib/geo/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /**
  * POST /api/geo/scan
@@ -40,6 +43,7 @@ export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
   const parsed = geoLeadSchema.safeParse(body);
   const baseUrl = resolveBaseUrl(request);
+  const brand = await getServerBrand();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -100,14 +104,16 @@ export async function POST(request: Request): Promise<Response> {
         // drift before the email column exists) must NOT take the whole scan
         // endpoint down. The global daily cap is the hard credit backstop.
         let prior: Awaited<ReturnType<typeof findCompletedScanByEmail>> = null;
+        // Testadressen (lib/geo/test-emails.ts) mogen vaker scannen.
+        const testAddress = isTestEmail(lead.email);
         try {
-          prior = await findCompletedScanByEmail(lead.email);
+          if (!testAddress) prior = await findCompletedScanByEmail(lead.email);
         } catch (dedupError) {
           logError("api.geo.scan.dedup", dedupError);
         }
         if (prior?.analysis_result) {
           const priorAnalysis = parseAnalysisResult(prior.analysis_result);
-          const priorUrl = `/api/geo/report/${prior.id}`;
+          const priorUrl = reportPath(prior.id);
           await notifySlackNewLead({
             lead,
             status: "completed",
@@ -129,8 +135,8 @@ export async function POST(request: Request): Promise<Response> {
           const message = differentPage
             ? `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan${
                 priorHost ? ` (voor ${priorHost})` : ""
-              }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Plan dan even een korte sessie met NXTLI.`
-            : "Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport. Wil je een nieuwe analyse? Plan dan even een korte sessie met NXTLI.";
+              }. Per e-mailadres is er één gratis scan beschikbaar, dus deze nieuwe scan voeren we niet uit. Hieronder vind je je eerdere rapport. Wil je een andere pagina laten analyseren? Dan ${brand.cta.again}.`
+            : `Je hebt met dit e-mailadres al een gratis GEO-scan gedaan. Per e-mailadres is er één gratis scan beschikbaar. Hieronder vind je je eerdere rapport. Wil je een nieuwe analyse? Dan ${brand.cta.again}.`;
           send({
             type: "result",
             data: {
@@ -151,11 +157,11 @@ export async function POST(request: Request): Promise<Response> {
         // above is then a no-op): throttle repeat emails so a missing DB can't
         // enable unlimited paid scans. Configure Postgres for an authoritative,
         // cross-instance gate.
-        if (!isSupabaseConfigured() && wasRecentlyScanned(lead.email)) {
+        if (!testAddress && !isSupabaseConfigured() && wasRecentlyScanned(lead.email)) {
           send({
             type: "error",
             message:
-              "Je hebt recent al een gratis GEO-scan met dit e-mailadres gedaan. Voor een nieuwe analyse plan je even een korte sessie met NXTLI.",
+              `Je hebt recent al een gratis GEO-scan met dit e-mailadres gedaan. Voor een nieuwe analyse: ${brand.cta.again}.`,
           });
           return close();
         }
@@ -168,14 +174,14 @@ export async function POST(request: Request): Promise<Response> {
             send({
               type: "error",
               message:
-                "We hebben vandaag al heel veel scans gedraaid. Probeer het morgen opnieuw — of plan direct een korte sessie met NXTLI.",
+                `We hebben vandaag al heel veel scans gedraaid. Probeer het morgen opnieuw, of ${brand.cta.again}.`,
             });
             return close();
           }
         }
 
         // 1. Persist lead + scan request.
-        const persistedLead = await insertLead(lead);
+        const persistedLead = await insertLead(lead, brand.domain);
         const scan = await createScanRequest({
           leadId: persistedLead?.id ?? null,
           email: lead.email,
@@ -204,6 +210,8 @@ export async function POST(request: Request): Promise<Response> {
             metadata: page.metadata,
             robots_txt: page.robotsTxt,
             llms_txt_present: page.llmsTxtPresent,
+            facts: page.facts,
+            robots: page.robots,
           },
           {
             onProgress: (frac) =>
@@ -213,10 +221,10 @@ export async function POST(request: Request): Promise<Response> {
         progress(91, 4);
 
         // 4. Build the report.
-        const reportHtml = buildReportHtml({ lead, analysis });
+        const reportHtml = buildReportHtml({ lead, analysis, brand });
         putReportHtml(scanRequestId, reportHtml);
         const { pdfUrl } = await generatePdf({ html: reportHtml, scanRequestId });
-        const reportUrl = `/api/geo/report/${scanRequestId}`;
+        const reportUrl = reportPath(scanRequestId);
         progress(95, 4);
 
         // 5. Persist analysis + report.
@@ -247,7 +255,10 @@ export async function POST(request: Request): Promise<Response> {
           companyName: lead.company_name,
           analysis,
           reportHtml,
-          reportUrl,
+          // Volledig adres: een mailprogramma kan niets met een pad.
+          reportUrl: baseUrl ? `${baseUrl}${reportUrl}` : reportUrl,
+          pageUrl: lead.homepage_url,
+          brand,
         });
         if (scan && email.sent) {
           await updateScanRequest(scan.id, { email_sent_at: new Date().toISOString() });
@@ -283,9 +294,10 @@ export async function POST(request: Request): Promise<Response> {
             status: "completed",
             preview: buildPreview(analysis),
             report_url: reportUrl,
+            report_html: reportHtml,
             email_queued: email.sent,
             message: degraded
-              ? "Je rapport staat klaar. We kijken er ook handmatig naar voor de puntjes op de i."
+              ? "De inhoudelijke beoordeling is deze keer niet gelukt. In je rapport staan wel de technische checks. We kijken handmatig mee en sturen je het volledige rapport na."
               : undefined,
           },
         });

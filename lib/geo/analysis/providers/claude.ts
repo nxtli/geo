@@ -9,6 +9,7 @@ import {
 } from "../provider";
 import { GEO_SYSTEM_PROMPT, buildAnalysisPrompt } from "../prompt";
 import { logError } from "../../logger";
+import { ANALYSIS_MODELS, candidates } from "../../models";
 
 /**
  * Default analysis model. Sonnet is the deliberate choice: a public scan must
@@ -16,7 +17,7 @@ import { logError } from "../../logger";
  * Opus depth. Override with GEO_ANALYSIS_MODEL. Exported so the diagnostics
  * endpoint reports the model that will ACTUALLY run (no drift between code/docs).
  */
-export const DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-6";
+export const DEFAULT_ANALYSIS_MODEL = ANALYSIS_MODELS[0];
 
 /**
  * Per-request Anthropic timeout. Kept well under the route's maxDuration (120s)
@@ -24,7 +25,7 @@ export const DEFAULT_ANALYSIS_MODEL = "claude-sonnet-4-6";
  * can fall back to the mock — instead of the platform killing the function
  * mid-stream and leaving the scan row stuck on "scanning".
  */
-export const ANALYSIS_REQUEST_TIMEOUT_MS = 80_000;
+export const ANALYSIS_REQUEST_TIMEOUT_MS = 210_000;
 
 /**
  * Direct Claude API analysis provider.
@@ -58,11 +59,32 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     // Default to the fast Sonnet model (see DEFAULT_ANALYSIS_MODEL). Override
     // with GEO_ANALYSIS_MODEL. No extended thinking + low effort keeps latency
     // low; streaming avoids SDK request timeouts.
-    const model = process.env.GEO_ANALYSIS_MODEL || DEFAULT_ANALYSIS_MODEL;
+    // Weigert de API het eerste model (uitgezet, hernoemd, andere parameters),
+    // dan probeert de scan het volgende uit lib/geo/models.ts.
+    const models = candidates("GEO_ANALYSIS_MODEL", ANALYSIS_MODELS);
+    for (let i = 0; i < models.length; i++) {
+      try {
+        return await this.run(client, models[i], input, opts);
+      } catch (error) {
+        const status = (error as { status?: number })?.status;
+        const rejected = status === 400 || status === 404;
+        if (!rejected || i === models.length - 1) throw error;
+        logError("analysis.claude", `model ${models[i]} geweigerd (${status}), terugval op ${models[i + 1]}`);
+      }
+    }
+    throw new Error("no_analysis_model");
+  }
 
+  private async run(
+    client: Anthropic,
+    model: string,
+    input: GeoAnalysisInput,
+    opts?: GeoAnalysisOpts,
+  ): Promise<GeoAnalysisOutcome> {
     const params = {
       model,
-      max_tokens: 6000,
+      // Ruim: bij de nieuwe modellen tellen denktokens mee in deze limiet.
+      max_tokens: 24000,
       output_config: {
         effort: "low",
         format: { type: "json_schema", schema: geoAnalysisJsonSchema },
@@ -81,7 +103,7 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
       // ~4500 chars is a typical full report; cap at 0.95 until completion.
       stream.on("text", (delta: string) => {
         chars += delta.length;
-        const frac = Math.min(0.95, chars / 4500);
+        const frac = Math.min(0.95, chars / 14000);
         if (frac - last >= 0.02) {
           last = frac;
           opts.onProgress?.(frac);
@@ -92,6 +114,10 @@ export class ClaudeAnalysisProvider implements GeoAnalysisProvider {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response: any = await stream.finalMessage();
 
+    if (response?.stop_reason === "max_tokens") {
+      logError("analysis.claude", "antwoord afgekapt op max_tokens");
+      throw new Error("analysis_truncated");
+    }
     if (response?.stop_reason === "refusal") {
       logError("analysis.claude", "model returned refusal stop_reason");
       throw new Error("analysis_refused");

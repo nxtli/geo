@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GEO-module v2 prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: kop met twee cijfers, daaronder zeven werkbladen in de volgorde koper, pagina, AI-antwoorden. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#14212b; --muted:#5a6b78; --line:#d9e0e6;
+  --accent:#0b6e8a; --accent-soft:#e1f1f5;
+  --good:#1f7a4d; --good-soft:#e3f3ea; --warn:#a15c00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe6e4;
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f171d; --surface:#17222b; --ink:#e8eef2; --muted:#9db0bd; --line:#2b3a46;
+    --accent:#5cc3de; --accent-soft:#143744;
+    --good:#6fd3a0; --good-soft:#163527; --warn:#f0b65a; --warn-soft:#3a2c12; --bad:#ff8d85; --bad-soft:#41201e;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --surface:#17222b; --ink:#e8eef2; --muted:#9db0bd; --line:#2b3a46;
+  --accent:#5cc3de; --accent-soft:#143744;
+  --good:#6fd3a0; --good-soft:#163527; --warn:#f0b65a; --warn-soft:#3a2c12; --bad:#ff8d85; --bad-soft:#41201e;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 64px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:26px;font-weight:700} h2{font-size:19px;font-weight:700} h3{font-size:15px;font-weight:500}
+p{margin:0} a{color:var(--accent)}
+.muted{color:var(--muted)} .small{font-size:13px}
+.k{font-family:var(--mono);font-size:12px;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center}
+.nums{display:flex;gap:24px;flex-wrap:wrap}
+.num-big{font-family:var(--display);font-size:46px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.num-big small{font-size:17px;color:var(--muted);font-weight:500}
+.pill{display:inline-flex;align-items:center;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:600}
+.pill.good{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.neutral{background:var(--accent-soft);color:var(--accent)}
+.gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.gate{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);cursor:pointer}
+.gate input{margin-top:3px;accent-color:var(--accent)}
+.gate.fail{border-color:var(--bad);background:var(--bad-soft)}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap}
+nav.tabs a{font-weight:600;font-size:14px;text-decoration:none;color:var(--muted);padding:8px 12px;border-radius:8px;border:1px solid transparent}
+nav.tabs a:hover{color:var(--ink);border-color:var(--line)}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+a:focus-visible,button:focus-visible,select:focus-visible,.gate:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.dim{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.dimhead{display:grid;grid-template-columns:minmax(0,1fr) 150px 64px;gap:12px;align-items:center;padding:12px 16px}
+.bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.seg{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--line)}
+.seg i{display:block;height:100%}
+.n{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.crit{display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:12px;padding:10px 16px;border-top:1px solid var(--line);align-items:start}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center}
+select{font:inherit;font-size:13px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%}
+.ev{font-size:11.5px;font-weight:600;border-radius:4px;padding:1px 6px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.ev.sterk,.ev.feit{border-color:var(--good);color:var(--good)} .ev.middel,.ev.richtlijn{border-color:var(--warn);color:var(--warn)} .ev.ontkracht{border-color:var(--bad);color:var(--bad)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12.5px}
+td.cell{font-variant-numeric:tabular-nums;text-align:center;font-weight:600}
+.h0{background:var(--bad-soft);color:var(--bad)} .h1{background:var(--warn-soft);color:var(--warn)} .h2{background:var(--good-soft);color:var(--good)}
+.adv{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.adv:first-child{border-top:0;padding-top:0}
+.rank{font-family:var(--display);font-weight:700;font-size:20px;color:var(--accent);font-variant-numeric:tabular-nums}
+.ba{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.ba div{border-radius:8px;padding:10px;font-size:13.5px;white-space:pre-wrap}
+.ba .b{background:var(--bad-soft)} .ba .a{background:var(--good-soft)}
+.ba b,.lbl{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px;font-weight:600}
+pre{font-family:var(--mono);font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;margin:0}
+button{font:inherit;font-weight:600;font-size:13.5px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:7px 12px;cursor:pointer}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.chain{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.step{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface)}
+.step.break{border-color:var(--bad);background:var(--bad-soft)}
+.prompt{border-left:3px solid var(--accent);padding:6px 10px;background:var(--bg);border-radius:0 6px 6px 0;font-size:13.5px}
+ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+@media (max-width:640px){
+  .head{grid-template-columns:1fr}
+  .dimhead{grid-template-columns:minmax(0,1fr) 56px}.dimhead .bar{display:none}
+  .crit{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .2s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">Prototype met voorbeelddata. Het merk, de pagina, het brein en alle meetcijfers zijn verzonnen. De criteria, punten en aannames komen uit de echte kennisbank van de scan.</div>
+  <header class="card head">
+    <div>
+      <p class="muted small" id="versions"></p>
+      <h1>Leasefiets voor werkgevers</h1>
+      <p class="muted small">voorbeeldmerk.example/leasefiets-werkgevers · Voorbeeldmerk Fietslease</p>
+    </div>
+    <div class="nums">
+      <div><div class="num-big"><span id="score">0</span><small>/100</small></div><div class="small"><strong>Paginascore</strong> <span id="status"></span><br><span class="muted">geschiktheid van de pagina</span></div></div>
+      <div><div class="num-big"><span id="rec">0</span><small>%</small></div><div class="small"><strong>Aanbevolen</strong><br><span class="muted" id="recnote"></span></div></div>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Werkbladen"></nav>
+  <main id="view"></main>
+</div>
+<script>
+const SC = {"version":"2","blocked_cap":20,"verdict_values":{"voldoet":1,"deels":0.5,"niet":0},"gates":[{"id":"P1","name":"AI-zoekbots mogen de pagina ophalen","evidence":["E-BOTS"],"owner":"developer","done_when":"robots.txt bevat geen Disallow voor deze pagina bij OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot en Bingbot."},{"id":"P2","name":"Pagina is indexeerbaar en mag in snippets","evidence":["E-INDEX"],"owner":"developer","done_when":"Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header."},{"id":"P3","name":"Kerntekst staat in de HTML","evidence":["E-RENDER"],"owner":"developer","done_when":"De koppen en de kerntekst staan in de HTML die de server teruggeeft, zonder JavaScript."}],"dimensions":[{"key":"vraagaansluiting","label":"Aansluiting op de vraag","criteria":[{"id":"A1","name":"De pagina beantwoordt de opgegeven klantvragen","max":8,"evidence":["E-RELEVANCE","E-BUYER"],"owner":"schrijver","fix":"Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig.","done_when":"Elke opgegeven klantvraag heeft op de pagina een antwoord dat los leesbaar is."},{"id":"A2","name":"De begrippen uit de vraag staan vroeg op de pagina","max":6,"evidence":["E-RELEVANCE","E-DEPTH"],"owner":"schrijver","fix":"Zet het onderwerp en het aanbod in de woorden van de klant in de h1 en de eerste alinea.","done_when":"De h1 en de eerste 100 woorden noemen het aanbod en het onderwerp van de belangrijkste klantvraag."},{"id":"A3","name":"De pagina zegt voor wie het aanbod is","max":6,"evidence":["E-RELEVANCE","E-BUYER"],"owner":"schrijver","fix":"Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat.","done_when":"De eerste alinea noemt het publiek en de situatie waarin het aanbod past."},{"id":"A4","name":"De pagina behandelt de keuzecriteria van de koper","max":4,"evidence":["E-BUYER","E-DEPTH"],"owner":"schrijver","fix":"Behandel per keuzecriterium wat het aanbod biedt, met een feit of een getal.","done_when":"Elk bekend keuzecriterium komt op de pagina terug met een concreet antwoord."},{"id":"A5","name":"Taal en regio passen bij de vraag","max":2,"evidence":["E-RELEVANCE"],"owner":"schrijver","fix":"Schrijf in de taal van het publiek en noem het werkgebied.","done_when":"Taal, valuta en werkgebied passen bij het publiek."}]},{"key":"concrete_informatie","label":"Concrete, controleerbare informatie","criteria":[{"id":"B1","name":"De prijs staat expliciet op de pagina","max":7,"evidence":["E-PRICE"],"owner":"mens","fix":"Zet een prijs, een vanaf-prijs of een prijsvoorbeeld op de pagina, met wat inbegrepen is. Wil je geen prijs noemen, leg dan uit waar de prijs van afhangt.","done_when":"De pagina noemt een bedrag of legt in één alinea uit waar de prijs van afhangt."},{"id":"B2","name":"Specificaties en voorwaarden zijn concreet","max":6,"evidence":["E-PRICE"],"owner":"schrijver","fix":"Vervang bijvoeglijke naamwoorden door getallen: duur, aantallen, levertijd, wat inbegrepen is.","done_when":"Duur, omvang en inbegrepen onderdelen staan er als feitelijke zinnen met getallen."},{"id":"B3","name":"Het onderwerp is diepgaand behandeld","max":3,"evidence":["E-DEPTH"],"owner":"schrijver","fix":"Werk het proces, de werking of de aanpak uit in stappen.","done_when":"Een lezer zonder voorkennis begrijpt wat er gebeurt na de eerste stap."},{"id":"B4","name":"De pagina vergelijkt met alternatieven","max":2,"evidence":["E-DEPTH"],"owner":"schrijver","fix":"Voeg een korte, eerlijke vergelijking toe met het meest voor de hand liggende alternatief.","done_when":"De pagina noemt minstens één alternatief en het verschil."}]},{"key":"eigen_inbreng","label":"Eigen inbreng","criteria":[{"id":"U1","name":"De pagina bevat eigen gegevens of eigen onderzoek","max":4,"evidence":["E-UNIQUE","E-EVIDENCE"],"owner":"mens","fix":"Voeg een cijfer of uitkomst toe uit eigen onderzoek, eigen klantdata of een eigen meting. Zet erbij hoe het gemeten is: bij wie, wanneer en hoeveel.","done_when":"Minstens één cijfer of uitkomst komt uit eigen onderzoek of eigen data, met herkomst (wie, wanneer, hoeveel)."},{"id":"U2","name":"De pagina bevat ervaring uit de eigen praktijk","max":3,"evidence":["E-UNIQUE"],"owner":"mens","fix":"Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent.","done_when":"Minstens één case of observatie uit klantgesprekken, met aanleiding, aanpak en uitkomst."},{"id":"U3","name":"De pagina bevat een eigen methode of onderbouwd standpunt","max":3,"evidence":["E-UNIQUE"],"owner":"mens","fix":"Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Geef een eigen methode een naam en beschrijf de stappen.","done_when":"De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die."}]},{"key":"citeerbare_antwoorden","label":"Citeerbare antwoorden","criteria":[{"id":"C1","name":"Het antwoord staat eerst en is los leesbaar","max":6,"evidence":["E-RELEVANCE","E-TARGETED"],"owner":"schrijver","fix":"Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen.","done_when":"De eerste zin onder elke kop klopt zonder de rest van de pagina."},{"id":"C2","name":"De taal is stellig en onderbouwd","max":4,"evidence":["E-CONFIDENT"],"owner":"schrijver","fix":"Vervang voorbehouden (kan, mogelijk, vaak) door een feit met een getal of een bron.","done_when":"Kernclaims bevatten geen voorbehoud zonder onderbouwing."},{"id":"C3","name":"De pagina spreekt zichzelf niet tegen","max":3,"evidence":["E-CONFIDENT"],"owner":"mens","fix":"Maak prijzen, namen en cijfers op de hele pagina gelijk.","done_when":"Elk feit komt op de pagina maar in één versie voor."}]},{"key":"bewijs_bronnen","label":"Bewijs en bronnen","criteria":[{"id":"D1","name":"Cijfers hebben een bron","max":4,"evidence":["E-EVIDENCE"],"owner":"schrijver","fix":"Zet bij elk cijfer de bron en het jaar.","done_when":"Elk cijfer heeft een bron of een toelichting hoe het gemeten is."},{"id":"D2","name":"Er staat een citaat van een klant of expert met naam","max":3,"evidence":["E-EVIDENCE"],"owner":"mens","fix":"Plaats een echte quote met naam, functie en organisatie.","done_when":"Minstens één quote met naam, functie en organisatie."},{"id":"D3","name":"Claims zijn controleerbaar","max":3,"evidence":["E-EVIDENCE","E-CONFIDENT"],"owner":"schrijver","fix":"Onderbouw superlatieven met een bron of schrap ze.","done_when":"Geen claim als beste of meest gekozen zonder bron."}]},{"key":"actualiteit","label":"Actualiteit","criteria":[{"id":"E1","name":"De pagina toont een datum van laatste wijziging met jaartal","max":3,"evidence":["E-RECENCY"],"owner":"developer","fix":"Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar.","done_when":"De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging."},{"id":"E2","name":"De gegevens zijn actueel","max":2,"evidence":["E-RECENCY"],"owner":"mens","fix":"Werk prijzen, jaartallen en regelingen bij.","done_when":"Geen verlopen data, prijzen of regelingen."}]},{"key":"entiteit_vertrouwen","label":"Entiteit en vertrouwen","criteria":[{"id":"F1","name":"Duidelijk wie het aanbiedt, wat en waar","max":4,"evidence":["E-ENTITY","E-RELEVANCE"],"owner":"schrijver","fix":"Noem de organisatie, het aanbod en de vestigingsplaats of het werkgebied in één zin.","done_when":"Eén zin op de pagina zegt wie wat aanbiedt en waar."},{"id":"F2","name":"Er is een auteur of expert met naam en functie","max":3,"evidence":["E-ENTITY"],"owner":"mens","fix":"Toon wie verantwoordelijk is voor de inhoud, met naam en functie.","done_when":"Naam en functie van een verantwoordelijke staan op de pagina."},{"id":"F3","name":"Het merk wordt buiten de eigen site genoemd","max":3,"evidence":["E-ENTITY"],"owner":"mens","fix":"Lever feiten, prijzen en voorbeelden aan bij vakmedia en vergelijkingssites in jouw markt.","done_when":"Minstens drie onafhankelijke sites noemen het merk met juiste feiten.","needs":"off_page"}]},{"key":"paginabasis","label":"Paginabasis","criteria":[{"id":"G1","name":"Eén h1 en logische koppen","max":3,"evidence":["E-PAGEBASE"],"owner":"developer","fix":"Gebruik één h1 en daaronder h2 en h3 in echte heading-tags.","done_when":"Precies één h1 en geen overgeslagen kopniveaus."},{"id":"G2","name":"Titel en beschrijving zeggen wat de pagina biedt","max":1,"evidence":["E-PAGEBASE"],"owner":"schrijver","fix":"Noem in de title en de meta description het aanbod en het publiek.","done_when":"Title en description noemen het aanbod en voor wie het is."},{"id":"G3","name":"Interne links hebben een beschrijvende ankertekst","max":2,"evidence":["E-PAGEBASE"],"owner":"schrijver","fix":"Vervang lees meer en klik hier door een tekst die het doel van de link beschrijft.","done_when":"Geen link met alleen lees meer, klik hier of meer info."},{"id":"G4","name":"Pagina-ervaring: snel, mobiel, toegankelijk","max":2,"evidence":["E-PAGEBASE"],"owner":"developer","fix":"Comprimeer afbeeldingen, vul alt-teksten in en meet de Core Web Vitals.","done_when":"LCP onder 2,5 seconde op mobiel en een alt-tekst bij elke inhoudelijke afbeelding.","needs":"speed"}]}],"hygiene":[{"id":"H1","name":"Structured data (JSON-LD)","evidence":["E-SCHEMA"]},{"id":"H2","name":"llms.txt","evidence":["E-LLMSTXT"]},{"id":"H3","name":"Canonical","evidence":["E-PAGEBASE"]}]};
+const EVD = {"version":"2026.11","reviewed":"2026-11-09","review_before":"2027-02-09","grades":{"feit":"Vastgelegd in documentatie van de aanbieder. Door code te controleren.","sterk":"Meerdere onafhankelijke studies of een grote gecontroleerde test wijzen dezelfde kant op.","middel":"Eén goede studie, of een effect dat alleen in een testopstelling is gemeten.","zwak":"Observatie of praktijkervaring zonder gecontroleerde test.","richtlijn":"Advies van de aanbieder zelf (bijvoorbeeld Google), zonder gepubliceerde meting.","ontkracht":"Onderzocht en geen effect gevonden. Geeft geen punten."},"items":[{"id":"E-BOTS","grade":"feit","claim":"Zoekbots bepalen of een AI-tool een pagina mag ophalen voor antwoorden: OAI-SearchBot (ChatGPT), Claude-SearchBot (Claude), PerplexityBot (Perplexity), Googlebot (AI Overviews en AI Mode), Bingbot (Copilot). Trainingsbots (GPTBot, ClaudeBot, Google-Extended, CCBot, Applebot-Extended) staan daar los van. Blokkeren van een trainingsbot is een keuze en geen fout.","caveat":"Bots die een pagina op verzoek van een gebruiker ophalen (ChatGPT-User, Perplexity-User) volgen robots.txt niet altijd. Een firewall of CDN kan een bot weren die robots.txt toelaat. Dat ziet de scan niet.","sources":[{"title":"OpenAI, Overview of OpenAI Crawlers","url":"https://developers.openai.com/api/docs/bots","year":2026},{"title":"Perplexity, crawlerdocumentatie","url":"https://docs.perplexity.ai/guides/bots","year":2026},{"title":"The Rank Masters, overzicht van AI-crawlers met verwijzing naar de documentatie van Anthropic","url":"https://www.therankmasters.com/insights/service-playbooks/ai-crawlers-robots-txt-claudebot-gptbot-perplexitybot","year":2026}],"revise_if":"Een aanbieder wijzigt de namen of het gedrag van zijn bots in de documentatie."},{"id":"E-INDEX","grade":"richtlijn","claim":"Een pagina verschijnt alleen in de AI-functies van Google als hij geïndexeerd is en in snippets mag verschijnen.","caveat":"Geldt voor Google. Andere engines publiceren geen vergelijkbare eis.","sources":[{"title":"Google, Optimizing your website for generative AI features on Google Search","url":"https://developers.google.com/search/docs/fundamentals/ai-optimization-guide","year":2026}],"revise_if":"Google wijzigt de eisen voor opname in AI-functies."},{"id":"E-RENDER","grade":"middel","claim":"Pagina's die niet goed op te halen of te ontleden zijn (JavaScript-rendering, blokkades, rommelige HTML) worden niet geciteerd. In een analyse van 949 gemiste citaties verklaarde dit 10,1%.","caveat":"Gemeten in een testopstelling (GEO-Bench), niet op live engines.","sources":[{"title":"Tian e.a., Diagnosing and Repairing Citation Failures in GEO","url":"https://arxiv.org/abs/2603.09296","year":2026}],"revise_if":"Onderzoek toont dat de grote AI-crawlers JavaScript volledig uitvoeren."},{"id":"E-RELEVANCE","grade":"sterk","claim":"Aansluiting op de vraag is de belangrijkste factor. Bij 62,2% van de gemiste citaties paste de inhoud niet bij de vraag (verkeerde intentie, ontbrekende begrippen, verouderd, verkeerde regio). In 252.000 directe vergelijkingen was onderwerpmatch een van de vier doorslaggevende factoren bij alle zes geteste modellen.","caveat":"Beide studies werken met vaste sets documenten. Ze meten niet welke pagina's een live engine ophaalt.","sources":[{"title":"Tian e.a., Diagnosing and Repairing Citation Failures in GEO","url":"https://arxiv.org/abs/2603.09296","year":2026},{"title":"Vishwakarma, What Gets Cited: Competitive GEO in AI Answer Engines (SIGIR 2026)","url":"https://arxiv.org/abs/2605.25517","year":2026}],"revise_if":"Een studie op live engines vindt geen verband tussen vraagaansluiting en citatie."},{"id":"E-PRICE","grade":"sterk","claim":"Een expliciete prijs en concrete specificaties vergroten de kans dat een bron als eerste geciteerd wordt.","caveat":"Getest met twee geanonimiseerde bronnen per vraag. Het effect van merkbekendheid is niet meegenomen.","sources":[{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026}],"revise_if":"Een studie met echte merken en meer dan twee bronnen vindt geen effect van een expliciete prijs."},{"id":"E-DEPTH","grade":"middel","claim":"Diepgang, dekking van de begrippen uit de vraag en een vergelijking met alternatieven helpen. De grootte van het effect verschilt sterk per model.","caveat":"Zelfde testopstelling als E-PRICE. Inhoudelijke armoede verklaarde in een andere studie een deel van 27,1% gemiste citaties.","sources":[{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026},{"title":"Tian e.a., Diagnosing and Repairing Citation Failures in GEO","url":"https://arxiv.org/abs/2603.09296","year":2026}],"revise_if":"Een replicatie op live engines vindt geen effect van diepgang of vergelijking."},{"id":"E-UNIQUE","grade":"richtlijn","claim":"Inhoud die iets toevoegt aan wat al bekend is, heeft de voorkeur: eigen onderzoek, eigen data, ervaring uit klantgesprekken en cases, een eigen methode of standpunt. Google noemt dit 'non-commodity content' en zet het bovenaan zijn advies voor AI-functies. Een taalmodel kan algemene kennis zelf formuleren en heeft daar geen bron voor nodig. Voor informatie die nergens anders staat, is de pagina de enige bron.","caveat":"Er is geen gepubliceerde meting van het effect op citaties. De redenering is logisch en sluit aan op onderzoek naar diepgang en inhoudelijke armoede (E-DEPTH), maar is niet los getest. Eigen inbreng telt alleen als de herkomst erbij staat. Een AI-collega mag deze inhoud nooit zelf verzinnen: de organisatie levert haar aan.","revise_if":"Een studie meet het effect van unieke informatie op citaties, of de eigen proef toont dat pagina's met eigen data niet vaker worden aanbevolen.","sources":[{"title":"Google, Optimizing your website for generative AI features on Google Search","url":"https://developers.google.com/search/docs/fundamentals/ai-optimization-guide","year":2026},{"title":"Search Engine Journal over de Google-gids","url":"https://www.searchenginejournal.com/googles-new-ai-search-guide-calls-aeo-and-geo-still-seo/","year":2026}]},{"id":"E-CONFIDENT","grade":"middel","claim":"Stellige taal met onderbouwing wint van taal vol voorbehouden. Inhoud zonder tegenstrijdigheden wint van inhoud die zichzelf tegenspreekt.","caveat":"Zelfde testopstelling als E-PRICE.","sources":[{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026}],"revise_if":"Een replicatie vindt geen effect, of een nadelig effect van stellige taal op vertrouwen."},{"id":"E-EVIDENCE","grade":"middel","claim":"Claims met bewijs winnen van claims zonder. Citaten en cijfers met bron vergrootten in de eerste GEO-studie het aandeel van een bron in het antwoord.","caveat":"De cijfers uit de eerste studie (Aggarwal e.a.) zijn gemeten met GPT-3.5 in een vaste set van vijf documenten. Een replicatie op live engines ontbreekt. Noem daarom geen percentages in adviezen.","sources":[{"title":"Aggarwal e.a., GEO: Generative Engine Optimization (KDD 2024)","url":"https://arxiv.org/abs/2311.09735","year":2024},{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026},{"title":"Critical Survey of GEO (2023-2026)","url":"https://arxiv.org/abs/2607.14035","year":2026}],"revise_if":"Een replicatie op live engines bevestigt of weerlegt het effect van citaten en cijfers."},{"id":"E-RECENCY","grade":"sterk","claim":"Een recente datum wint van een oude datum. Het effect is het grootst bij vragen waar actualiteit telt (prijzen, regels, vergelijkingen).","caveat":"Bij tijdloze uitleg is het effect kleiner.","sources":[{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026},{"title":"Critical Survey of GEO (2023-2026)","url":"https://arxiv.org/abs/2607.14035","year":2026}],"revise_if":"Onderzoek toont dat engines zichtbare datums negeren of valse datums afstraffen."},{"id":"E-ENTITY","grade":"zwak","claim":"AI-tools halen aanbevelingen vaak uit bronnen van derden. Een merk dat buiten de eigen site genoemd wordt, komt vaker in antwoorden voor.","caveat":"Observationeel en deels door de sector zelf betaald. Het toont geen oorzaak aan.","sources":[{"title":"Chen e.a., Generative Engine Optimization: How to Dominate AI Search","url":"https://arxiv.org/abs/2509.08919","year":2025}],"revise_if":"Een gecontroleerde test toont wel of geen oorzakelijk effect van vermeldingen bij derden."},{"id":"E-PAGEBASE","grade":"richtlijn","claim":"Semantische HTML, goede pagina-ervaring en weinig dubbele inhoud blijven de basis. Google behandelt optimalisatie voor AI-functies als onderdeel van SEO.","caveat":"","sources":[{"title":"Google, Optimizing your website for generative AI features on Google Search","url":"https://developers.google.com/search/docs/fundamentals/ai-optimization-guide","year":2026}],"revise_if":"Google wijzigt zijn gids voor AI-functies."},{"id":"E-FORMAT","grade":"zwak","claim":"Opmaak alleen (lijstjes, blokken van vaste lengte) heeft weinig tot geen effect op citaties. Opknippen van tekst voor AI is volgens Google niet nodig.","caveat":"Opmaak helpt de lezer wel. Daarom hoort het bij de lezer-lens, niet bij de score.","sources":[{"title":"Vishwakarma, What Gets Cited","url":"https://arxiv.org/abs/2605.25517","year":2026},{"title":"Search Engine Journal over de Google-gids","url":"https://www.searchenginejournal.com/googles-new-ai-search-guide-calls-aeo-and-geo-still-seo/","year":2026}],"revise_if":"Een studie op live engines toont een duidelijk effect van opmaak op citaties."},{"id":"E-SCHEMA","grade":"ontkracht","claim":"Het toevoegen van JSON-LD gaf geen meetbare stijging van AI-citaties: +2,4% in AI Mode, +2,2% in ChatGPT, -4,6% in AI Overviews. Google vraagt geen speciale schema voor AI-functies.","caveat":"Getest op pagina's die al geciteerd werden. Schema blijft nuttig voor gewone zoekresultaten.","sources":[{"title":"Ahrefs, schema en AI-citaties (1.885 pagina's)","url":"https://ahrefs.com/blog/schema-ai-citations/","year":2026}],"revise_if":"Een gecontroleerde studie toont een stijging van citaties na het toevoegen van schema, of een engine bevestigt het gebruik."},{"id":"E-LLMSTXT","grade":"ontkracht","claim":"llms.txt heeft geen aantoonbaar effect op AI-citaties. Google noemt zulke bestanden onnodig.","caveat":"Het bestand kost weinig en schaadt niet.","sources":[{"title":"SE Ranking, llms.txt-studie (circa 300.000 domeinen)","url":"https://seranking.com/blog/llms-txt/","year":2025}],"revise_if":"Een grote engine bevestigt dat hij llms.txt gebruikt, of een studie toont effect."},{"id":"E-FAQRICH","grade":"feit","claim":"Google toont sinds 7 mei 2026 geen FAQ-rich-results meer. FAQPage blijft een geldig schema-type.","caveat":"Een vraag-en-antwoordblok op de pagina kan nog steeds helpen om klantvragen te beantwoorden. Dat telt mee onder aansluiting op de vraag, niet als opmaak.","sources":[{"title":"Google, FAQPage structured data","url":"https://developers.google.com/search/docs/appearance/structured-data/faqpage","year":2026}],"revise_if":"Google herintroduceert FAQ-rich-results."},{"id":"E-VARIANCE","grade":"sterk","claim":"AI-antwoorden verschillen per run en per engine. Eén run zegt weinig. Reken met 7 tot 8 herhalingen per vraag en meet het aandeel runs waarin het merk voorkomt.","caveat":"","sources":[{"title":"Critical Survey of GEO (2023-2026), met Schulte e.a. 2026","url":"https://arxiv.org/abs/2607.14035","year":2026},{"title":"SparkToro en Gumshoe, AIs are highly inconsistent when recommending brands","url":"https://sparktoro.com/blog/new-research-ais-are-highly-inconsistent-when-recommending-brands-or-products-marketers-should-take-care-when-tracking-ai-visibility/","year":2026}],"revise_if":"Engines gaan vaste antwoorden geven of publiceren zelf cijfers over vermeldingen."},{"id":"E-SCORELIMIT","grade":"middel","claim":"Een paginascore zonder meting bij een engine is geen kans op citatie. Het bewijs dat citaties klikken of omzet voorspellen is zeer zwak.","caveat":"","sources":[{"title":"Scoring With the Engine: Limits of Engine-Agnostic GEO Scores","url":"https://arxiv.org/abs/2609.22655","year":2026},{"title":"Critical Survey of GEO (2023-2026)","url":"https://arxiv.org/abs/2607.14035","year":2026}],"revise_if":"Eigen proef: de paginascore voorspelt aanbeveling op 20 tot 30 pagina's van drie merken."},{"id":"E-TARGETED","grade":"middel","claim":"Gerichte reparaties na een diagnose werken beter dan generieke herschrijfregels. De beste aanpak wijzigde ongeveer 5% van de tekst. Generieke regels schaadden gespecialiseerde pagina's.","caveat":"Testopstelling.","sources":[{"title":"Tian e.a., Diagnosing and Repairing Citation Failures in GEO","url":"https://arxiv.org/abs/2603.09296","year":2026}],"revise_if":"Een studie op live engines toont dat volledig herschrijven beter werkt dan gericht repareren."},{"id":"E-BUYER","grade":"zwak","claim":"Een zinvolle audit begint bij de koper: de aanleiding, de keuzecriteria en de vragen in eigen woorden. Vragen die uit de eigen website zijn afgeleid, meten niet of de inhoud bij het publiek past.","caveat":"Praktijkonderzoek van een bureau onder 100 audits.","sources":[{"title":"Orbit Media, We Audited 100 AI Visibility Audits","url":"https://www.orbitmedia.com/blog/ai-visibility-audits","year":2026}],"revise_if":"Eigen proef: vragen uit klantgesprekken leveren dezelfde uitkomst als vragen afgeleid van de website."}]};
+const EV = Object.fromEntries(EVD.items.map(e => [e.id, e]));
+const W = { feit: 1, sterk: 1, middel: 0.7, richtlijn: 0.5, zwak: 0.4, ontkracht: 0 };
+const OWNER = { schrijver: "Martine (tekst)", developer: "Webbouwer", mens: "Marketeer" };
+
+/* ---------- Voorbeeld: koperskennis uit het Marketingbrein ---------- */
+const BUYER = {
+  positioning: { k: "K3", text: "Voorbeeldmerk regelt fietslease voor werkgevers met 20 tot 500 medewerkers, in één maandbedrag per fiets." },
+  audiences: [
+    { k: "K7", name: "HR-manager in het mkb", trigger: "Medewerkers vragen om een leasefiets en de directie wil geen extra administratie.", criteria: ["Vaste kosten per maand", "Weinig werk voor HR", "Duidelijk wat er gebeurt bij uitdiensttreding"] },
+    { k: "K8", name: "Medewerker die een e-bike overweegt", trigger: "De woon-werkafstand is te ver voor een gewone fiets.", criteria: ["Netto kosten per maand", "Vrije keuze van merk"] }
+  ],
+  offers: [{ k: "K14", text: "Lease e-bike: vanaf € 59 per maand, looptijd 36 maanden, inclusief onderhoud en verzekering." }, { k: "K15", text: "Werkgeversportaal: aanvragen, goedkeuren en salarisverwerking op één plek. Invoering in 10 werkdagen." }],
+  questions: [
+    { k: "K21", a: 0, text: "Wat kost een leasefiets per maand voor de werkgever?", source: "klantgesprek" },
+    { k: "K22", a: 0, text: "Wat is inbegrepen bij een leasefiets?", source: "verkoopdata" },
+    { k: "K23", a: 0, text: "Wat gebeurt er met de fiets als een medewerker uit dienst gaat?", source: "klantgesprek" },
+    { k: "K24", a: 0, text: "Hoe lang duurt het om fietslease in te voeren?", source: "aanname" },
+    { k: "K25", a: 0, text: "Welke aanbieder van fietslease past bij een mkb-bedrijf?", source: "publieksonderzoek" }
+  ],
+  competitors: { k: "K30", names: ["Concurrent A", "Concurrent B", "Concurrent C"] },
+  gaps: ["Klantcases met cijfers", "Expert met naam en functie"]
+};
+const counted = q => q.source !== "aanname";
+function situationPrompt(q) {
+  const a = BUYER.audiences[q.a];
+  return `Ik ben ${a.name.toLowerCase()}. ${a.trigger} Voor mij telt: ${a.criteria.join(", ").toLowerCase()}. ${q.text}`;
+}
+
+/* ---------- Voorbeeld: oordeel per criterium ---------- */
+// Eigen inbreng: komt uit het brein (onderzoek, cases, klantgesprekken). Een AI-collega verzint dit nooit.
+const GATES = SC.gates.map(g => ({ ...g, ok: true }));
+const V = { // verdict, bevinding, citaat, advies-titel, waar, nu, voorstel, inspanning
+  A1: ["deels", "3 van 5 klantvragen beantwoord. Uitdienstregeling (K23) en invoertijd (K24) ontbreken.", "Ook bij uitdiensttreding denken wij met je mee.", "Beantwoord onder een eigen kop wat er gebeurt bij uitdiensttreding", "Nieuwe kop na 'Zo werkt het'", "Ook bij uitdiensttreding denken wij met je mee.", "Gaat een medewerker uit dienst, dan neemt Voorbeeldmerk de fiets terug of neemt de medewerker het contract over. [invullen: kosten bij tussentijds stoppen]", "midden"],
+  A2: ["voldoet", "Fietslease en werkgever staan in de h1 en de eerste alinea.", "Fietslease voor werkgevers"],
+  A3: ["deels", "De pagina richt zich op werkgevers, maar noemt de bedrijfsgrootte uit K3 niet.", "Voor elke werkgever", "Noem in de eerste alinea voor welke werkgevers het aanbod is", "Eerste alinea", "Voor elke werkgever die zijn mensen in beweging wil krijgen.", "Voor werkgevers met 20 tot 500 medewerkers die fietslease willen aanbieden zonder extra administratie.", "laag"],
+  A4: ["niet", "Geen van de drie keuzecriteria van de HR-manager (K7) komt terug met een concreet antwoord.", "", "Behandel de drie keuzecriteria van de HR-manager, elk met een feit", "Nieuwe sectie 'Wat je als werkgever wilt weten'", "", "Vaste kosten: één bedrag per fiets per maand, vanaf € 59.\nWerk voor HR: aanvragen en salarisverwerking lopen via het portaal. [invullen: uren per maand]\nUitdiensttreding: zie het antwoord hierboven.", "midden"],
+  A5: ["voldoet", "Nederlands, euro, werkgebied Nederland.", ""],
+  B1: ["niet", "Het brein noemt vanaf € 59 per maand (K14). De pagina noemt geen bedrag.", "Een leasefiets voor een scherp tarief.", "Zet onder de kop 'Tarieven' het bedrag per maand", "Kop 'Tarieven'", "Een leasefiets voor een scherp tarief.", "Een lease e-bike kost bij Voorbeeldmerk vanaf € 59 per maand, inclusief onderhoud en verzekering.", "laag"],
+  B2: ["deels", "Looptijd van 36 maanden staat er. Invoering in 10 werkdagen (K15) ontbreekt.", "Looptijd: 36 maanden", "Voeg de invoertijd toe als feitelijke zin", "Sectie 'Zo werkt het'", "Snel geregeld.", "Het werkgeversportaal staat binnen 10 werkdagen klaar.", "laag"],
+  B3: ["deels", "410 woorden. Het proces voor de werkgever is summier.", "", "Werk het proces voor de werkgever uit in stappen met doorlooptijd", "Sectie 'Zo werkt het'", "", "1. Je tekent de overeenkomst. 2. Binnen 10 werkdagen staat het portaal klaar. 3. Medewerkers kiezen een fiets. [invullen: levertijd]", "midden"],
+  B4: ["niet", "Geen vergelijking met kopen of met een andere regeling.", "", "Voeg een korte vergelijking toe tussen leasen en zelf kopen", "Nieuwe sectie voor de veelgestelde vragen", "", "[invullen: drie verschillen tussen leasen en kopen, met bedragen]", "midden"],
+  U1: ["niet", "Alle cijfers op de pagina zijn algemeen bekend. Er staat geen uitkomst uit eigen data.", "", "Voeg onder 'Waarom leasen' één uitkomst uit eigen klantdata toe", "Kop 'Waarom leasen'", "", "[invullen: bijvoorbeeld het aandeel medewerkers dat na een jaar nog wekelijks naar het werk fietst, uit eigen klantdata, met aantal werkgevers en periode]", "midden"],
+  U2: ["deels", "Eén quote van een klant, zonder aanleiding, aanpak of uitkomst.", "Top geregeld! - Mark", "Werk de quote uit tot een korte case", "Sectie 'Ervaringen'", "Top geregeld! - Mark", "[invullen: werkgever, aantal medewerkers, aanleiding, wat er in de eerste maand gebeurde en de uitkomst. Bron: klantgesprek]", "midden"],
+  U3: ["deels", "Eén maandbedrag per fiets is een eigen keuze, maar de pagina legt niet uit waarom.", "Alles in één maandbedrag", "Leg uit waarom Voorbeeldmerk met één maandbedrag werkt", "Onder de eerste alinea", "Alles in één maandbedrag.", "Voorbeeldmerk rekent één bedrag per fiets per maand, omdat [invullen: de reden uit klantgesprekken, bijvoorbeeld wat HR-managers zeggen over losse facturen].", "laag"],
+  C1: ["deels", "Twee alinea's openen met een terugverwijzing.", "Daarom kiezen steeds meer bedrijven hiervoor.", "Herschrijf de openingszin onder 'Waarom leasen'", "Kop 'Waarom leasen'", "Daarom kiezen steeds meer bedrijven hiervoor.", "Werkgevers kiezen voor fietslease omdat de kosten per maand vastliggen.", "laag"],
+  C2: ["deels", "Zeven voorbehouden zonder onderbouwing.", "Dit kan mogelijk voordelig zijn.", "Vervang het voorbehoud onder 'Voordelen' door een feit", "Kop 'Voordelen'", "Dit kan mogelijk voordelig zijn.", "[invullen: netto voordeel per maand voor een medewerker, met rekenvoorbeeld]", "laag"],
+  C3: ["voldoet", "Geen tegenstrijdigheden op de pagina of met het brein.", ""],
+  D1: ["nvt", "Niet te beoordelen. Het brein mist klantcases met cijfers.", ""],
+  D2: ["deels", "Eén quote, zonder functie en organisatie.", "Top geregeld! - Mark", "Vul de quote aan met naam, functie en organisatie", "Sectie 'Ervaringen'", "Top geregeld! - Mark", "[invullen: quote met volledige naam, functie en organisatie, met toestemming]", "laag"],
+  D3: ["deels", "Eén claim zonder bron.", "Meest gekozen in het mkb", "Onderbouw of schrap de claim 'Meest gekozen in het mkb'", "Eerste scherm, onder de h1", "Meest gekozen in het mkb", "[invullen: bron en jaar] of schrappen", "laag"],
+  E1: ["niet", "Geen datum op de pagina.", "", "Toon de datum van de laatste wijziging onder de h1", "Onder de h1", "", "Bijgewerkt op [invullen: dag, maand, jaar]", "laag"],
+  E2: ["voldoet", "Prijspeil en regeling kloppen met het brein.", ""],
+  F1: ["voldoet", "Bedrijfsnaam, vestigingsplaats en KvK staan in de footer.", "Voorbeeldmerk Fietslease B.V., Utrecht"],
+  F2: ["niet", "Geen auteur of verantwoordelijke. Het brein mist een expert.", "", "Toon wie verantwoordelijk is voor de inhoud", "Onder de laatste alinea", "", "[invullen: naam en functie]", "laag"],
+  F3: ["nvt", "Vermeldingen buiten de site staan onder AI-antwoorden, bij de bronnen.", ""],
+  G1: ["voldoet", "1 h1, 6 koppen, geen niveau overgeslagen.", "Fietslease voor werkgevers"],
+  G2: ["voldoet", "Title noemt aanbod en publiek.", "Fietslease voor werkgevers | Voorbeeldmerk"],
+  G3: ["deels", "Twee vage ankerteksten.", "lees meer", "Vervang 'lees meer' door een beschrijvende linktekst", "Sectie 'Zo werkt het'", "Lees meer", "Bekijk alle stappen voor werkgevers", "laag"],
+  G4: ["nvt", "Laadsnelheid is in deze scan niet gemeten.", ""]
+};
+const RESULT = SC.dimensions.flatMap(d => d.criteria.map(c => ({ id: c.id, verdict: V[c.id][0] })));
+const LENS = [["Herkenning", "deels", "De opening spreekt alle werkgevers aan, niet de HR-manager met haar aanleiding."], ["Belofte", "voldoet", "Eén maandbedrag staat in de eerste zin."], ["Bewijs", "niet", "Geen case, één onvolledige quote."], ["Eén actie", "deels", "Twee knoppen van gelijk gewicht: offerte en brochure."], ["Eenvoud (B1)", "voldoet", "Korte zinnen, weinig jargon."]];
+const HYG = [["Structured data (JSON-LD)", "Aanwezig: Organization, Product.", "E-SCHEMA"], ["llms.txt", "Niet aanwezig. Geen actie nodig.", "E-LLMSTXT"], ["Canonical", "Aanwezig.", "E-PAGEBASE"]];
+
+/* ---------- Voorbeeld: zichtbaarheidsmeting ---------- */
+const ENGINES = ["ChatGPT", "Google AI Mode", "Perplexity", "Claude"];
+const RUNS = 8;
+// Met zoekfunctie. Per engine: [aanbevolen juist publiek, aanbevolen ander publiek, neutraal genoemd, afgeraden]; rest = niet genoemd.
+const M = {
+  K21: [[1,0,1,1],[0,0,1,0],[2,0,1,1],[0,0,0,0]],
+  K22: [[3,0,2,0],[2,0,1,0],[4,0,1,0],[1,0,1,0]],
+  K23: [[0,0,0,2],[0,0,0,1],[0,0,1,2],[0,0,0,0]],
+  K24: [[0,0,1,0],[0,0,1,0],[0,0,0,0],[0,0,0,0]],
+  K25: [[2,1,1,0],[1,1,1,0],[3,0,2,0],[1,0,1,0]]
+};
+const MEMORY = [5, 4, 0, 2]; // zonder zoeken: runs van 8 waarin het model het merk kent (Perplexity zoekt altijd)
+const ASSOC = [["Eén maandbedrag per fiets", "K3", "gewenst", 14], ["Inclusief onderhoud en verzekering", "K14", "gewenst", 9], ["Invoering in 10 werkdagen", "K15", "gewenst", 0], ["Onduidelijke kosten bij uitdiensttreding", "", "ongewenst", 6], ["Vooral voor grote bedrijven", "", "ongewenst", 4]];
+const SOURCES = [["voorbeeldmerk.example", "eigen", 11], ["Vergelijkingssite fietslease", "te beïnvloeden", 19], ["Vakblad HR", "te beïnvloeden", 7], ["Blog van Concurrent A", "niet te beïnvloeden", 12], ["Forumdraad over uitdiensttreding", "niet te beïnvloeden", 9]];
+const TREND = [["September", 9, 31, ""], ["Oktober", 10, 33, ""], ["November", 16, 27, "Modelwissel bij ChatGPT"]];
+const DISSUADE = [["ChatGPT, Perplexity", "K23", "Kosten bij uitdiensttreding zijn onduidelijk.", "Forumdraad over uitdiensttreding", "Raakt het publiek uit K7. Los op met advies A1 en lever het antwoord aan bij de vergelijkingssite."], ["Perplexity", "K21", "Te duur voor bedrijven onder 20 medewerkers.", "Vergelijkingssite fietslease", "Past bij de positionering (K3). Geen actie."]];
+const CHAIN4 = { sessions: 212, brandSearch: "+8%", requests: 9 };
+
+/* ---------- Rekenregels, gelijk aan lib/geo/analysis/scorecard.ts ---------- */
+const VAL = SC.verdict_values;
+function computeScore() {
+  const by = Object.fromEntries(RESULT.map(r => [r.id, r.verdict]));
+  let got = 0, assessed = 0;
+  const rows = SC.dimensions.map(d => {
+    let g = 0, a = 0;
+    d.criteria.forEach(c => { const v = by[c.id]; if (v !== "nvt") { g += c.max * VAL[v]; a += c.max; } });
+    got += g; assessed += a;
+    return { d, g, a, max: d.criteria.reduce((s, c) => s + c.max, 0) };
+  });
+  const overall = assessed ? got / assessed : 0;
+  const dims = rows.map(r => ({ ...r, score: Math.round(r.max * (r.a ? r.g / r.a : overall)) }));
+  const raw = dims.reduce((s, r) => s + r.score, 0);
+  const blocked = GATES.some(g => !g.ok);
+  return { score: blocked ? Math.min(raw, SC.blocked_cap) : raw, raw, blocked, dims, assessed };
+}
+function actions() {
+  const out = [];
+  GATES.filter(g => !g.ok).forEach(g => out.push({ id: g.id, title: `Los op: ${g.name.toLowerCase()}`, why: "Poortwachter faalt. De score is afgetopt.", where: "", before: "", after: "", owner: OWNER[g.owner], effort: "laag", done: g.done_when, points: 0, ev: EV[g.evidence[0]], prio: 1e3 }));
+  SC.dimensions.forEach(d => d.criteria.forEach(c => {
+    const r = RESULT.find(x => x.id === c.id);
+    if (r.verdict !== "niet" && r.verdict !== "deels") return;
+    const v = V[c.id], points = Math.round(c.max * (1 - VAL[r.verdict]) * 10) / 10;
+    const weight = Math.max(...c.evidence.map(id => W[EV[id].grade]));
+    out.push({ id: c.id, title: v[3] || c.fix, why: v[1], where: v[4] || "", before: v[5] || "", after: v[6] || "", owner: OWNER[c.owner], effort: v[7] || "midden", done: c.done_when, points, ev: EV[c.evidence[0]], prio: points * weight });
+  }));
+  return out.sort((a, b) => b.prio - a.prio);
+}
+function measure() {
+  const qs = BUYER.questions.filter(counted);
+  const tot = [0, 0, 0, 0];
+  qs.forEach(q => M[q.k].forEach(e => e.forEach((n, i) => tot[i] += n)));
+  const runs = qs.length * ENGINES.length * RUNS;
+  const named = tot[0] + tot[1] + tot[2] + tot[3];
+  return { qs, tot, runs, named, rec: Math.round(tot[0] / runs * 100), namedPct: Math.round(named / runs * 100) };
+}
+
+/* ---------- Weergave ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const fmt = n => String(Math.round(n * 10) / 10).replace(".", ",");
+const kk = k => k ? `<span class="k">${k}</span>` : "";
+const evb = e => `<span class="ev ${e.grade}" title="${esc(e.claim)}">${e.id} · ${e.grade}</span>`;
+const TABS = [["koper", "1 Koper"], ["pagina", "2 Pagina"], ["antwoorden", "3 AI-antwoorden"], ["keten", "4 Keten"], ["adviezen", "5 Adviezen"], ["aannames", "Aannames"], ["voorstel", "Voorstel voor het brein"]];
+
+function viewKoper() {
+  return `<div class="stack">
+    <p class="muted">De analyse begint bij de koper. Alle kennis hieronder komt uit goedgekeurde kennis in het Marketingbrein, met K-nummer. Kennis die een AI uit de website heeft afgeleid, gebruikt de module niet.</p>
+    <section class="card stack"><h2>Positionering ${kk(BUYER.positioning.k)}</h2><p>${esc(BUYER.positioning.text)}</p></section>
+    <div class="grid2">${BUYER.audiences.map(a => `<section class="card stack"><h2>${esc(a.name)} ${kk(a.k)}</h2>
+      <div><span class="lbl muted">Aanleiding</span>${esc(a.trigger)}</div>
+      <div><span class="lbl muted">Keuzecriteria</span><ul class="plain">${a.criteria.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div></section>`).join("")}</div>
+    <section class="card stack"><h2>Klantvragen en de prompts die de meting stelt</h2>
+      <p class="small muted">Elke vraag heeft een herkomst. Een vraag met herkomst "aanname" telt niet mee in het aanbevelingscijfer, tot iemand hem toetst bij kopers. De prompt combineert publiek, aanleiding, keuzecriteria en vraag, zoals een koper het aan een AI-tool vertelt.</p>
+      ${BUYER.questions.map(q => `<div class="stack" style="gap:6px;border-top:1px solid var(--line);padding-top:10px">
+        <div class="row">${kk(q.k)}<strong>${esc(q.text)}</strong><span class="pill ${counted(q) ? "good" : "warn"}">herkomst: ${q.source}</span>${counted(q) ? "" : `<span class="small muted">telt niet mee</span>`}</div>
+        <div class="prompt">${esc(situationPrompt(q))}</div></div>`).join("")}</section>
+    <section class="card stack"><h2>Wat ontbreekt in het brein</h2>
+      ${BUYER.gaps.map(g => `<div><span class="pill warn">Ontbreekt</span> ${esc(g)}</div>`).join("")}
+      <p class="small muted">Criteria die deze kennis nodig hebben, krijgen het oordeel "niet te beoordelen".</p></section>
+  </div>`;
+}
+function viewPagina() {
+  const s = computeScore();
+  return `<div class="stack">
+    <section class="card stack"><h2>Poortwachters</h2><p class="small muted">Door code gemeten. Geen punten. Faalt er één, dan is de score hooguit ${SC.blocked_cap}. Zet een vinkje uit om het effect te zien.</p>
+      <div class="gates">${GATES.map((g, i) => `<label class="gate ${g.ok ? "" : "fail"}"><input type="checkbox" id="gate-${g.id}" data-gate="${i}" ${g.ok ? "checked" : ""}>
+        <span><strong>${g.id}. ${esc(g.name)}</strong><br><span class="muted small">Klaar als: ${esc(g.done_when)}</span></span></label>`).join("")}</div></section>
+    <p class="muted">Het taalmodel geeft per criterium een oordeel met een citaat van de pagina. De code rekent de punten uit. Beoordeeld over ${s.assessed} van 100 punten. Pas een oordeel aan om het effect te zien.</p>
+    ${s.dims.map((r, di) => `<section class="dim">
+      <div class="dimhead"><h3>${esc(r.d.label)}</h3><div class="bar"><i style="width:${r.max ? r.score / r.max * 100 : 0}%"></i></div><div class="n">${r.score}/${r.max}</div></div>
+      ${r.d.criteria.map((c, ci) => { const v = V[c.id], cur = RESULT.find(x => x.id === c.id).verdict; return `<div class="crit">
+        <div><strong>${c.id}</strong> ${esc(c.name)} <span class="muted small">· ${c.max} punten</span>
+          <p class="small muted">${esc(v[1])}${v[2] ? ` Citaat: "${esc(v[2])}"` : ""}</p>
+          <div class="meta">${c.evidence.map(id => evb(EV[id])).join("")}<span class="small muted">${OWNER[c.owner]}</span></div></div>
+        <div><select id="r-${c.id}" data-crit="${c.id}" aria-label="Oordeel ${c.id}">${[["voldoet", "Voldoet"], ["deels", "Deels"], ["niet", "Voldoet niet"], ["nvt", "Niet te beoordelen"]].map(o => `<option value="${o[0]}" ${cur === o[0] ? "selected" : ""}>${o[1]}</option>`).join("")}</select></div></div>`; }).join("")}</section>`).join("")}
+    <div class="grid2">
+      <section class="card stack"><h2>Lezer-lens</h2><p class="small muted">Beoordeeld door Martine. Telt niet mee in de paginascore: dit gaat over de bezoeker en de conversie.</p>
+        ${LENS.map(l => `<div><span class="pill ${l[1] === "voldoet" ? "good" : l[1] === "deels" ? "warn" : "bad"}">${l[1]}</span> <strong>${l[0]}</strong><br><span class="small muted">${esc(l[2])}</span></div>`).join("")}</section>
+      <section class="card stack"><h2>Gemeld, telt niet mee</h2>
+        ${HYG.map(h => `<div><strong>${h[0]}</strong> ${evb(EV[h[2]])}<br><span class="small muted">${esc(h[1])} ${esc(EV[h[2]].claim)}</span></div>`).join("")}</section>
+    </div></div>`;
+}
+function viewAntwoorden() {
+  const m = measure(), cls = v => v === 0 ? "h0" : v / RUNS < 0.5 ? "h1" : "h2";
+  const parts = [["Aanbevolen aan het juiste publiek", m.tot[0], "var(--good)"], ["Aanbevolen aan een ander publiek", m.tot[1], "var(--accent)"], ["Neutraal genoemd", m.tot[2], "var(--muted)"], ["Afgeraden", m.tot[3], "var(--bad)"], ["Niet genoemd", m.runs - m.named, "var(--line)"]];
+  return `<div class="stack">
+    <section class="card stack"><h2>Meetcondities</h2>
+      <p class="small">Vast panel van ${m.qs.length} getoetste vragen · ${ENGINES.length} AI-tools · ${RUNS} runs per combinatie · nieuwe sessie zonder geheugen · taal Nederlands, locatie Nederland · modelversie per run vastgelegd. Losse runs worden niet gerapporteerd, alleen aandelen en trends.</p></section>
+    <section class="card stack"><h2>Hoe komt het merk voor in ${m.runs} antwoorden met zoekfunctie</h2>
+      <div class="seg">${parts.map(p => `<i style="width:${p[1] / m.runs * 100}%;background:${p[2]}"></i>`).join("")}</div>
+      <div class="row small">${parts.map(p => `<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p[2]}"></span> ${p[0]}: <strong>${p[1]}</strong></span>`).join("")}</div>
+      <p class="small muted">Genoemd is geen winst op zich. In ${m.tot[3]} antwoorden raadt de AI-tool het merk af.</p></section>
+    <section class="card stack"><h2>Aanbevolen aan het juiste publiek, per vraag en AI-tool</h2>
+      <div class="tablewrap"><table><thead><tr><th>Klantvraag</th>${ENGINES.map(e => `<th style="text-align:center">${e}</th>`).join("")}</tr></thead>
+      <tbody>${BUYER.questions.map(q => `<tr><td>${kk(q.k)} ${esc(q.text)}${counted(q) ? "" : ` <span class="pill warn">aanname, telt niet mee</span>`}</td>${M[q.k].map(e => `<td class="cell ${cls(e[0])}">${e[0]}/${RUNS}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>
+    <div class="grid2">
+      <section class="card stack"><h2>Waarom raadt AI het merk af</h2>
+        ${DISSUADE.map(d => `<div><strong>"${esc(d[2])}"</strong><br><span class="small muted">${d[0]} bij ${kk(d[1])} · bron: ${esc(d[3])}</span><br><span class="small">${esc(d[4])}</span></div>`).join("")}
+        <p class="small muted">Of een afrader een probleem is, hangt af van het publiek in het brein. Een taalmodel doet de indeling. Een mens controleert een steekproef.</p></section>
+      <section class="card stack"><h2>Genoemd om de juiste redenen</h2>
+        <p class="small muted">Redenen die AI bij het merk noemt, naast de gewenste associaties uit het brein. Aantal van ${m.runs} antwoorden.</p>
+        ${ASSOC.map(a => `<div class="row" style="flex-wrap:nowrap"><span style="flex:1" class="small">${esc(a[0])} ${kk(a[1])}</span><span class="pill ${a[2] === "ongewenst" ? "bad" : a[3] ? "good" : "warn"}">${a[2] === "ongewenst" ? "ongewenst" : a[3] ? "aanwezig" : "afwezig"}</span><span class="n small" style="width:28px">${a[3]}</span></div>`).join("")}
+        <p class="small muted">Een gat blijft niet leeg. Waar het merk niets zegt, vullen forums en concurrenten het in.</p></section>
+    </div>
+    <div class="grid2">
+      <section class="card stack"><h2>Bronnen die AI aanhaalt</h2>
+        <div class="tablewrap"><table><thead><tr><th>Bron</th><th>Soort</th><th style="text-align:right">Citaties</th></tr></thead><tbody>
+        ${SOURCES.map(s => `<tr><td>${esc(s[0])}</td><td><span class="pill ${s[1] === "eigen" ? "good" : s[1] === "te beïnvloeden" ? "neutral" : "warn"}">${s[1]}</span></td><td class="n">${s[2]}</td></tr>`).join("")}</tbody></table></div>
+        <p class="small muted">Dit vult criterium F3 in. De vergelijkingssite is de meest aangehaalde bron die het merk kan beïnvloeden.</p></section>
+      <section class="card stack"><h2>Geheugen en opzoeken</h2>
+        <p class="small muted">Zonder zoekfunctie antwoordt een model uit trainingsgeheugen. Dat verandert in maanden tot jaren. Paginawijzigingen werken op antwoorden met zoekfunctie.</p>
+        <div class="tablewrap"><table><thead><tr><th>AI-tool</th><th style="text-align:center">Kent het merk, zonder zoeken</th></tr></thead><tbody>
+        ${ENGINES.map((e, i) => `<tr><td>${e}</td><td class="cell">${e === "Perplexity" ? "zoekt altijd" : `${MEMORY[i]}/${RUNS}`}</td></tr>`).join("")}</tbody></table></div></section>
+    </div>
+    <section class="card stack"><h2>Trend met controlegroep</h2>
+      <div class="tablewrap"><table><thead><tr><th>Maand</th><th style="text-align:right">Merk aanbevolen</th><th style="text-align:right">Concurrenten gemiddeld ${kk(BUYER.competitors.k)}</th><th>Opmerking</th></tr></thead><tbody>
+      ${TREND.map(t => `<tr><td>${t[0]}</td><td class="n">${t[1]}%</td><td class="n">${t[2]}%</td><td class="small">${t[3] ? `<span class="pill warn">${t[3]}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted">In november stijgt het merk en dalen de concurrenten, in dezelfde maand als een modelwissel. Schrijf de stijging dus nog niet toe aan de pagina. Wacht de volgende meting af.</p></section>
+  </div>`;
+}
+function viewKeten() {
+  const s = computeScore(), m = measure();
+  const steps = [["1 Geschikt", `${s.score}/100`, "Paginascore", "Charlie"], ["2 Genoemd", `${m.namedPct}%`, `${m.named} van ${m.runs} antwoorden`, "Charlie"], ["3 Aanbevolen", `${m.rec}%`, "aan het juiste publiek", "Charlie"], ["4 Doorgeklikt", CHAIN4.sessions, `sessies uit AI-tools per maand · merkzoekopdrachten ${CHAIN4.brandSearch}`, "Brian (GA4, Search Console)"], ["5 Geconverteerd", CHAIN4.requests, "aanvragen uit die sessies", "Brian (GA4)"]];
+  const gap = m.namedPct - m.rec;
+  return `<div class="stack">
+    <p class="muted">Vijf treden, elk apart gemeten. Het rapport toont waar de keten breekt.</p>
+    <div class="chain">${steps.map((x, i) => `<div class="step ${i === 2 && gap > 15 ? "break" : ""}"><span class="small muted">${x[0]}</span><div class="num-big" style="font-size:32px">${x[1]}</div><p class="small">${x[2]}</p><p class="small muted">${x[3]}</p></div>`).join("")}</div>
+    <section class="card stack"><h2>Wat dit zegt</h2><ul class="plain">
+      <li>${gap > 15 ? `Het merk wordt in ${m.namedPct}% van de antwoorden genoemd en in ${m.rec}% aanbevolen. De keten breekt tussen genoemd en aanbevolen. De oorzaak staat onder AI-antwoorden: ontbrekende prijs en de uitdienstregeling.` : `Genoemd en aanbevolen liggen dicht bij elkaar.`}</li>
+      <li>Doorkliks zijn een ondergrens. Veel antwoorden leiden tot geen klik, en apps geven vaak geen verwijzer door. Merkzoekopdrachten en een veld "hoe heb je ons gevonden" vullen dat aan.</li>
+      <li>Een hoge paginascore is geen belofte voor trede 2 tot en met 5. Dat verband toetst NXTLI in een eigen proef (zie Aannames, E-SCORELIMIT).</li></ul></section>
+  </div>`;
+}
+function viewAdviezen() {
+  const list = actions();
+  const extra = [["Lever prijs en uitdienstregeling aan bij de vergelijkingssite", "De vergelijkingssite is de meest aangehaalde bron die je kunt beïnvloeden (19 citaties) en noemt het merk te duur zonder de voorwaarden.", "Marketeer", "De vergelijkingssite toont het bedrag per maand en de uitdienstregeling.", "E-ENTITY"], ["Leg in het brein de aanleiding en keuzecriteria van de medewerker vast op basis van klantgesprekken", "Vraag K24 heeft herkomst aanname en telt niet mee in de meting.", "Marketeer", "K24 heeft een herkomst uit klantgesprekken of vervalt.", "E-BUYER"]];
+  return `<div class="stack">
+    <p class="muted">Elk advies heeft dezelfde onderdelen, zodat een collega of AI-collega het direct uitvoert en controleert. Volgorde: blokkades eerst, daarna punten maal bewijskracht.</p>
+    <section class="card"><h2 style="margin-bottom:12px">Op de pagina</h2>${list.map((a, i) => `<div class="adv"><div class="rank">${i + 1}</div><div class="stack" style="gap:6px">
+      <strong>${esc(a.title)}</strong>
+      <p class="small">${esc(a.why)}</p>
+      ${a.where ? `<p class="small"><strong>Waar:</strong> ${esc(a.where)}</p>` : ""}
+      ${a.before || a.after ? `<div class="ba">${a.before ? `<div class="b"><b>Nu</b>${esc(a.before)}</div>` : ""}${a.after ? `<div class="a"><b>Voorstel</b>${esc(a.after)}</div>` : ""}</div>` : ""}
+      <p class="small"><strong>Klaar als:</strong> ${esc(a.done)}</p>
+      <div class="row small"><span class="pill neutral">${a.id} · ${a.points ? `${fmt(a.points)} punten` : "blokkade"}</span><span class="muted">${a.owner} · inspanning ${a.effort}</span>${evb(a.ev)}<span class="muted">${esc(a.ev.sources[0].title)}</span></div>
+    </div></div>`).join("")}</section>
+    <section class="card"><h2 style="margin-bottom:12px">Buiten de pagina, uit de meting</h2>${extra.map((x, i) => `<div class="adv"><div class="rank">${String.fromCharCode(65 + i)}</div><div class="stack" style="gap:6px"><strong>${esc(x[0])}</strong><p class="small">${esc(x[1])}</p><p class="small"><strong>Klaar als:</strong> ${esc(x[3])}</p><div class="row small"><span class="muted">${x[2]}</span>${evb(EV[x[4]])}</div></div></div>`).join("")}</section>
+  </div>`;
+}
+function viewAannames() {
+  return `<div class="stack">
+    <section class="card stack"><h2>Wat dit rapport wel en niet meet</h2><ul class="plain">
+      <li>De paginascore meet geschiktheid van één pagina. Hij is geen kans op vermelding.</li>
+      <li>Het aanbevelingscijfer is een steekproef onder vaste condities. API's van AI-tools wijken af van wat een ingelogde gebruiker ziet.</li>
+      <li>Niet gemeten: laadsnelheid, blokkades door firewall of CDN, aantal mensen dat een vraag stelt.</li>
+      <li>Kennisbank ${EVD.version}, herzien op ${EVD.reviewed}. Volgende herziening voor ${EVD.review_before}.</li></ul></section>
+    <section class="card stack"><h2>Aannamesregister</h2><p class="small muted">Elke aanname achter de criteria, met bewijskracht, voorbehoud, bron en de uitkomst waarbij NXTLI de aanname herziet.</p>
+      <div class="tablewrap"><table><thead><tr><th>Aanname</th><th>Voorbehoud</th><th>Herzien als</th></tr></thead><tbody>
+      ${EVD.items.map(e => `<tr><td>${evb(e)}<br>${esc(e.claim)}<br><span class="small">${e.sources.map(s => `<a href="${esc(s.url)}">${esc(s.title)}</a>`).join(" · ")}</span></td><td class="small muted">${esc(e.caveat)}</td><td class="small">${esc(e.revise_if)}</td></tr>`).join("")}</tbody></table></div></section>
+  </div>`;
+}
+function proposal() {
+  const s = computeScore(), m = measure();
+  return { module: "geo-profiel", status: "wacht op goedkeuring", scorecardVersie: SC.version, kennisbank: EVD.version,
+    pagina: "voorbeeldmerk.example/leasefiets-werkgevers",
+    paginascore: { score: s.score, geblokkeerd: s.blocked, beoordeeldePunten: s.assessed, oordelen: RESULT },
+    meting: { condities: { runs: RUNS, aiTools: ENGINES, sessie: "nieuw, zonder geheugen", taal: "nl", locatie: "NL" }, panel: m.qs.map(q => q.k), nietGeteld: BUYER.questions.filter(q => !counted(q)).map(q => q.k), aanbevolenJuistPubliek: m.rec, genoemd: m.namedPct, afgeraden: m.tot[3] },
+    associaties: ASSOC.map(a => ({ tekst: a[0], kennis: a[1] || null, soort: a[2], antwoorden: a[3] })),
+    openAdviezen: actions().map(a => ({ criterium: a.id, actie: a.title, eigenaar: a.owner, klaarAls: a.done })),
+    gatenInBrein: [...BUYER.gaps, "Herkomst van K24 is een aanname"] };
+}
+function viewVoorstel() {
+  return `<div class="stack"><p class="muted">De module schrijft niets rechtstreeks in het brein. Een mens keurt dit voorstel goed. Daarna krijgt het GEO-profiel een K-nummer en dient het als nulmeting voor de volgende maand.</p>
+    <section class="card stack"><div class="row"><h2 style="flex:1">GEO-profiel</h2><button id="copy" type="button">Kopieer JSON</button></div><pre id="json">${esc(JSON.stringify(proposal(), null, 2))}</pre></section></div>`;
+}
+const VIEWS = { koper: viewKoper, pagina: viewPagina, antwoorden: viewAntwoorden, keten: viewKeten, adviezen: viewAdviezen, aannames: viewAannames, voorstel: viewVoorstel };
+const current = () => { const h = location.hash.slice(1); return VIEWS[h] ? h : "koper"; };
+function render() {
+  const s = computeScore(), m = measure(), cur = current();
+  $("versions").textContent = `GEO-module v2 · scorecard ${SC.version} · kennisbank ${EVD.version}`;
+  $("score").textContent = s.score;
+  $("status").innerHTML = s.blocked ? `<span class="pill bad">Geblokkeerd</span>` : s.score >= 70 ? `<span class="pill good">Goed</span>` : s.score >= 45 ? `<span class="pill warn">Deels</span>` : `<span class="pill bad">Zwak</span>`;
+  $("rec").textContent = m.rec;
+  $("recnote").textContent = `aan het juiste publiek, ${m.tot[0]} van ${m.runs} antwoorden`;
+  $("tabs").innerHTML = TABS.map(t => `<a href="#${t[0]}" ${t[0] === cur ? 'aria-current="page"' : ""}>${t[1]}</a>`).join("");
+  $("view").innerHTML = VIEWS[cur]();
+}
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset.gate !== undefined) { GATES[+t.dataset.gate].ok = t.checked; render(); }
+  else if (t.dataset.crit) { RESULT.find(r => r.id === t.dataset.crit).verdict = t.value; render(); const el = $(t.id); if (el) el.focus(); }
+});
+document.addEventListener("click", e => {
+  if (e.target.id !== "copy") return;
+  const b = e.target;
+  navigator.clipboard.writeText($("json").textContent).then(() => { b.textContent = "Gekopieerd"; }, () => { b.textContent = "Kopiëren lukt hier niet"; });
+});
+window.addEventListener("hashchange", render);
+render();
+</script>
+</body>
+</html>

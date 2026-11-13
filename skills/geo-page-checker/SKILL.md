@@ -23,6 +23,18 @@ concreet advies om dat te verbeteren. GEO (Generative Engine Optimization) versc
 klassieke SEO: het draait er niet om hoog ranken op een lijst met blauwe links, maar om door
 een taalmodel begrepen, vertrouwd en letterlijk geciteerd te worden in een gegenereerd antwoord.
 
+**Wat deze skill meet.** De skill beoordeelt of een pagina geschikt is voor AI-zoekmachines. Hij
+meet niet hoe vaak een AI-tool het merk noemt of aanbeveelt. Zeg dat in elk rapport.
+
+**Waar de methode op steunt.** Alle criteria en aannames staan in `references/geo-checklist.md`
+(de scorecard) en `references/bewijsbasis.md` (bron en bewijskracht per aanname). Lees beide
+voordat je scoort. Een advies mag niet stelliger zijn dan zijn bewijskracht.
+
+**Begin bij de koper.** Vraag eerst voor welk publiek de pagina is en welke vragen dat publiek
+stelt. Is het Marketingbrein beschikbaar, haal dan publieken, veelgestelde vragen, aanbod en
+positionering daar op en verwijs naar de K-nummers. Gebruik alleen goedgekeurde kennis. Leid
+klantvragen nooit af uit de pagina zelf: dan toets je de pagina aan zichzelf.
+
 De skill heeft twee lagen die je los van elkaar rapporteert:
 
 1. **Technische GEO-check** - mag en kan een AI de pagina/site uberhaupt lezen, vertrouwen en
@@ -154,7 +166,7 @@ check een status (groen/oranje/rood of goed/aandacht/blokker) en een samenvatten
 status.
 
 Het allerbelangrijkste technische punt is AI-crawler toegang in robots.txt: als de
-search-bots (OAI-SearchBot, ClaudeBot, PerplexityBot) geweerd worden, kan de pagina simpelweg
+search-bots (OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot, Bingbot) geweerd worden, kan de pagina simpelweg
 niet geciteerd worden - dat is een harde blokker die boven alles uit gaat.
 
 ### Stap 4 - Scoor de inhoud
@@ -164,26 +176,32 @@ voordat je scoort. Geef per categorie een score en een totaalscore op 100. Wees 
 en concreet: een hoge score zonder onderbouwing helpt niemand. Koppel elk afgetrokken
 punt aan een waarneembaar gebrek op de pagina.
 
-Gebruik deze categorieen en weging:
+Gebruik de dimensies en punten uit `references/geo-checklist.md`:
 
-| Categorie | Punten | Kern |
+| Dimensie | Punten | Kern |
 |---|---|---|
-| Vindbaarheid & techniek | 20 | Mag een crawler/AI de pagina uberhaupt zien? (robots, indexeerbaarheid, schema aanwezig) |
-| Extraheerbare antwoorden | 25 | Staan er zelfstandige, citeerbare zinnen en een directe samenvatting? |
-| Vraaggerichte structuur | 20 | Matchen koppen en FAQ met echte zoekvragen? |
-| Concrete feiten | 15 | Prijs, datum, locatie, duur, specs - expliciet en vindbaar? |
-| Entiteit & vertrouwen | 10 | Is duidelijk wie/wat/waar? Auteur met bio/credentials, organisatie, expertise, interne samenhang? |
-| Bewijs, bronnen & actualiteit | 10 | Statistieken, expertcitaten en bronvermelding (sterke GEO-hefboom), reviews als tekst, datums met jaartal? |
+| Aansluiting op de vraag | 26 | Beantwoordt de pagina de vragen en keuzecriteria van de koper? |
+| Eigen, concrete informatie | 28 | Prijs, specificaties, diepgang, vergelijking, plus eigen onderzoek, eigen data, cases, eigen methode of standpunt |
+| Citeerbare antwoorden | 13 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
+| Bewijs en bronnen | 10 | Cijfers met bron, citaat met naam, controleerbare claims |
+| Actualiteit | 5 | Zichtbare datum met jaartal, actuele gegevens |
+| Afzender en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
+| Paginabasis | 8 | Koppen, titel, ankerteksten, pagina-ervaring |
 
-De technische check (stap 3) en de categorie "Vindbaarheid & techniek" overlappen deels:
-gebruik de meting uit stap 2 om die categorie te onderbouwen, maar houd de uitgebreide
-technische bevindingen in het aparte technische blok.
+De dimensies vallen in twee stappen. Stap 1, gevonden worden: Afzender en vertrouwen, Paginabasis, Actualiteit, plus de poortwachters. Stap 2, als bron gekozen en gebruikt worden: Eigen, concrete informatie, Aansluiting op de vraag, Citeerbare antwoorden, Bewijs en bronnen.
 
-Naast deze zes scorecategorieen kent de checklist een **lezer-lens (CRO)** die je niet meetelt in
-de 100 punten maar wel apart rapporteert (herkenning, urgentie, belofte, actie/CTA, overtuiging,
-eenvoud) - zie `references/geo-checklist.md`. De technische check omvat naast snelheid ook
-beeldoptimalisatie (compressie/WebP/lazy-load) en een advies voor maandelijkse monitoring; zie
-`references/technische-checklist.md`.
+De drie poortwachters (zoekbots toegelaten, indexeerbaar, tekst in de HTML) krijgen geen punten.
+Faalt er een, dan is de score hooguit 20. Structured data, llms.txt en canonical meld je als
+hygiene zonder punten: voor schema en llms.txt is geen effect op AI-citaties aangetoond.
+
+Geef per criterium een oordeel (voldoet, deels, niet, niet te beoordelen) met een letterlijk
+citaat van de pagina. Reken de punten uit volgens de rekenregels in de scorecard.
+
+Eigen inbreng beoordeel je met een vraag: had een taalmodel deze passage zonder deze pagina kunnen
+schrijven? Zo ja, dan telt de passage niet. Verzin eigen inbreng nooit. Vraag de organisatie om
+onderzoek, klantgesprekken of data en schrijf tot die tijd `[invullen: ...]`.
+
+Rapporteer de lezer-lens (herkenning, belofte, bewijs, actie, eenvoud) apart, zonder punten.
 
 Open dit blok in enkele-pagina-modus met de gecheckte URL en de scope-regel ("alleen deze
 pagina, niet de hele site"), zodat meteen helder is wat wel en niet beoordeeld is. Presenteer
@@ -205,7 +223,11 @@ gebruiker dat bevestigt.
 
 ### Stap 4 - Geef geprioriteerde tips
 
-Lever de verbeterpunten op volgorde van impact, niet op volgorde van de checklist. Begin
+Geef elk advies in de vaste vorm uit de scorecard: actie, waarom, waar, nu, voorstel, wie, klaar
+als. Zo kan een collega of AI-collega het direct uitvoeren en controleren. Wijzig zo weinig
+mogelijk: een gerichte reparatie werkt beter dan een herschreven pagina.
+
+Lever de verbeterpunten op volgorde van impact (verloren punten maal bewijskracht), niet op volgorde van de checklist. Begin
 met blokkers (bijvoorbeeld een `noindex` of een geblokkeerde search-bot - dan heeft de rest
 geen zin). Maak elke tip concreet en toegepast op deze pagina: niet "voeg een FAQ toe" maar
 "voeg een FAQ toe met deze 5 vragen die jouw bezoekers echt stellen: ...". Geef waar nuttig
@@ -235,7 +257,8 @@ twee. Wacht op antwoord voordat je genereert.
 
 Genereer de twee fixes die het meeste werk uit handen nemen:
 
-1. **FAQ-tekst.** Schrijf 8-12 veelgestelde vragen met antwoorden. Elke vraag is een kop;
+1. **Antwoorden op klantvragen.** Schrijf antwoorden op de klantvragen die de pagina nog niet
+   beantwoordt (uit het Marketingbrein of opgegeven door de gebruiker), hooguit 8-12. Elke vraag is een kop;
    elk antwoord begint met een zelfstandige zin die de vraag volledig beantwoordt (de zin
    die AI eruit knipt), gevolgd door 1-2 zinnen context. Baseer de vragen op wat een echte
    bezoeker zou typen, en op de feiten die je op de pagina vond. Verzin geen feiten -
@@ -320,6 +343,12 @@ Voor een site-check gebruik je deze structuur:
 
 ## Belangrijke principes
 
+- **Zonder tussenstops als dat gevraagd is.** Draait de skill binnen het Marketing AI Team of
+  vraagt de gebruiker om alles in een keer, sla dan de checkpoints en de handmatige
+  snelheidsmeting over. Meld snelheid als "niet gemeten".
+- **Rolverdeling.** Charlie analyseert en prioriteert. Martine schrijft de voorstellen in de tone
+  of voice van het merk. Een mens keurt goed en vult ontbrekende feiten in.
+- **Geen beloftes.** Noem geen percentages of verwachte stijgingen. De bewijsbasis laat dat niet toe.
 - **Verzin nooit feiten.** Prijzen, datums en namen komen van de pagina. Wat ontbreekt,
   markeer je als in te vullen - dat is zelf al een verbeterpunt.
 - **Wees concreet, niet generiek.** Adviezen die op elke pagina passen, passen op geen

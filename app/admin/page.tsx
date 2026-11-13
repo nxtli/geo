@@ -176,7 +176,7 @@ export default async function AdminPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <a
-                        href={`/api/geo/report/${r.id}`}
+                        href={`/${r.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-brand hover:underline"

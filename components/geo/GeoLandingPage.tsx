@@ -5,7 +5,6 @@ import { Button, Container } from "./primitives";
 import { ArrowRightIcon } from "./icons";
 import { Logo } from "./Logo";
 import { GeoHero } from "./GeoHero";
-import { GeoSocialProof } from "./GeoSocialProof";
 import { GeoProblem } from "./GeoProblem";
 import { GeoScanFeatures } from "./GeoScanFeatures";
 import { GeoHowItWorks } from "./GeoHowItWorks";
@@ -41,7 +40,6 @@ export function GeoLandingPage() {
         <NavBar />
         <main>
           <GeoHero />
-          <GeoSocialProof />
           <GeoProblem />
           <GeoScanFeatures />
           <GeoHowItWorks />

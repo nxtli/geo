@@ -1,50 +1,23 @@
 import { Container, SectionHeading } from "./primitives";
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Start de chat met Charlie",
-    body: "Klik op de knop en Charlie, onze AI-analist, neemt je in een paar stappen mee.",
-  },
-  {
-    n: "02",
-    title: "Vertel Charlie over je bedrijf en doelgroep",
-    body: "Een paar korte vragen over je bedrijf, aanbod en de vragen waarop je gevonden wilt worden.",
-  },
-  {
-    n: "03",
-    title: "Charlie scant je homepage op AI-vindbaarheid",
-    body: "We halen je homepage op, beoordelen de content en bepalen je AI Visibility Score.",
-  },
-  {
-    n: "04",
-    title: "Je krijgt direct concrete verbeterpunten",
-    body: "Met concrete verbeterpunten: in de chat, als download én in je inbox.",
-  },
-];
+import { HOW } from "@/lib/geo/landing";
 
 export function GeoHowItWorks() {
   return (
-    <section className="py-20 sm:py-28">
+    <section id="hoe-het-werkt" className="scroll-mt-24 bg-elevated/50 py-20 sm:py-28">
       <Container>
-        <SectionHeading
-          eyebrow="Hoe het werkt"
-          title="Binnen een minuut weet je hoe goed AI jou vindt"
-        />
+        <SectionHeading eyebrow={HOW.eyebrow} title={HOW.title} intro={HOW.intro} />
 
-        <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s) => (
-            <div key={s.n} className="bg-surface p-7">
-              <div className="font-display text-3xl font-bold text-brand/30">
+        <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          {HOW.steps.map((s) => (
+            <li key={s.n} className="bg-surface p-7">
+              <div aria-hidden="true" className="font-display text-3xl font-bold text-brand/40">
                 {s.n}
               </div>
-              <h3 className="mt-3 font-display text-base font-semibold text-ink">
-                {s.title}
-              </h3>
+              <h3 className="mt-3 font-display text-base font-semibold text-ink">{s.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted">{s.body}</p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       </Container>
     </section>
   );

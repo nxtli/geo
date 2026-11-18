@@ -79,7 +79,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
     const variants = {
       primary:
-        "bg-brand text-brand-fg shadow-soft hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0",
+        "geo-btn-primary bg-brand text-brand-fg shadow-soft hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0",
       secondary:
         "border border-border bg-surface text-ink hover:border-brand/40 hover:text-brand",
       ghost: "text-muted hover:text-ink",
@@ -112,5 +112,18 @@ export function Card({
     >
       {children}
     </div>
+  );
+}
+
+/** Bronvermelding bij een cijfer of bewering. */
+export function SourceLink({ source }: { source: { label: string; url: string } }) {
+  return (
+    <span className="text-sm">
+      Bron:{" "}
+      <a href={source.url} target="_blank" rel="noopener noreferrer" className="underline decoration-border underline-offset-2 hover:text-brand">
+        {source.label}
+      </a>
+      .
+    </span>
   );
 }

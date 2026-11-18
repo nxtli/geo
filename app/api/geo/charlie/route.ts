@@ -1,0 +1,61 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getServerBrand } from "@/lib/geo/brand-server";
+import { CHARLIE_STEPS } from "@/lib/geo/charlie";
+import { generateCharlieReply, MAX_ANSWER_CHARS } from "@/lib/geo/charlie-reply";
+import { allow, clientIp, sameOrigin } from "@/lib/geo/request";
+
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
+/**
+ * POST /api/geo/charlie
+ * Charlie reageert op een vraag van de bezoeker tijdens de vragenlijst.
+ * Geeft { reply: null } terug als er geen antwoord komt; de chat gebruikt dan
+ * het vaste antwoord.
+ *
+ * Dit eindpunt is openbaar en kost per aanroep geld. Daarom: alleen verzoeken
+ * van de eigen site, korte invoer, een kort antwoord en een limiet per adres.
+ */
+const STEP_KEYS = CHARLIE_STEPS.map((s) => s.key) as [string, ...string[]];
+const short = z.string().max(MAX_ANSWER_CHARS * 2).nullish();
+
+const bodySchema = z.object({
+  step: z.enum(STEP_KEYS),
+  answer: z.string().trim().min(1).max(MAX_ANSWER_CHARS),
+  pending: short,
+  lastReply: z.string().max(1000).nullish(),
+  context: z
+    .object({
+      company_name: short,
+      homepage_url: short,
+      offer_description: short,
+      target_audience: short,
+      desired_queries: short,
+    })
+    .partial()
+    .optional(),
+});
+
+export async function POST(request: Request): Promise<NextResponse> {
+  if (!sameOrigin(request)) return NextResponse.json({ reply: null }, { status: 403 });
+
+  // 25 verzoeken per 10 minuten per IP-adres.
+  if (!allow("charlie.ip", clientIp(request), 25, 10 * 60 * 1000)) return NextResponse.json({ reply: null }, { status: 429 });
+
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ reply: null }, { status: 400 });
+
+  const brand = await getServerBrand();
+  const result = await generateCharlieReply(
+    {
+      step: parsed.data.step as (typeof CHARLIE_STEPS)[number]["key"],
+      answer: parsed.data.answer,
+      pending: parsed.data.pending ?? null,
+      lastReply: parsed.data.lastReply ?? null,
+      context: parsed.data.context,
+    },
+    brand,
+  );
+  return NextResponse.json(result ?? { reply: null });
+}

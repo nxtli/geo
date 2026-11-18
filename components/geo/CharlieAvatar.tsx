@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CHARLIE } from "@/lib/geo/charlie";
 import { cn } from "./primitives";
+import { useBrand } from "./brand-context";
 
 /**
  * Charlie's avatar. Two ways to set the photo (either works):
@@ -10,8 +11,7 @@ import { cn } from "./primitives";
  *   2. Set NEXT_PUBLIC_CHARLIE_AVATAR_URL to any hosted image URL (no commit).
  * Falls back to the "C" monogram if neither is present, so the UI never breaks.
  */
-const AVATAR_SRC =
-  process.env.NEXT_PUBLIC_CHARLIE_AVATAR_URL || "/charlie.jpg";
+const AVATAR_OVERRIDE = process.env.NEXT_PUBLIC_CHARLIE_AVATAR_URL;
 const SIZES = {
   sm: "h-8 w-8 text-sm",
   md: "h-9 w-9 text-sm",
@@ -27,6 +27,7 @@ export function CharlieAvatar({
   withStatus?: boolean;
   className?: string;
 }) {
+  const brand = useBrand();
   const [failed, setFailed] = React.useState(false);
 
   return (
@@ -38,8 +39,8 @@ export function CharlieAvatar({
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={AVATAR_SRC}
-          alt="Charlie, AI-analist bij NXTLI"
+          src={AVATAR_OVERRIDE || brand.charlie.avatar}
+          alt={`Charlie, ${brand.charlie.role}`}
           onError={() => setFailed(true)}
           className="h-full w-full rounded-full object-cover shadow-soft"
         />

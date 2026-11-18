@@ -9,6 +9,9 @@ interface Price {
 }
 
 const PRICES: Record<string, Price> = {
+  "claude-sonnet-5-5": { input: 2, output: 10 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
+  "claude-opus-5-5": { input: 4, output: 20 },
   "claude-opus-4-8": { input: 5, output: 25 },
   "claude-opus-4-7": { input: 5, output: 25 },
   "claude-opus-4-6": { input: 5, output: 25 },
@@ -17,7 +20,7 @@ const PRICES: Record<string, Price> = {
   "claude-fable-5": { input: 10, output: 50 },
 };
 
-const DEFAULT_PRICE: Price = PRICES["claude-opus-4-8"];
+const DEFAULT_PRICE: Price = PRICES["claude-sonnet-5-5"];
 
 /** Resolve a price by model id, tolerating date suffixes / unknown models. */
 function priceFor(model: string | null): Price {

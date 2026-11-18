@@ -1,4 +1,7 @@
 import type { GeoAnalysisResult, GeoLeadInput } from "../types";
+import { SCORECARD, stepOfCriterion, stepOfDimension } from "../knowledge";
+import type { CategoryScore, GeoAction } from "../types";
+import { BRANDS, type Brand } from "../brand";
 
 /**
  * NXTLI-branded HTML report. Self-contained (inline CSS) so it can be served
@@ -10,20 +13,29 @@ import type { GeoAnalysisResult, GeoLeadInput } from "../types";
  * Category bars are colour-coded by performance and technical blockers are
  * escalated to the top so the report reads at a glance.
  */
+/** Markeert [invullen: ...] in een voorstel, zodat de lezer ziet wat nog ontbreekt. */
+function fillIns(escaped: string): string {
+  return escaped.replace(/\[invullen:[^\]]*\]/gi, (m) => `<span class="fill">${m}</span>`);
+}
+
 export function renderReportHtml(params: {
   lead: Pick<GeoLeadInput, "company_name" | "homepage_url" | "name">;
   analysis: GeoAnalysisResult;
   date: string;
+  brand?: Brand;
 }): string {
   const { lead, analysis, date } = params;
+  const brand = params.brand ?? BRANDS.nxtli;
+  const col = brand.report.colors;
   const score = analysis.visibility_score;
   const band = score >= 70 ? "Sterk" : score >= 45 ? "Gemiddeld" : "Te verbeteren";
   const bandColor = score >= 70 ? "#16a34a" : score >= 45 ? "#d97706" : "#dc2626";
 
   const a = analysis;
   const strategyUrl =
-    process.env.GEO_STRATEGY_CALL_URL ||
-    "https://nxtli.com/michiel-schoonhoven-agenda/";
+    brand.id === "nxtli"
+      ? process.env.GEO_STRATEGY_CALL_URL || brand.cta.url
+      : brand.cta.url;
 
   const hasBlocker = a.technical_checks.some((t) => t.status === "blokker");
   // Blockers jump to the top; everyone else keeps their original order.
@@ -36,9 +48,9 @@ export function renderReportHtml(params: {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NXTLI GEO Scan: ${esc(lead.company_name)}</title>
+<title>${esc(brand.product)}: ${esc(lead.company_name)}</title>
 <style>
-  :root { --brand:#0c90a1; --accent:#03b2b8; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#e0f6f7; --bg:#f7f8fb; --good:#16a34a; --warn:#d97706; --bad:#dc2626; }
+  :root { --brand:${col.brand}; --accent:${col.accent}; --ink:${col.ink}; --muted:${col.muted}; --subtle:#94a3b8; --border:#e6e8ee; --soft:${col.soft}; --bg:#f7f8fb; --good:#16a34a; --warn:#d97706; --bad:#dc2626; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); line-height:1.6; }
   .page { max-width: 800px; margin: 0 auto; padding: 40px 22px 64px; }
@@ -127,8 +139,39 @@ export function renderReportHtml(params: {
 
   .cta { margin-top:30px; border-radius:18px; padding:26px; background:var(--ink); color:#fff; }
   .cta a { color:#5fd6dd; }
+  .cta-url { display:none; margin-top:12px; font-size:13px; color:#fff; }
   .foot { margin-top:34px; color:var(--subtle); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
   .muted { color:var(--muted); }
+  /* Adviezen: één kaart per advies, met Nu en Voorstel naast elkaar. */
+  .acts { display:grid; gap:16px; margin-top:6px; }
+  .act { border:1px solid var(--border); border-radius:16px; padding:20px 22px; background:#fff; }
+  .act-head { display:flex; align-items:flex-start; gap:12px; }
+  .act-num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .act-title { margin:0; font-size:17px; line-height:1.35; font-weight:700; letter-spacing:-0.01em; color:var(--ink); }
+  .act-chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0 42px; }
+  .chip { font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:#f1f4f8; color:var(--muted); white-space:nowrap; }
+  .chip-pts { background:var(--soft); color:var(--brand); }
+  .chip-where { white-space:normal; background:#fff; border:1px solid var(--border); font-weight:500; }
+  .act-why { margin:14px 0 0 42px; color:var(--ink); font-size:15px; line-height:1.6; }
+  .act-compare { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 0 42px; }
+  .act-compare.single { grid-template-columns:1fr; }
+  .act-box { border-radius:12px; padding:14px 16px; font-size:14.5px; line-height:1.6; }
+  .act-now { background:#f6f7f9; border:1px solid var(--border); color:var(--muted); }
+  .act-new { background:var(--soft); border:1px solid transparent; border-left:3px solid var(--brand); color:var(--ink); }
+  .act-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; color:var(--subtle); }
+  .act-new .act-label { color:var(--brand); }
+  .act-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .act-empty { color:#8a94a6; font-style:italic; }
+  /* De twee stappen: eerst gevonden worden, dan als bron gekozen worden. */
+  .step-head { margin:18px 0 6px; font-weight:800; color:var(--ink); font-size:15px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+  .step-head:first-child { margin-top:0; }
+  .step-head small { flex-basis:100%; font-weight:400; color:var(--muted); font-size:13px; line-height:1.5; }
+  .step-num { background:var(--soft); color:var(--brand); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+  .step-head-acts { margin:26px 0 12px; }
+  .fill { background:#fff4d6; border-radius:4px; padding:0 4px; color:#7a4b00; font-weight:600; }
+  .act-done { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0 42px; font-size:14px; color:var(--muted); }
+  .act-check { flex:none; width:20px; height:20px; border-radius:50%; background:#e7f6ec; color:var(--good); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  @media (max-width:620px){ .act { padding:16px; } .act-chips, .act-why, .act-compare, .act-done { margin-left:0; } .act-compare { grid-template-columns:1fr; } }
   @media (max-width:620px){ .twocol{grid-template-columns:1fr;} .rowscore{grid-template-columns:1fr 80px 48px;} }
 
   /* Print / save-as-PDF: keep colours, avoid splitting cards, hide the button. */
@@ -137,7 +180,9 @@ export function renderReportHtml(params: {
     body { background:#fff; }
     .page { max-width:none; padding:0; }
     .printbtn { display:none !important; }
-    .card, .subcard, .rowscore, .tcheck, .section { break-inside: avoid; }
+    .card, .subcard, .rowscore, .tcheck, .cta, .act { break-inside: avoid; }
+    /* Niet elke PDF-weergave bewaart klikbare links. Het adres staat er daarom ook als tekst. */
+    .cta-url { display:block; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
@@ -147,20 +192,20 @@ export function renderReportHtml(params: {
 
   <section class="card cover">
     <div class="coverTop">
-      <img class="logo" src="/nxtli-logo.png" alt="NXTLI" />
+      <img class="logo" src="${esc(brand.logo.src)}" alt="${esc(brand.logo.alt)}" />
       <button class="printbtn" type="button" onclick="window.print()">⬇ Download als PDF</button>
     </div>
-    <div class="eyebrow">NXTLI GEO Scan</div>
+    <div class="eyebrow">${esc(brand.id === "mat" ? "Marketing AI Team · GEO-scan" : brand.product)}</div>
     <h1>AI-vindbaarheidsrapport</h1>
-    <div class="meta">Voor <strong>${esc(lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
+    <div class="meta">Voor <strong>${esc(a.subject_name || lead.company_name)}</strong> · <a href="${esc(lead.homepage_url)}" target="_blank" rel="noopener">${esc(lead.homepage_url)}</a> · ${esc(date)}</div>
     <div class="scoreWrap">
       <div>
-        <div class="score" style="color:${bandColor}">${score}<span style="font-size:20px;color:var(--subtle)">/100</span></div>
-        <span class="badge" style="background:${bandColor}">${band}</span>
+        <div class="score" style="color:${bandColor}">${a.unscored_reason ? "–" : score}<span style="font-size:20px;color:var(--subtle)">/100</span></div>
+        <span class="badge" style="background:${bandColor}">${a.unscored_reason ? "Geen score" : a.blocked ? "Geblokkeerd" : band}</span>
       </div>
       <div class="scoreside">
-        <div class="muted" style="font-size:13px;font-weight:700">AI Visibility Score</div>
-        <div class="scoreExplain">Hoe goed AI-tools zoals ChatGPT, Claude en Google AI je pagina kunnen lezen, begrijpen en aanbevelen.</div>
+        <div class="muted" style="font-size:13px;font-weight:700">Paginascore</div>
+        <div class="scoreExplain">${esc(a.unscored_reason ?? (a.blocked ? "Een AI-tool kan of mag deze pagina niet gebruiken. Daarom is de score afgetopt. Los eerst de blokkade op." : "Hoe geschikt deze pagina is om door AI-tools gelezen, begrepen en aangehaald te worden. De score meet de pagina, niet hoe vaak AI je noemt."))}</div>
         <div class="bar"><i style="width:${score}%"></i></div>
         ${bandScale(score, bandColor)}
       </div>
@@ -172,7 +217,7 @@ export function renderReportHtml(params: {
     <div class="card">
       <div class="eyebrow">Belangrijkste inzichten</div>
       <p class="lead" style="font-size:16px;margin-top:8px">${esc(a.short_summary)}</p>
-      <div class="twocol" style="margin-top:16px">
+      ${a.strengths.length || a.weaknesses.length ? `      <div class="twocol" style="margin-top:16px">
         <div class="subcard">
           <div class="h" style="color:#15803d">Sterk</div>
           ${ilist(a.strengths, "good", "Geen sterke punten gevonden.")}
@@ -181,18 +226,19 @@ export function renderReportHtml(params: {
           <div class="h" style="color:#c2410c">Grootste kansen</div>
           ${ilist(a.weaknesses, "opp", "Geen kansen gevonden.")}
         </div>
-      </div>
+      </div>` : ""}
     </div>
   </section>
 
   ${
     a.llm_visibility?.length || a.ai_answer_comparison?.improved?.answer
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(lead.company_name)}, live gevraagd aan meerdere AI-systemen</span></div>
+          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">${esc(a.subject_name || lead.company_name)}, steekproef bij meerdere AI-systemen</span></div>
+          <p class="muted" style="font-size:12.5px;margin:0 0 12px">Eén vraag per systeem, één keer gesteld, zonder je webadres. AI-antwoorden wisselen per keer. Lees dit als steekproef, niet als meting.</p>
           ${
             a.llm_visibility?.length
               ? `<div class="llmwrap"><table class="llm">
-                  <thead><tr><th>AI-systeem</th><th>Wat het teruggeeft</th><th>Gevonden?</th></tr></thead>
+                  <thead><tr><th>AI-systeem</th><th>Wat het teruggeeft</th><th>Kent je?</th></tr></thead>
                   <tbody>${a.llm_visibility
                     .map(
                       (r) => `<tr>
@@ -211,7 +257,7 @@ export function renderReportHtml(params: {
                   <div class="h">Zo zou het idealiter moeten klinken</div>
                   <blockquote>${esc(clip(a.ai_answer_comparison.improved.answer, 600))}</blockquote>
                   ${tagLine(a.ai_answer_comparison.improved.tags, "✓")}
-                  <p class="idealnote">Het antwoord dat je nastreeft: concreet, feitelijk en citeerbaar — opgesteld volgens de GEO-methodiek (duidelijke entiteit, bewijs en gestructureerde, op zichzelf staande antwoorden).</p>
+                  <p class="idealnote">Zo kan een AI-tool je aanbod samenvatten als de adviezen hieronder zijn uitgevoerd. Tekst tussen [invullen: ...] vraagt om een feit van jou.</p>
                 </div>`
               : ""
           }
@@ -220,33 +266,89 @@ export function renderReportHtml(params: {
   }
 
   <!-- QUICK WINS — also near the top -->
-  <section class="section">
+  ${a.quick_wins.length ? `<section class="section">
     <div class="card">
-      <div class="section-head"><h2>Snelle winst — nu te doen</h2><span class="section-sub">kleine acties, grote impact</span></div>
-      ${numlist(a.quick_wins, "Geen directe verbeterpunten.")}
+      <div class="section-head"><h2>Snelle winst, nu te doen</h2><span class="section-sub">kleine acties, grote impact</span></div>
+      ${numlist(a.quick_wins, "")}
     </div>
-  </section>
+  </section>` : ""}
+
+  ${
+    a.actions?.length
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Adviezen om uit te voeren</h2><span class="section-sub">in twee stappen, binnen elke stap op volgorde van belang</span></div>
+          <div class="acts">
+          ${actionsBySteps(a.actions)
+            .map(({ x, heading }, i) => {
+              const stepHeading = heading
+                ? `<div class="step-head step-head-acts"><span class="step-num">Stap ${heading.step}</span>${esc(heading.title)}<small>${esc(heading.intro)}</small></div>`
+                : "";
+              const points = x.points ? `${String(x.points).replace(".", ",")} ${x.points === 1 ? "punt" : "punten"}` : "blokkade";
+              // Elk inhoudelijk advies toont Nu en Voorstel. Een blokkade (techniek) heeft geen tekst om te vergelijken.
+              const content = x.points > 0;
+              const before = x.before ? clip(x.before, 400) : "";
+              const after = x.after ? clip(x.after, 700) : "";
+              const nowBox = before
+                ? `<div class="act-text">${esc(before)}</div>`
+                : `<div class="act-text act-empty">Dit staat nu niet op de pagina.</div>`;
+              const newBox = after
+                ? `<div class="act-text">${fillIns(esc(after))}</div>`
+                : `<div class="act-text act-empty">Schrijf deze tekst zelf. Gebruik de toets bij "Klaar als" hieronder.</div>`;
+              return `${stepHeading}<article class="act">
+                <header class="act-head">
+                  <span class="act-num">${i + 1}</span>
+                  <h3 class="act-title">${esc(x.title)}</h3>
+                </header>
+                <div class="act-chips">
+                  <span class="chip chip-pts">${esc(points)}</span>
+                  <span class="chip">${esc(x.owner)}</span>
+                  <span class="chip">Inspanning: ${esc(x.effort)}</span>
+                  ${x.where ? `<span class="chip chip-where">${esc(clip(x.where, 90))}</span>` : ""}
+                </div>
+                <p class="act-why">${esc(x.why)}</p>
+                ${
+                  content || before || after
+                    ? `<div class="act-compare">
+                        <div class="act-box act-now"><div class="act-label">Nu op de pagina</div>${nowBox}</div>
+                        <div class="act-box act-new"><div class="act-label">Voorstel</div>${newBox}</div>
+                      </div>`
+                    : ""
+                }
+                <div class="act-done"><span class="act-check">✓</span><span><strong>Klaar als:</strong> ${esc(x.done_when)}</span></div>
+              </article>`;
+            })
+            .join("")}
+          </div>
+        </div></section>`
+      : ""
+  }
 
   <!-- SCORE BREAKDOWN -->
-  <section class="section">
+  ${a.category_scores.length ? `  <section class="section">
     <div class="card">
-      <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel — kleur toont de prestatie</span></div>
+      <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel, kleur toont de prestatie</span></div>
       ${
         a.category_scores.length
-          ? a.category_scores
+          ? scoreGroups(a.category_scores)
               .map(
-                (c) => `<div class="rowscore">
+                (g) =>
+                  (g.title ? `<div class="step-head"><span class="step-num">Stap ${g.step}</span>${esc(g.title)}</div>` : "") +
+                  g.rows
+                    .map(
+                      (c) => `<div class="rowscore">
                   <div class="lbl">${esc(c.label)}<small>${esc(c.summary)}</small></div>
                   <div class="bar"><i style="width:${pct(c.score, c.max)}%;background:${barColor(c.score, c.max)}"></i></div>
                   <div class="num">${c.score}<span class="muted">/${c.max}</span></div>
                 </div>`,
+                    )
+                    .join(""),
               )
               .join("") +
             `<div class="rowtotal"><span>Totaalscore</span><span style="color:${bandColor}">${score}/100</span></div>`
           : `<p class="muted">Geen onderverdeling beschikbaar.</p>`
       }
     </div>
-  </section>
+  </section>` : ""}
 
   <!-- TECHNICAL CHECK -->
   <section class="section">
@@ -265,20 +367,24 @@ export function renderReportHtml(params: {
                 </div>`,
               )
               .join("") +
-            `<p class="muted" style="font-size:12.5px;margin-top:12px">Snelheid (Core Web Vitals) is in deze scan niet gemeten.</p>`
+            (a.hygiene?.length
+              ? `<p class="muted" style="font-size:12.5px;margin:14px 0 4px;font-weight:700">Gemeld, telt niet mee in de score</p>` +
+                a.hygiene.map((t) => `<div class="tcheck"><div class="lbl">${esc(t.label)}</div><div class="det">${esc(t.detail)}</div></div>`).join("")
+              : "") +
+            `<p class="muted" style="font-size:12.5px;margin-top:12px">Deze checks zijn door code gemeten, niet door een taalmodel ingeschat. Snelheid (Core Web Vitals) is niet gemeten.</p>`
           : `<p class="muted">Geen technische check beschikbaar.</p>`
       }
     </div>
   </section>
 
   <!-- DETAIL -->
-  <section class="section">
+  ${a.what_ai_understands ? `  <section class="section">
     <div class="card">
       <div class="section-head"><h2>Wat AI van je site begrijpt</h2></div>
       <p>${esc(a.what_ai_understands)}</p>
       ${a.likely_ai_positioning ? `<p class="quote">${esc(a.likely_ai_positioning)}</p>` : ""}
     </div>
-  </section>
+  </section>` : ""}
 
   ${
     a.missing_signals.length
@@ -319,7 +425,7 @@ export function renderReportHtml(params: {
   ${
     a.recommended_faq_questions.length
       ? `<section class="section"><div class="card">
-          <div class="section-head"><h2>Aanbevolen FAQ-vragen</h2><span class="section-sub">sterkste GEO-format</span></div>
+          <div class="section-head"><h2>Klantvragen die je pagina nog niet beantwoordt</h2><span class="section-sub">beantwoord ze op de pagina</span></div>
           ${ilist(
             a.recommended_faq_questions.map((q) => ({ title: q.question, sub: q.why })),
             "gap",
@@ -349,13 +455,23 @@ export function renderReportHtml(params: {
   }
 
   <div class="cta">
-    <strong>Wil je dat NXTLI dit voor je uitwerkt?</strong>
-    <p style="margin:.5em 0 14px">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI.</p>
-    <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">Plan een sessie →</a>
+    <strong>${esc(brand.report.ctaTitle)}</strong>
+    <p style="margin:.5em 0 14px">${esc(brand.report.ctaBody)}</p>
+    <a href="${esc(strategyUrl)}" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">${esc(brand.report.ctaButton)}</a>
+    <div class="cta-url">Of ga naar <a href="${esc(strategyUrl)}">${esc(strategyUrl.replace(/^https?:\/\//, ""))}</a></div>
   </div>
 
+  ${
+    a.scope_notes?.length
+      ? `<section class="section"><div class="card">
+          <div class="section-head"><h2>Wat deze scan wel en niet meet</h2></div>
+          ${ilist(a.scope_notes, "gap", "")}
+        </div></section>`
+      : ""
+  }
+
   <div class="foot">
-    Dit rapport is automatisch gegenereerd door Charlie, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.
+    ${esc(brand.report.foot)}
   </div>
 </div>
 </body>
@@ -446,4 +562,34 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const STEP_INTRO: Record<1 | 2, string> = {
+  1: "Een AI-tool gebruikt alleen pagina's die hij vindt en kan lezen. Begin daarom hier. Vermeldingen op andere sites tellen ook mee, maar die ziet deze scan niet.",
+  2: "Is je pagina gevonden, dan kiest de AI-tool welke pagina's hij als bron gebruikt. Deze adviezen maken je pagina daar geschikter voor.",
+};
+
+/**
+ * Deelt de onderdelen van de score in over de twee stappen. Een rapport van een
+ * oudere scorecard kent die indeling niet en blijft één lijst.
+ */
+function scoreGroups(rows: CategoryScore[]): Array<{ step: number; title: string; rows: CategoryScore[] }> {
+  const steps = rows.map((r) => stepOfDimension(r.key));
+  if (steps.some((s) => s === null)) return [{ step: 0, title: "", rows }];
+  return SCORECARD.steps
+    .map((s) => ({ step: s.step, title: s.title, rows: rows.filter((_, i) => steps[i] === s.step) }))
+    .filter((g) => g.rows.length > 0);
+}
+
+/** Zet de adviezen in de volgorde van de twee stappen en markeert waar een stap begint. */
+function actionsBySteps(
+  actions: GeoAction[],
+): Array<{ x: GeoAction; heading: { step: number; title: string; intro: string } | null }> {
+  const out: Array<{ x: GeoAction; heading: { step: number; title: string; intro: string } | null }> = [];
+  for (const s of SCORECARD.steps) {
+    // Een blokkade (0 punten) hoort altijd bij stap 1: zonder toegang wordt de pagina niet gevonden.
+    const inStep = actions.filter((a) => (a.points > 0 ? stepOfCriterion(a.criterion) : 1) === s.step);
+    inStep.forEach((x, i) => out.push({ x, heading: i === 0 ? { step: s.step, title: s.title, intro: STEP_INTRO[s.step] } : null }));
+  }
+  return out;
 }

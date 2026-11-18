@@ -183,7 +183,7 @@ Gebruik de dimensies en punten uit `references/geo-checklist.md`:
 | Aansluiting op de vraag | 26 | Beantwoordt de pagina de vragen en keuzecriteria van de koper? |
 | Eigen, concrete informatie | 28 | Prijs, specificaties, diepgang, vergelijking, plus eigen onderzoek, eigen data, cases, eigen methode of standpunt |
 | Citeerbare antwoorden | 13 | Antwoord eerst, stellig en onderbouwd, geen tegenstrijdigheden |
-| Bewijs en bronnen | 10 | Cijfers met bron, citaat met naam, controleerbare claims |
+| Bewijs en bronnen | 10 | Cijfers met bron, genoemde klant met resultaat of citaat met naam, controleerbare claims, keurmerken ook als tekst |
 | Actualiteit | 5 | Zichtbare datum met jaartal, actuele gegevens |
 | Afzender en vertrouwen | 10 | Wie, wat, waar; auteur; vermeldingen buiten de site |
 | Paginabasis | 8 | Koppen, titel, ankerteksten, pagina-ervaring |

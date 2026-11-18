@@ -2,7 +2,7 @@
 
 # Bewijsbasis GEO
 
-Versie 2026.11. Herzien op 2026-11-09. Volgende herziening voor 2027-02-09.
+Versie 2026.11. Herzien op 2026-11-18. Volgende herziening voor 2027-02-09.
 
 Elke aanname in de scan staat hier, met bewijskracht, voorbehoud en bron. Een advies mag niet stelliger zijn dan zijn bewijskracht. Noem in adviezen geen percentages of beloofde stijgingen.
 
@@ -134,6 +134,17 @@ Voorbehoud: Observationeel en deels door de sector zelf betaald. Het toont geen 
 Herzien als: Een gecontroleerde test toont wel of geen oorzakelijk effect van vermeldingen bij derden.
 
 - [Chen e.a., Generative Engine Optimization: How to Dominate AI Search](https://arxiv.org/abs/2509.08919), 2025
+
+### E-FACTS (zwak)
+
+Bedrijven met meer concrete, controleerbare feiten op de homepage worden vaker door AI-tools aanbevolen. Het sterkst hangen samen: genoemde klanten met resultaten, erkenningen en certificaten, en feiten die aansluiten op de eisen van de koper. Keurmerken tellen vooral als ze ook als tekst op de pagina staan. Testimonials, merknamen voor een werkwijze, veel woorden en een FAQ-vorm zonder feiten hingen niet samen met aanbevelingen. Veel zelflof hing samen met minder aanbevelingen.
+
+Voorbehoud: Onderzoek van een webbureau, een verband en geen oorzaak. 704 homepages in vier Amerikaanse zakelijke branches (webbureaus, IT-beheer, accountants, fabrikanten), alleen Engels. Een AI-model telde de feiten. Grote merken zijn buiten de hoofdanalyse gehouden. Het artikel geeft geen correlatiecoëfficiënten. Noem daarom geen percentages in adviezen. Voor webshops en productpagina's zegt de studie niets.
+
+Herzien als: Een gecontroleerde test of een studie in andere branches of talen toont een ander beeld, of de eigen proef laat zien dat feiten op de homepage niet samenhangen met aanbevelingen.
+
+- [Orbit Media, What Gets a Brand Recommended by AI? Facts on the Homepage](https://www.orbitmedia.com/?p=55271), 2026
+- [Orbit Media, AI Crawls vs. AI Traffic](https://www.orbitmedia.com/blog/ai-crawl-vs-traffic-report/), 2026
 
 ### E-PAGEBASE (richtlijn)
 

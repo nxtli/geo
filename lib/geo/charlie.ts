@@ -76,7 +76,7 @@ export const CHARLIE_STEPS: CharlieStep[] = [
   },
   {
     key: "homepage_url",
-    prompt: "Welke pagina wil je laten scannen? Plak het adres van de pagina.",
+    prompt: "Welke pagina wil je laten scannen? Plak het adres van de pagina. Twijfel je, begin dan met je homepage.",
     placeholder: "https://jouwbedrijf.nl",
     inputType: "url",
     validate: fieldValidators.url,

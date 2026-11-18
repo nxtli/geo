@@ -68,9 +68,10 @@ describe("communicatierichtlijn", () => {
     expect(GEO_SYSTEM_PROMPT).toContain(CHARLIE_VOICE);
     expect(GEO_SYSTEM_PROMPT).toContain("Volg daar de toon en de aanspreekvorm van de pagina zelf");
   });
-  it("vaste teksten van de chat: geen uitroeptekens, geen gedachtestreepjes, geen 'homepage'", () => {
+  it("vaste teksten van de chat: geen uitroeptekens, geen gedachtestreepjes, 'homepage' alleen als advies bij de paginakeuze", () => {
     const texts = [
-      ...CHARLIE_STEPS.flatMap((s) => [s.prompt, s.ack ? s.ack("Sanne de Vries") : ""]),
+      // De stap met de paginakeuze raadt de homepage aan als start. Elders heet de gescande pagina "je pagina".
+      ...CHARLIE_STEPS.flatMap((s) => [s.key === "homepage_url" ? "" : s.prompt, s.ack ? s.ack("Sanne de Vries") : ""]),
       ...Object.values(CHARLIE_COPY).map((v) => (typeof v === "function" ? v("x@example.com") : v)),
       BRANDS.mat.charlie.intro,
       BRANDS.nxtli.charlie.intro,
@@ -79,6 +80,9 @@ describe("communicatierichtlijn", () => {
       expect(t).not.toMatch(/[!—–]/);
       expect(t.toLowerCase()).not.toContain("homepage");
     }
+    const urlStep = CHARLIE_STEPS.find((s) => s.key === "homepage_url");
+    expect(urlStep?.prompt).toContain("begin dan met je homepage");
+    expect(urlStep?.prompt).not.toMatch(/[!—–]/);
   });
 });
 

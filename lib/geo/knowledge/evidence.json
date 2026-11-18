@@ -1,6 +1,6 @@
 {
   "version": "2026.11",
-  "reviewed": "2026-11-09",
+  "reviewed": "2026-11-18",
   "review_before": "2027-02-09",
   "grades": {
     "feit": "Vastgelegd in documentatie van de aanbieder. Door code te controleren.",
@@ -204,6 +204,25 @@
         }
       ],
       "revise_if": "Een gecontroleerde test toont wel of geen oorzakelijk effect van vermeldingen bij derden."
+    },
+    {
+      "id": "E-FACTS",
+      "grade": "zwak",
+      "claim": "Bedrijven met meer concrete, controleerbare feiten op de homepage worden vaker door AI-tools aanbevolen. Het sterkst hangen samen: genoemde klanten met resultaten, erkenningen en certificaten, en feiten die aansluiten op de eisen van de koper. Keurmerken tellen vooral als ze ook als tekst op de pagina staan. Testimonials, merknamen voor een werkwijze, veel woorden en een FAQ-vorm zonder feiten hingen niet samen met aanbevelingen. Veel zelflof hing samen met minder aanbevelingen.",
+      "caveat": "Onderzoek van een webbureau, een verband en geen oorzaak. 704 homepages in vier Amerikaanse zakelijke branches (webbureaus, IT-beheer, accountants, fabrikanten), alleen Engels. Een AI-model telde de feiten. Grote merken zijn buiten de hoofdanalyse gehouden. Het artikel geeft geen correlatiecoëfficiënten. Noem daarom geen percentages in adviezen. Voor webshops en productpagina's zegt de studie niets.",
+      "revise_if": "Een gecontroleerde test of een studie in andere branches of talen toont een ander beeld, of de eigen proef laat zien dat feiten op de homepage niet samenhangen met aanbevelingen.",
+      "sources": [
+        {
+          "title": "Orbit Media, What Gets a Brand Recommended by AI? Facts on the Homepage",
+          "url": "https://www.orbitmedia.com/?p=55271",
+          "year": 2026
+        },
+        {
+          "title": "Orbit Media, AI Crawls vs. AI Traffic",
+          "url": "https://www.orbitmedia.com/blog/ai-crawl-vs-traffic-report/",
+          "year": 2026
+        }
+      ]
     },
     {
       "id": "E-PAGEBASE",

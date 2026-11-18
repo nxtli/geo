@@ -170,7 +170,8 @@
           "max": 8,
           "evidence": [
             "E-RELEVANCE",
-            "E-BUYER"
+            "E-BUYER",
+            "E-FACTS"
           ],
           "owner": "schrijver",
           "fix": "Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig.",
@@ -194,7 +195,8 @@
           "max": 6,
           "evidence": [
             "E-RELEVANCE",
-            "E-BUYER"
+            "E-BUYER",
+            "E-FACTS"
           ],
           "owner": "schrijver",
           "fix": "Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat.",
@@ -291,10 +293,11 @@
           "name": "De pagina bevat ervaring uit de eigen praktijk",
           "max": 3,
           "evidence": [
-            "E-UNIQUE"
+            "E-UNIQUE",
+            "E-FACTS"
           ],
           "owner": "mens",
-          "fix": "Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent.",
+          "fix": "Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent. Zet het resultaat al in de korte samenvatting van de case, niet alleen op de casepagina.",
           "done_when": "Minstens één case of observatie uit klantgesprekken, met aanleiding, aanpak en uitkomst."
         },
         {
@@ -302,11 +305,12 @@
           "name": "De pagina bevat een eigen methode of onderbouwd standpunt",
           "max": 3,
           "evidence": [
-            "E-UNIQUE"
+            "E-UNIQUE",
+            "E-FACTS"
           ],
           "owner": "mens",
-          "fix": "Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Geef een eigen methode een naam en beschrijf de stappen.",
-          "done_when": "De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die."
+          "fix": "Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Beschrijf bij een eigen methode de stappen. Een naam voor de methode alleen telt niet.",
+          "done_when": "De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die met inhoud. Alleen een merknaam voor een werkwijze is niet genoeg."
         }
       ]
     },
@@ -369,14 +373,15 @@
         },
         {
           "id": "D2",
-          "name": "Er staat een citaat van een klant of expert met naam",
+          "name": "Een klant of expert met naam onderbouwt het resultaat",
           "max": 3,
           "evidence": [
-            "E-EVIDENCE"
+            "E-EVIDENCE",
+            "E-FACTS"
           ],
           "owner": "mens",
-          "fix": "Plaats een echte quote met naam, functie en organisatie.",
-          "done_when": "Minstens één quote met naam, functie en organisatie."
+          "fix": "Noem een klant bij naam met het resultaat van het werk. Een quote met naam, functie en organisatie telt ook. Zet er dan een concreet resultaat in.",
+          "done_when": "Minstens één genoemde klant met een concreet resultaat, of één quote met naam, functie en organisatie."
         },
         {
           "id": "D3",
@@ -384,11 +389,12 @@
           "max": 3,
           "evidence": [
             "E-EVIDENCE",
-            "E-CONFIDENT"
+            "E-CONFIDENT",
+            "E-FACTS"
           ],
           "owner": "schrijver",
-          "fix": "Onderbouw superlatieven met een bron of schrap ze.",
-          "done_when": "Geen claim als beste of meest gekozen zonder bron."
+          "fix": "Onderbouw superlatieven met een bron of schrap ze. Zet het bewijs direct bij de claim. Schrijf keurmerken, prijzen en certificaten ook als tekst uit, niet alleen als logo.",
+          "done_when": "Geen claim als beste of meest gekozen zonder bron. Keurmerken, prijzen en certificaten staan ook als tekst op de pagina."
         }
       ]
     }

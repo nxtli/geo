@@ -40,9 +40,9 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
-| A1 | De pagina beantwoordt de opgegeven klantvragen | 8 | E-RELEVANCE (sterk), E-BUYER (zwak) | Martine (tekst) | Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig. | Elke opgegeven klantvraag heeft op de pagina een antwoord dat los leesbaar is. |
+| A1 | De pagina beantwoordt de opgegeven klantvragen | 8 | E-RELEVANCE (sterk), E-BUYER (zwak), E-FACTS (zwak) | Martine (tekst) | Geef per onbeantwoorde vraag een antwoord van twee tot vier zinnen. De eerste zin beantwoordt de vraag volledig. | Elke opgegeven klantvraag heeft op de pagina een antwoord dat los leesbaar is. |
 | A2 | De begrippen uit de vraag staan vroeg op de pagina | 6 | E-RELEVANCE (sterk), E-DEPTH (middel) | Martine (tekst) | Zet het onderwerp en het aanbod in de woorden van de klant in de h1 en de eerste alinea. | De h1 en de eerste 100 woorden noemen het aanbod en het onderwerp van de belangrijkste klantvraag. |
-| A3 | De pagina zegt voor wie het aanbod is | 6 | E-RELEVANCE (sterk), E-BUYER (zwak) | Martine (tekst) | Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat. | De eerste alinea noemt het publiek en de situatie waarin het aanbod past. |
+| A3 | De pagina zegt voor wie het aanbod is | 6 | E-RELEVANCE (sterk), E-BUYER (zwak), E-FACTS (zwak) | Martine (tekst) | Noem het publiek en de situatie in de eerste alinea, zo concreet als de eigen kennis toelaat. | De eerste alinea noemt het publiek en de situatie waarin het aanbod past. |
 | A4 | De pagina behandelt de keuzecriteria van de koper | 4 | E-BUYER (zwak), E-DEPTH (middel) | Martine (tekst) | Behandel per keuzecriterium wat het aanbod biedt, met een feit of een getal. | Elk bekend keuzecriterium komt op de pagina terug met een concreet antwoord. |
 | A5 | Taal en regio passen bij de vraag | 2 | E-RELEVANCE (sterk) | Martine (tekst) | Schrijf in de taal van het publiek en noem het werkgebied. | Taal, valuta en werkgebied passen bij het publiek. |
 
@@ -55,8 +55,8 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 | B3 | Het onderwerp is diepgaand behandeld | 3 | E-DEPTH (middel) | Martine (tekst) | Werk het proces, de werking of de aanpak uit in stappen. | Een lezer zonder voorkennis begrijpt wat er gebeurt na de eerste stap. |
 | B4 | De pagina vergelijkt met alternatieven | 2 | E-DEPTH (middel) | Martine (tekst) | Voeg een korte, eerlijke vergelijking toe met het meest voor de hand liggende alternatief. | De pagina noemt minstens één alternatief en het verschil. |
 | U1 | De pagina bevat eigen gegevens of eigen onderzoek | 4 | E-UNIQUE (richtlijn), E-EVIDENCE (middel) | Marketeer | Voeg een cijfer of uitkomst toe uit eigen onderzoek, eigen klantdata of een eigen meting. Zet erbij hoe het gemeten is: bij wie, wanneer en hoeveel. | Minstens één cijfer of uitkomst komt uit eigen onderzoek of eigen data, met herkomst (wie, wanneer, hoeveel). |
-| U2 | De pagina bevat ervaring uit de eigen praktijk | 3 | E-UNIQUE (richtlijn) | Marketeer | Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent. | Minstens één case of observatie uit klantgesprekken, met aanleiding, aanpak en uitkomst. |
-| U3 | De pagina bevat een eigen methode of onderbouwd standpunt | 3 | E-UNIQUE (richtlijn) | Marketeer | Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Geef een eigen methode een naam en beschrijf de stappen. | De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die. |
+| U2 | De pagina bevat ervaring uit de eigen praktijk | 3 | E-UNIQUE (richtlijn), E-FACTS (zwak) | Marketeer | Beschrijf een case of een inzicht uit klantgesprekken met de aanleiding, wat er gebeurde en de uitkomst. Gebruik details die alleen deze organisatie kent. Zet het resultaat al in de korte samenvatting van de case, niet alleen op de casepagina. | Minstens één case of observatie uit klantgesprekken, met aanleiding, aanpak en uitkomst. |
+| U3 | De pagina bevat een eigen methode of onderbouwd standpunt | 3 | E-UNIQUE (richtlijn), E-FACTS (zwak) | Marketeer | Leg uit welke keuze de organisatie anders maakt dan gebruikelijk en waarom. Beschrijf bij een eigen methode de stappen. Een naam voor de methode alleen telt niet. | De pagina benoemt één eigen keuze, methode of standpunt en onderbouwt die met inhoud. Alleen een merknaam voor een werkwijze is niet genoeg. |
 
 ## Citeerbare antwoorden (13 punten)
 
@@ -71,8 +71,8 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
 | D1 | Cijfers hebben een bron | 4 | E-EVIDENCE (middel) | Martine (tekst) | Zet bij elk cijfer de bron en het jaar. | Elk cijfer heeft een bron of een toelichting hoe het gemeten is. |
-| D2 | Er staat een citaat van een klant of expert met naam | 3 | E-EVIDENCE (middel) | Marketeer | Plaats een echte quote met naam, functie en organisatie. | Minstens één quote met naam, functie en organisatie. |
-| D3 | Claims zijn controleerbaar | 3 | E-EVIDENCE (middel), E-CONFIDENT (middel) | Martine (tekst) | Onderbouw superlatieven met een bron of schrap ze. | Geen claim als beste of meest gekozen zonder bron. |
+| D2 | Een klant of expert met naam onderbouwt het resultaat | 3 | E-EVIDENCE (middel), E-FACTS (zwak) | Marketeer | Noem een klant bij naam met het resultaat van het werk. Een quote met naam, functie en organisatie telt ook. Zet er dan een concreet resultaat in. | Minstens één genoemde klant met een concreet resultaat, of één quote met naam, functie en organisatie. |
+| D3 | Claims zijn controleerbaar | 3 | E-EVIDENCE (middel), E-CONFIDENT (middel), E-FACTS (zwak) | Martine (tekst) | Onderbouw superlatieven met een bron of schrap ze. Zet het bewijs direct bij de claim. Schrijf keurmerken, prijzen en certificaten ook als tekst uit, niet alleen als logo. | Geen claim als beste of meest gekozen zonder bron. Keurmerken, prijzen en certificaten staan ook als tekst op de pagina. |
 
 ## Hygiëne (melden, geen punten)
 

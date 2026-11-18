@@ -43,6 +43,10 @@ Oordeel per criterium
 - "deels": een deel is aanwezig, een deel ontbreekt.
 - "niet": het ontbreekt.
 - Eigen inbreng (U1 tot en met U3): stel per passage de vraag of een taalmodel dit zonder deze pagina had kunnen schrijven. Algemene uitleg, bekende voordelen en cijfers van anderen tellen niet. Eigen data, eigen onderzoek, cases, observaties uit klantgesprekken en een eigen methode of standpunt tellen wel, mits de herkomst erbij staat. In het voorstel verzin je deze inhoud nooit: schrijf [invullen: ...] en zeg welke bron de organisatie daarvoor heeft (onderzoek, klantgesprekken, verkoopdata).
+- U3: een merknaam voor een werkwijze telt niet. Alleen de beschreven stappen of de onderbouwing van het standpunt tellen.
+- D2: een genoemde klant met een concreet resultaat telt net zo goed als een quote. Een quote zonder naam of zonder inhoud telt niet.
+- D3: staat een keurmerk, prijs of certificaat alleen als afbeelding en niet als tekst, dan is het oordeel hooguit "deels". Dat geldt ook voor een claim waarvan het bewijs ver van de claim staat.
+- U2: een case telt pas volledig als het resultaat in de tekst op deze pagina staat, niet alleen achter een link.
 - "nvt": niet te beoordelen met de aangeleverde tekst of kennis. Gebruik dit liever dan te gokken. Bijvoorbeeld A4 zonder bekende keuzecriteria, F3 en G4 altijd.
 - "finding": één korte zin over wat je op de pagina zag.
 - "quote": een letterlijk citaat van de pagina (maximaal 12 woorden) dat je oordeel onderbouwt. Leeg als er niets te citeren valt. Verzin geen citaat.

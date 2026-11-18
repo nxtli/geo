@@ -121,7 +121,7 @@ export const FEATURES = {
         feature("Eigen, concrete informatie", "Staat er informatie die alleen jij hebt? Denk aan je prijs, je voorwaarden, eigen cijfers, ervaring uit de praktijk en je eigen methode."),
         feature("Aansluiting op de vraag", "Beantwoordt de pagina de vragen van jouw klant? Staat erbij voor wie het aanbod is?"),
         feature("Citeerbare antwoorden", "Staat het antwoord vooraan? Begrijp je het ook zonder de rest van de pagina te lezen?"),
-        feature("Bewijs en bronnen", "Hebben cijfers een bron? Staat er een citaat van een klant of expert met naam?"),
+        feature("Bewijs en bronnen", "Hebben cijfers een bron? Noem je klanten bij naam, met het resultaat? Staan keurmerken ook als tekst op de pagina?"),
       ],
     },
   ],
@@ -251,7 +251,7 @@ export function faqs(brandName: string): Array<{ q: string; a: string }> {
     },
     {
       q: "Welke pagina laat ik scannen?",
-      a: "Kies de pagina waarmee je gevonden wilt worden. Vaak is dat een product- of dienstpagina en niet je homepage. De scan beoordeelt één pagina per keer.",
+      a: "Begin met je homepage. AI-tools lezen die pagina het vaakst en halen daar veel van hun informatie over je bedrijf vandaan. Verkoop je een product of dienst met een eigen pagina, scan die dan daarna. De scan beoordeelt één pagina per keer.",
     },
     {
       q: "Welke AI-tools neemt de scan mee?",

@@ -22,7 +22,9 @@ function seconds(ms: number): string {
  * Page speed from an already taken PageSpeed Insights measurement (mobile,
  * lab) on the context; this check never measures anything itself. Pass when
  * LCP ≤ 2000 ms, attention ≤ 4000 ms, fail above. Unknown when the
- * measurement failed (the summary names why), n/a when there is no
+ * measurement failed (the summary names why), except an exhausted
+ * PageSpeed Insights quota, which is n/a: nothing about the page is in
+ * doubt, the measuring service simply refused. Also n/a when there is no
  * measurement because speed was not requested or the page was not fetched.
  */
 export const speedCheck: CheckDefinition = {
@@ -31,6 +33,15 @@ export const speedCheck: CheckDefinition = {
   run({ speed }): CheckResult {
     if (!speed) {
       return { id: "speed", status: "n/a", summary: "Page speed was not measured for this page.", facts: {}, evidence: null };
+    }
+    if (!speed.ok && speed.reason === "quota") {
+      return {
+        id: "speed",
+        status: "n/a",
+        summary: "Page speed was not measured: the PageSpeed Insights quota was exhausted. Set PAGESPEED_API_KEY for a higher quota.",
+        facts: { lcp_ms: null, fcp_ms: null, performance_score: null, strategy: "mobile", failure_reason: "quota" },
+        evidence: null,
+      };
     }
     if (!speed.ok) {
       return {

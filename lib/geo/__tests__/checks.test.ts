@@ -139,6 +139,24 @@ describe("author_publisher", () => {
     expect(result.evidence).toBe("author: Anne (meta author)");
   });
 
+  it("needs attention when og:site_name is the only signal, with the site name as evidence", () => {
+    const result = check("author_publisher", scrapeOf(`<head><meta property="og:site_name" content="Voorbeeld"></head>`));
+    expect({ status: result.status, evidence: result.evidence }).toEqual({
+      status: "attention",
+      evidence: "publisher: Voorbeeld (og:site_name)",
+    });
+    expect(result.summary).toBe("Only a site name (Voorbeeld) was found; no named author or publisher.");
+  });
+
+  it("keeps passing when a site name comes with a JSON-LD publisher", () => {
+    const html = `<head><meta property="og:site_name" content="Voorbeeld"><script type="application/ld+json">{"@type":"Organization","name":"Voorbeeld BV"}</script></head>`;
+    const result = check("author_publisher", scrapeOf(html));
+    expect({ status: result.status, evidence: result.evidence }).toEqual({
+      status: "pass",
+      evidence: "publisher: Voorbeeld BV (JSON-LD)",
+    });
+  });
+
   it("needs attention when nobody is named, with null evidence", () => {
     const result = check("author_publisher", scrapeOf(BARE_HTML));
     expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "attention", evidence: null });

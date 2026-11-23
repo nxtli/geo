@@ -27,8 +27,9 @@ function nameEvidence(
 /**
  * Who stands behind the page: a publisher (JSON-LD organisation name, else
  * og:site_name) and an author (JSON-LD author, else meta name="author").
- * Pass when at least one is named, attention when neither is. Evidence: the
- * names with their source.
+ * Pass when at least one is named, attention when neither is. A site name
+ * from og:site_name alone is attention too: it says which site this is, not who
+ * stands behind the content. Evidence: the names with their source.
  */
 export const authorPublisherCheck: CheckDefinition = {
   id: "author_publisher",
@@ -51,6 +52,15 @@ export const authorPublisherCheck: CheckDefinition = {
     const evidence = nameEvidence(publisher, publisherSource, author, authorSource);
     if (publisher && author) {
       return { id: "author_publisher", status: "pass", summary: `Published by ${publisher}; author ${author}.`, facts: result, evidence };
+    }
+    if (publisherSource === "og:site_name" && !author) {
+      return {
+        id: "author_publisher",
+        status: "attention",
+        summary: `Only a site name (${publisher}) was found; no named author or publisher.`,
+        facts: result,
+        evidence,
+      };
     }
     if (publisher || author) {
       const summary = publisher ? `Published by ${publisher}; no author named.` : `Author ${author}; no publisher named.`;

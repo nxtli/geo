@@ -113,7 +113,7 @@ describe("check registry", () => {
       structured_data: "unknown",
       clarity: "unknown",
       speed: "n/a",
-      external: "n/a",
+      external: "unknown",
     });
   });
 });
@@ -269,7 +269,7 @@ describe("structured_data", () => {
     expect(result.status).toBe("pass");
     expect(result.facts).toMatchObject({ blocks: 2, invalid_blocks: 0 });
     expect(result.facts.types).toEqual(expect.arrayContaining(["Organization", "Article", "Person"]));
-    expect(result.evidence).toBe((result.facts.types as string[]).join(", "));
+    expect(result.evidence).toBe(`page type: article; types: ${(result.facts.types as string[]).join(", ")}`);
   });
 
   it("needs attention when a block is invalid JSON", () => {
@@ -374,7 +374,6 @@ describe("speed", () => {
 
   it.each([
     ["timeout", /timed out/],
-    ["quota", /quota/],
     ["http_error", /returned an error/],
     ["invalid_response", /unreadable/],
     ["network", /could not be reached/],
@@ -388,6 +387,22 @@ describe("speed", () => {
     expect(result.summary).toMatch(text);
   });
 
+  it("is n/a, not unknown, when the PageSpeed Insights quota was exhausted", () => {
+    const result = speedCheck({ ok: false, reason: "quota" });
+    expect({ status: result.status, evidence: result.evidence, reason: result.facts.failure_reason }).toEqual({
+      status: "n/a",
+      evidence: null,
+      reason: "quota",
+    });
+  });
+
+  it("tells the reader how to get a higher quota when it was exhausted", () => {
+    const result = speedCheck({ ok: false, reason: "quota" });
+    expect(result.summary).toBe(
+      "Page speed was not measured: the PageSpeed Insights quota was exhausted. Set PAGESPEED_API_KEY for a higher quota.",
+    );
+  });
+
   it.each([
     ["absent", undefined],
     ["null", null],
@@ -395,13 +410,5 @@ describe("speed", () => {
     const result = speedCheck(speed);
     expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "n/a", evidence: null });
     expect(result.summary).toMatch(/not measured/);
-  });
-});
-
-describe("external", () => {
-  it("is always n/a, even for a fetched page", () => {
-    const result = check("external", scrapeOf(GOOD_HTML));
-    expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "n/a", evidence: null });
-    expect(result.summary).toMatch(/not measured yet/);
   });
 });

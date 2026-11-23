@@ -1,6 +1,7 @@
 import type { ScrapeResult } from "../scrape";
 import type { PageFacts } from "../facts/page";
 import type { SpeedMeasurement } from "../speed";
+import type { ExternalSources } from "../external";
 
 /** Every check id, in registry order. The route's body schema is built from this list. */
 export const CHECK_IDS = [
@@ -46,6 +47,12 @@ export interface CheckContext {
    * then n/a). Checks never measure anything themselves.
    */
   speed?: SpeedMeasurement | null;
+  /**
+   * What the optional off-page sources (search provider, LLM brand probe)
+   * returned, gathered before the checks run; absent or null means both
+   * were off. Checks never call them themselves.
+   */
+  external?: ExternalSources | null;
 }
 
 export interface CheckDefinition {

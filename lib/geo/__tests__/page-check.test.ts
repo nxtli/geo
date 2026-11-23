@@ -104,7 +104,7 @@ describe("runPageCheck", () => {
       ["structured_data", "attention", null],
       ["clarity", "attention", "Pagina"],
       ["speed", "n/a", null],
-      ["external", "n/a", null],
+      ["external", "fail", null],
     ]);
   });
 
@@ -234,11 +234,20 @@ describe("runPageCheck speed measurement", () => {
   });
 
   it("reports a failed measurement as unknown with its reason, and keeps the page result", async () => {
-    const { results } = await runWithSpeed(["https://example.com/a"], async () => ({ ok: false, reason: "quota" }));
+    const { results } = await runWithSpeed(["https://example.com/a"], async () => ({ ok: false, reason: "http_error" }));
     expect({ fetched: results[0]?.fetched, status: speedOf(results[0]!)?.status, summary: speedOf(results[0]!)?.summary }).toEqual({
       fetched: true,
       status: "unknown",
-      summary: "Page speed could not be measured: the PageSpeed Insights quota was exhausted.",
+      summary: "Page speed could not be measured: PageSpeed Insights returned an error.",
+    });
+  });
+
+  it("reports an exhausted quota as n/a with reason quota, and keeps the page result", async () => {
+    const { results } = await runWithSpeed(["https://example.com/a"], async () => ({ ok: false, reason: "quota" }));
+    expect({ fetched: results[0]?.fetched, status: speedOf(results[0]!)?.status, reason: speedOf(results[0]!)?.facts.failure_reason }).toEqual({
+      fetched: true,
+      status: "n/a",
+      reason: "quota",
     });
   });
 

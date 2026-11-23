@@ -3,6 +3,17 @@ import { z } from "zod";
 import { CHECK_IDS, runChecks, type CheckId, type CheckResult } from "./checks";
 import { fetchPage as defaultFetchPage, type FetchPageOptions, type ScrapeResult, type UrlGuard } from "./scrape";
 import type { SpeedMeasurement } from "./speed";
+import {
+  brandOf,
+  hostOf,
+  runBrandProbe,
+  runSearch,
+  type BrandProbe,
+  type BrandProbeOutcome,
+  type ExternalSources,
+  type SearchOutcome,
+  type SearchProvider,
+} from "./external";
 import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
 
 /**
@@ -99,6 +110,18 @@ export interface PageCheckDeps {
    * one (lib/geo/speed.ts) with the API key from the environment.
    */
   measureSpeed?: (url: string) => Promise<SpeedMeasurement>;
+  /**
+   * Off-page search for brand mentions, for the external check. Off when
+   * absent (none ships yet). Asked once per hostname per request, with a
+   * SEARCH_TIMEOUT_MS cap; a throw or timeout is reported, never fatal.
+   */
+  searchProvider?: SearchProvider;
+  /**
+   * LLM brand probe, for the external check's `llm_probe` fact. Off when
+   * absent. Asked at most once per request (for the first fetched page's
+   * brand), never per page.
+   */
+  brandProbe?: BrandProbe;
 }
 
 /**
@@ -167,6 +190,10 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
  * are named), `measureSpeed` is given and the page was fetched, on the final
  * URL, inside the same lane as its fetch, so at most FETCH_CONCURRENCY pages
  * are fetched or measured at once.
+ *
+ * The external check's optional sources (`searchProvider`, `brandProbe`) run
+ * only when that check is requested and the page loaded, next to the speed
+ * measurement; the search once per hostname, the probe once per request.
  */
 export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}): Promise<PageCheckResponse> {
   const fetchPage = deps.fetchPage ?? defaultFetchPage;
@@ -176,6 +203,26 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
   const measure = wantsSpeed ? deps.measureSpeed : undefined;
   const urls = dedupeUrls(body.urls).slice(0, MAX_URLS);
   const guard = pageCheckGuard(deps.lookup);
+  const wantsExternal = !ids || ids.length === 0 || ids.includes("external");
+  const searchProvider = wantsExternal ? deps.searchProvider : undefined;
+  const brandProbe = wantsExternal ? deps.brandProbe : undefined;
+  const searches = new Map<string, Promise<SearchOutcome>>();
+  let probeOnce: Promise<BrandProbeOutcome> | null = null;
+
+  /** The off-page sources for one fetched page; null when both are off. Shares one search per hostname and one probe per request. */
+  const gatherExternal = async (scrape: ScrapeResult, finalUrl: string): Promise<ExternalSources | null> => {
+    if (!searchProvider && !brandProbe) return null;
+    const hostname = hostOf(finalUrl) ?? "";
+    const brand = brandOf(scrape.facts, hostname);
+    let search = searches.get(hostname);
+    if (!search) {
+      search = runSearch(searchProvider, brand, hostname);
+      searches.set(hostname, search);
+    }
+    if (!probeOnce) probeOnce = runBrandProbe(brandProbe, brand, hostname);
+    const [searchOutcome, llmProbe] = await Promise.all([search, probeOnce]);
+    return { search: searchOutcome, llmProbe };
+  };
 
   const results = await mapWithLimit(urls, FETCH_CONCURRENCY, async (url): Promise<PageCheckResult> => {
     if (!isPublicHttpUrl(url)) return { url, fetched: false, error: "url_not_allowed" };
@@ -184,8 +231,12 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
       if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
       if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
       const finalUrl = scrape.finalUrl ?? url;
-      const speed = measure && scrape.metadata.fetched ? await measureSafely(measure, finalUrl) : null;
-      return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed));
+      const loaded = scrape.metadata.fetched && !!scrape.facts;
+      const [speed, external] = await Promise.all([
+        measure && scrape.metadata.fetched ? measureSafely(measure, finalUrl) : null,
+        loaded ? gatherExternal(scrape, finalUrl) : null,
+      ]);
+      return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed, external));
     } catch {
       return { url, fetched: false, error: "fetch_failed" };
     }

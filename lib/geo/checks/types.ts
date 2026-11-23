@@ -1,0 +1,52 @@
+import type { ScrapeResult } from "../scrape";
+import type { PageFacts } from "../facts/page";
+
+/** Every check id, in registry order. The route's body schema is built from this list. */
+export const CHECK_IDS = [
+  "author_publisher",
+  "recency",
+  "structured_data",
+  "clarity",
+  "speed",
+  "external",
+] as const;
+
+export type CheckId = (typeof CHECK_IDS)[number];
+
+export type CheckStatus = "pass" | "attention" | "fail" | "unknown" | "n/a";
+
+export type CheckFactValue = string | number | boolean | null | string[];
+
+export interface CheckResult {
+  id: CheckId;
+  status: CheckStatus;
+  /** One short English sentence describing what was measured. */
+  summary: string;
+  facts: Record<string, CheckFactValue>;
+}
+
+/** What a check gets to look at: the page as already scraped. No network, no model. */
+export interface CheckContext {
+  url: string;
+  scrape: ScrapeResult;
+  /** Shortcut for `scrape.facts`; null when the page was not fetched. */
+  facts: PageFacts | null;
+  /** The moment ages are measured against; injected so results are reproducible. */
+  now: Date;
+}
+
+export interface CheckDefinition {
+  id: CheckId;
+  label: string;
+  run(ctx: CheckContext): CheckResult;
+}
+
+/** The shared result for a measurable check when there is no page to measure. */
+export function notFetched(id: CheckId): CheckResult {
+  return { id, status: "unknown", summary: "The page could not be fetched, so this was not measured.", facts: {} };
+}
+
+/** The shared result for a check that has no measurement yet. */
+export function notMeasured(id: CheckId, what: string): CheckResult {
+  return { id, status: "n/a", summary: `${what} is not measured yet.`, facts: {} };
+}

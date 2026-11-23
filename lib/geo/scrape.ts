@@ -32,7 +32,11 @@ interface Probe {
   xRobotsTag?: string | null;
 }
 
-export async function fetchHomepage(url: string): Promise<ScrapeResult> {
+/**
+ * Fetches any page URL (homepage or deep page) plus the origin's robots.txt
+ * and llms.txt. robots.txt is evaluated against this URL's own path. Never throws.
+ */
+export async function fetchPage(url: string): Promise<ScrapeResult> {
   let origin: string | null = null;
   try {
     origin = new URL(url).origin;
@@ -144,7 +148,7 @@ async function probe(target: string, timeoutMs: number, html = false): Promise<P
     }
     return { status: res.status, text, xRobotsTag: res.headers.get("x-robots-tag") };
   } catch (error) {
-    if (html) logError("scrape.fetchHomepage", error);
+    if (html) logError("scrape.fetchPage", error);
     return { status: null, text: null };
   } finally {
     clearTimeout(timeout);
@@ -162,3 +166,6 @@ function extractAttr(html: string, tagRe: RegExp): string | null {
   const m = tag.match(/content=["']([^"']*)["']/i);
   return m ? m[1].trim() : null;
 }
+
+/** Previous name of {@link fetchPage}; kept so existing callers keep working. */
+export const fetchHomepage = fetchPage;

@@ -24,7 +24,17 @@ export interface PageFacts {
   h1Count: number;
   headings: Heading[];
   skippedHeadingLevel: boolean;
-  jsonLd: { blocks: number; invalid: number; types: string[]; dateModified: string | null; orgName: string | null };
+  jsonLd: {
+    blocks: number;
+    invalid: number;
+    types: string[];
+    dateModified: string | null;
+    orgName: string | null;
+    /** First JSON-LD `author` name (a string, an object with `name`, or the first of a list). */
+    authorName: string | null;
+  };
+  /** `<meta name="author">`, as the page states it. */
+  metaAuthor: string | null;
   /** Datum die een bezoeker op de pagina ziet, met jaartal. */
   visibleDate: string | null;
   metaModified: string | null;
@@ -88,8 +98,32 @@ export function htmlToOutlineText(html: string): string {
     .trim();
 }
 
+/** A JSON-LD `author` value as a name: a string, an object's `name`, or the first usable entry of a list. */
+function authorNameOf(author: unknown): string | null {
+  if (typeof author === "string") return author.trim() || null;
+  if (Array.isArray(author)) {
+    for (const entry of author) {
+      const name = authorNameOf(entry);
+      if (name) return name;
+    }
+    return null;
+  }
+  if (author && typeof author === "object") {
+    const name = (author as Record<string, unknown>).name;
+    return typeof name === "string" ? name.trim() || null : null;
+  }
+  return null;
+}
+
 function collectJsonLd(html: string) {
-  const out = { blocks: 0, invalid: 0, types: [] as string[], dateModified: null as string | null, orgName: null as string | null };
+  const out = {
+    blocks: 0,
+    invalid: 0,
+    types: [] as string[],
+    dateModified: null as string | null,
+    orgName: null as string | null,
+    authorName: null as string | null,
+  };
   const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   const types = new Set<string>();
   const walk = (node: unknown) => {
@@ -102,6 +136,7 @@ function collectJsonLd(html: string) {
     if (typeof o.dateModified === "string" && !out.dateModified) out.dateModified = o.dateModified;
     const ts = typeof t === "string" ? [t] : Array.isArray(t) ? t : [];
     if (!out.orgName && typeof o.name === "string" && ts.some((x) => /^(Organization|WebSite|LocalBusiness|Corporation|Brand)$/.test(String(x)))) out.orgName = o.name.trim();
+    if (!out.authorName) out.authorName = authorNameOf(o.author);
     Object.values(o).forEach(walk);
   };
   let m: RegExpExecArray | null;
@@ -217,6 +252,7 @@ export function extractPageFacts(
     jsonLd,
     visibleDate,
     metaModified: metaContent(html, "property", "article:modified_time"),
+    metaAuthor: metaContent(html, "name", "author") || null,
     hasPrice: priceSamples.length > 0,
     priceSamples,
     images: { total: imgs.length, missingAlt },

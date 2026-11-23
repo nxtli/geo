@@ -3,10 +3,15 @@ import { notFetched } from "./types";
 
 const DAY_MS = 86_400_000;
 
-/** Up to this many days old is pass (a future date is pass too). */
+/** Up to this many days old is pass. */
 export const RECENT_MAX_AGE_DAYS = 180;
 /** Up to this many days old is attention; older is fail. */
 export const AGING_MAX_AGE_DAYS = 365;
+/**
+ * A date up to this many days after `now` still counts (time zones, a page
+ * published "tomorrow" by its own clock). Anything later is ignored.
+ */
+export const FUTURE_TOLERANCE_DAYS = 1;
 
 /** How each date source is named in the evidence string. */
 const SOURCE_LABELS: Record<string, string> = {
@@ -71,9 +76,11 @@ export function ageInDays(date: Date, now: Date): number {
 /**
  * The newest of the visible date, JSON-LD dateModified and
  * article:modified_time, with its age in days against the injected `now`.
- * Pass up to RECENT_MAX_AGE_DAYS (and for a future date), attention up to
- * AGING_MAX_AGE_DAYS, fail when older, unknown when no date parses. Evidence
- * is the date as found plus its source, e.g. "3 oktober 2026 (visible date)".
+ * A date more than FUTURE_TOLERANCE_DAYS after `now` is ignored when picking
+ * the newest and reported in `ignored_future_date`. Pass up to
+ * RECENT_MAX_AGE_DAYS, attention up to AGING_MAX_AGE_DAYS, fail when older,
+ * unknown when no usable date parses. Evidence is the date as found plus its
+ * source, e.g. "3 oktober 2026 (visible date)".
  */
 export const recencyCheck: CheckDefinition = {
   id: "recency",
@@ -85,11 +92,19 @@ export const recencyCheck: CheckDefinition = {
       { source: "json_ld_date_modified", raw: facts.jsonLd.dateModified },
       { source: "meta_modified_time", raw: facts.metaModified },
     ];
+    const latestAllowed = now.getTime() + FUTURE_TOLERANCE_DAYS * DAY_MS;
     let newest: { source: string; raw: string; date: Date } | null = null;
+    let ignoredFuture: Date | null = null;
     for (const { source, raw } of candidates) {
       const date = parsePageDate(raw);
-      if (raw && date && (!newest || date.getTime() > newest.date.getTime())) newest = { source, raw: raw.trim(), date };
+      if (!raw || !date) continue;
+      if (date.getTime() > latestAllowed) {
+        if (!ignoredFuture || date.getTime() > ignoredFuture.getTime()) ignoredFuture = date;
+        continue;
+      }
+      if (!newest || date.getTime() > newest.date.getTime()) newest = { source, raw: raw.trim(), date };
     }
+    const ignoredFutureDate = ignoredFuture ? ignoredFuture.toISOString().slice(0, 10) : null;
     const result = {
       visible_date: facts.visibleDate,
       json_ld_date_modified: facts.jsonLd.dateModified,
@@ -97,15 +112,20 @@ export const recencyCheck: CheckDefinition = {
       newest_date: newest ? newest.date.toISOString().slice(0, 10) : null,
       newest_source: newest?.source ?? null,
       age_days: newest ? ageInDays(newest.date, now) : null,
+      ignored_future_date: ignoredFutureDate,
     };
+    const futureNote = ignoredFutureDate ? ` A date in the future (${ignoredFutureDate}) was ignored.` : "";
     if (!newest || result.age_days === null) {
-      return { id: "recency", status: "unknown", summary: "No date found on the page.", facts: result, evidence: null };
+      const summary = ignoredFutureDate
+        ? `Only a date in the future (${ignoredFutureDate}) was found; it was ignored.`
+        : "No date found on the page.";
+      return { id: "recency", status: "unknown", summary, facts: result, evidence: null };
     }
     const age = result.age_days;
     return {
       id: "recency",
       status: age <= RECENT_MAX_AGE_DAYS ? "pass" : age <= AGING_MAX_AGE_DAYS ? "attention" : "fail",
-      summary: `Newest date ${result.newest_date} (${newest.source}), ${age} day(s) old.`,
+      summary: `Newest date ${result.newest_date} (${newest.source}), ${age} day(s) old.${futureNote}`,
       facts: result,
       evidence: `${newest.raw} (${SOURCE_LABELS[newest.source] ?? newest.source})`,
     };

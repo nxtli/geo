@@ -2,10 +2,14 @@ import { describe, it, expect } from "vitest";
 import { extractPageFacts } from "../facts/page";
 import { analyzeRobots } from "../facts/robots";
 import type { ScrapeResult } from "../scrape";
+import type { SpeedMeasurement } from "../speed";
 import {
   AGING_MAX_AGE_DAYS,
   CHECK_IDS,
   CHECK_REGISTRY,
+  FUTURE_TOLERANCE_DAYS,
+  LCP_ATTENTION_MAX_MS,
+  LCP_PASS_MAX_MS,
   RECENT_MAX_AGE_DAYS,
   ageInDays,
   parsePageDate,
@@ -173,9 +177,43 @@ describe("recency", () => {
     expect({ age: result.facts.age_days, status: result.status }).toEqual({ age: days, status });
   });
 
-  it("passes a date in the future", () => {
+  it("allows a date up to one day in the future", () => {
+    const result = check("recency", aged(-FUTURE_TOLERANCE_DAYS));
+    expect({ age: result.facts.age_days, status: result.status, ignored: result.facts.ignored_future_date }).toEqual({
+      age: -1,
+      status: "pass",
+      ignored: null,
+    });
+  });
+
+  it("is unknown when the only date lies more than a day in the future, and says it was ignored", () => {
     const result = check("recency", aged(-30));
-    expect({ age: result.facts.age_days, status: result.status }).toEqual({ age: -30, status: "pass" });
+    expect({
+      status: result.status,
+      age: result.facts.age_days,
+      newest: result.facts.newest_date,
+      ignored: result.facts.ignored_future_date,
+      evidence: result.evidence,
+    }).toEqual({ status: "unknown", age: null, newest: null, ignored: "2026-12-23", evidence: null });
+    expect(result.summary).toMatch(/future.*ignored/);
+  });
+
+  it("ignores a future date when picking the newest and grades the next one", () => {
+    const tenDaysAgo = new Date(NOW.getTime() - 10 * DAY_MS).toISOString();
+    const html = `<html><head><meta property="article:modified_time" content="${tenDaysAgo}">
+<script type="application/ld+json">{"@type":"Article","dateModified":"2027-03-01"}</script></head><body><p>tekst</p></body></html>`;
+    const result = check("recency", scrapeOf(html));
+    expect({
+      status: result.status,
+      source: result.facts.newest_source,
+      age: result.facts.age_days,
+      ignored: result.facts.ignored_future_date,
+    }).toEqual({ status: "pass", source: "meta_modified_time", age: 10, ignored: "2027-03-01" });
+    expect(result.summary).toMatch(/A date in the future \(2027-03-01\) was ignored/);
+  });
+
+  it("reports ignored_future_date as null when no date is found", () => {
+    expect(check("recency", scrapeOf(BARE_HTML)).facts.ignored_future_date).toBeNull();
   });
 
   it("is unknown when no date is found, with null evidence", () => {
@@ -221,6 +259,21 @@ describe("structured_data", () => {
     const result = check("structured_data", scrapeOf(html));
     expect(result.status).toBe("attention");
     expect(result.facts).toMatchObject({ blocks: 2, invalid_blocks: 1 });
+  });
+
+  it.each([
+    ["an empty object", "{}"],
+    ["an empty list", "[]"],
+    ["objects without @type", '{"name":"Voorbeeld BV","url":"https://voorbeeld.example"}'],
+  ])("needs attention when the blocks declare no types (%s)", (_label, json) => {
+    const html = `<script type="application/ld+json">${json}</script>`;
+    const result = check("structured_data", scrapeOf(html));
+    expect({ status: result.status, evidence: result.evidence, blocks: result.facts.blocks }).toEqual({
+      status: "attention",
+      evidence: null,
+      blocks: 1,
+    });
+    expect(result.summary).toMatch(/no types declared/);
   });
 
   it("needs attention when there is no JSON-LD, with null evidence", () => {
@@ -272,11 +325,65 @@ describe("clarity", () => {
   });
 });
 
-describe("speed and external", () => {
-  it("are always n/a, even for a fetched page", () => {
-    expect(check("speed", scrapeOf(GOOD_HTML)).status).toBe("n/a");
-    expect(check("external", scrapeOf(GOOD_HTML)).status).toBe("n/a");
-    expect(check("speed", scrapeOf(GOOD_HTML)).summary).toMatch(/not measured yet/);
-    expect(check("external", scrapeOf(GOOD_HTML)).evidence).toBeNull();
+describe("speed", () => {
+  function measured(lcp_ms: number, overrides: Partial<{ fcp_ms: number; performance_score: number }> = {}): SpeedMeasurement {
+    return { ok: true, lcp_ms, fcp_ms: 1_100, performance_score: 92, source: "lab", ...overrides };
+  }
+
+  function speedCheck(speed: SpeedMeasurement | null | undefined, scrape = scrapeOf(GOOD_HTML)) {
+    const [result] = runChecks(scrape, PAGE_URL, ["speed"], NOW, speed);
+    return result;
+  }
+
+  it("uses LCP thresholds of 2000 and 4000 ms", () => {
+    expect([LCP_PASS_MAX_MS, LCP_ATTENTION_MAX_MS]).toEqual([2_000, 4_000]);
+  });
+
+  it.each([
+    [2_000, "pass"],
+    [2_001, "attention"],
+    [4_000, "attention"],
+    [4_001, "fail"],
+  ])("at LCP %i ms is %s", (lcp, status) => {
+    expect(speedCheck(measured(lcp)).status).toBe(status);
+  });
+
+  it("reports the facts and quotes the measurement as evidence", () => {
+    const result = speedCheck(measured(1_800));
+    expect(result.facts).toEqual({ lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, strategy: "mobile" });
+    expect(result.evidence).toBe("LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)");
+  });
+
+  it.each([
+    ["timeout", /timed out/],
+    ["quota", /quota/],
+    ["http_error", /returned an error/],
+    ["invalid_response", /unreadable/],
+    ["network", /could not be reached/],
+  ] as const)("is unknown when the measurement failed with %s, and names the reason", (reason, text) => {
+    const result = speedCheck({ ok: false, reason });
+    expect({ status: result.status, evidence: result.evidence, reason: result.facts.failure_reason }).toEqual({
+      status: "unknown",
+      evidence: null,
+      reason,
+    });
+    expect(result.summary).toMatch(text);
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["null", null],
+  ])("is n/a when the measurement is %s", (_label, speed) => {
+    const result = speedCheck(speed);
+    expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "n/a", evidence: null });
+    expect(result.summary).toMatch(/not measured/);
+  });
+});
+
+describe("external", () => {
+  it("is always n/a, even for a fetched page", () => {
+    const result = check("external", scrapeOf(GOOD_HTML));
+    expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "n/a", evidence: null });
+    expect(result.summary).toMatch(/not measured yet/);
   });
 });

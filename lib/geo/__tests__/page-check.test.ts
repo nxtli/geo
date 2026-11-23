@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { extractPageFacts } from "../facts/page";
 import { analyzeRobots } from "../facts/robots";
 import { fetchPage, MAX_REDIRECTS, type ScrapeResult } from "../scrape";
+import { measureSpeed, type SpeedMeasurement } from "../speed";
 import type { LookupAll } from "../url-safety";
 import {
   FETCH_CONCURRENCY,
@@ -9,6 +10,7 @@ import {
   pageCheckBodySchema,
   runPageCheck,
   type PageCheckFetched,
+  type PageCheckResult,
 } from "../page-check";
 
 const NOW = new Date("2026-11-23T12:00:00Z");
@@ -140,6 +142,154 @@ describe("runPageCheck", () => {
     const { results } = await run(urls, fetchPage).response;
     expect(results).toHaveLength(8);
     expect(peak).toBe(FETCH_CONCURRENCY);
+  });
+});
+
+describe("runPageCheck speed measurement", () => {
+  const FAST: SpeedMeasurement = { ok: true, lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, source: "lab" };
+
+  function speedOf(result: PageCheckResult) {
+    return (result as PageCheckFetched).checks.find((c) => c.id === "speed");
+  }
+
+  function runWithSpeed(
+    urls: string[],
+    measureSpeed: (url: string) => Promise<SpeedMeasurement>,
+    options: { checks?: string[]; fetchPage?: (url: string) => Promise<ScrapeResult> } = {},
+  ) {
+    const fetchPage = options.fetchPage ?? (async (url: string) => fakeScrape(url));
+    return runPageCheck(pageCheckBodySchema.parse({ urls, checks: options.checks }), {
+      fetchPage,
+      measureSpeed,
+      now: () => NOW,
+    });
+  }
+
+  it("measures the final url and grades it when no checks are named", async () => {
+    const measureSpeed = vi.fn(async (_url: string) => FAST);
+    const fetchPage = async (url: string) => ({ ...fakeScrape(`${url}/eind`), finalUrl: `${url}/eind` });
+
+    const { results } = await runWithSpeed(["https://example.com/a"], measureSpeed, { fetchPage });
+
+    expect(measureSpeed.mock.calls).toEqual([["https://example.com/a/eind"]]);
+    expect(speedOf(results[0]!)).toEqual({
+      id: "speed",
+      status: "pass",
+      summary: "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92.",
+      facts: { lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, strategy: "mobile" },
+      evidence: "LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)",
+    });
+  });
+
+  it("measures when speed is among the requested checks", async () => {
+    const measureSpeed = vi.fn(async (_url: string) => FAST);
+    await runWithSpeed(["https://example.com/a"], measureSpeed, { checks: ["recency", "speed"] });
+    expect(measureSpeed).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes no PSI call when speed is not requested", async () => {
+    const measureSpeed = vi.fn(async (_url: string) => FAST);
+    const { results } = await runWithSpeed(["https://example.com/a"], measureSpeed, { checks: ["recency"] });
+    expect({ calls: measureSpeed.mock.calls.length, ids: (results[0] as PageCheckFetched).checks.map((c) => c.id) }).toEqual({
+      calls: 0,
+      ids: ["recency"],
+    });
+  });
+
+  it("leaves speed n/a when no measurer is wired", async () => {
+    const { results } = await run(["https://example.com/a"]).response;
+    expect(speedOf(results[0]!)?.status).toBe("n/a");
+  });
+
+  it("makes no PSI call for a refused url, before or during the fetch", async () => {
+    const measureSpeed = vi.fn(async (_url: string) => FAST);
+    const fetchPage = async (url: string): Promise<ScrapeResult> =>
+      url.includes("omleiding")
+        ? { ...fakeScrape(url), metadata: { fetched: false, status: null }, facts: null, fetchError: "url_not_allowed" }
+        : fakeScrape(url);
+
+    const { results } = await runWithSpeed(["http://10.0.0.5/", "https://example.com/omleiding"], measureSpeed, { fetchPage });
+
+    expect({ calls: measureSpeed.mock.calls.length, errors: results.map((r) => ("error" in r ? r.error : null)) }).toEqual({
+      calls: 0,
+      errors: ["url_not_allowed", "url_not_allowed"],
+    });
+  });
+
+  it("makes no PSI call for a page that did not load, and leaves speed n/a", async () => {
+    const measureSpeed = vi.fn(async (_url: string) => FAST);
+    const fetchPage = async (url: string): Promise<ScrapeResult> => ({
+      ...fakeScrape(url),
+      metadata: { fetched: false, status: 503 },
+      facts: null,
+    });
+
+    const { results } = await runWithSpeed(["https://example.com/a"], measureSpeed, { fetchPage });
+
+    expect({ calls: measureSpeed.mock.calls.length, fetched: results[0]?.fetched, speed: speedOf(results[0]!)?.status }).toEqual({
+      calls: 0,
+      fetched: false,
+      speed: "n/a",
+    });
+  });
+
+  it("reports a failed measurement as unknown with its reason, and keeps the page result", async () => {
+    const { results } = await runWithSpeed(["https://example.com/a"], async () => ({ ok: false, reason: "quota" }));
+    expect({ fetched: results[0]?.fetched, status: speedOf(results[0]!)?.status, summary: speedOf(results[0]!)?.summary }).toEqual({
+      fetched: true,
+      status: "unknown",
+      summary: "Page speed could not be measured: the PageSpeed Insights quota was exhausted.",
+    });
+  });
+
+  it("treats a measurer that throws as a network failure, not a failed page", async () => {
+    const { results } = await runWithSpeed(["https://example.com/a"], async () => {
+      throw new Error("boom");
+    });
+    expect({ fetched: results[0]?.fetched, reason: speedOf(results[0]!)?.facts.failure_reason }).toEqual({
+      fetched: true,
+      reason: "network",
+    });
+  });
+
+  it("does not let one timed-out measurement block the other pages", async () => {
+    const finished: string[] = [];
+    // The real measureSpeed with a short timeout: PSI hangs for page a and answers at once for the others.
+    const psiFetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const page = new URL(String(input)).searchParams.get("url") ?? "";
+      if (page.endsWith("/a")) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+        });
+      }
+      const body = {
+        lighthouseResult: {
+          audits: { "largest-contentful-paint": { numericValue: 1_500 }, "first-contentful-paint": { numericValue: 900 } },
+          categories: { performance: { score: 0.95 } },
+        },
+      };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    const measure = async (url: string) => {
+      const result = await measureSpeed(url, { fetch: psiFetch as unknown as typeof fetch, timeoutMs: 50 });
+      finished.push(url);
+      return result;
+    };
+
+    const { results } = await runWithSpeed(
+      ["https://example.com/a", "https://example.com/b", "https://example.com/c", "https://example.com/d"],
+      measure,
+    );
+
+    expect({
+      statuses: results.map((r) => speedOf(r)?.status),
+      lastFinished: finished[finished.length - 1],
+      summary: speedOf(results[0]!)?.summary,
+    }).toEqual({
+      statuses: ["unknown", "pass", "pass", "pass"],
+      lastFinished: "https://example.com/a",
+      summary: "Page speed could not be measured: the measurement timed out.",
+    });
   });
 });
 

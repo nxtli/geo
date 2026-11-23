@@ -19,8 +19,12 @@ function parseIpv4(host: string): number[] | null {
   return octets.every((o) => o >= 0 && o <= 255) ? octets : null;
 }
 
-/** Private, loopback, link-local, "this network", shared (CGNAT), multicast and reserved IPv4 ranges. */
-function isBlockedIpv4([a, b]: number[]): boolean {
+/**
+ * Private, loopback, link-local, "this network", shared (CGNAT), IETF protocol
+ * assignments, documentation (TEST-NET-1/2/3), benchmarking, multicast and
+ * reserved IPv4 ranges.
+ */
+function isBlockedIpv4([a, b, c]: number[]): boolean {
   return (
     a === 0 || // 0.0.0.0/8
     a === 10 || // 10.0.0.0/8
@@ -28,7 +32,12 @@ function isBlockedIpv4([a, b]: number[]): boolean {
     (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 shared address space
     (a === 169 && b === 254) || // link-local
     (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+    (a === 192 && b === 0 && c === 0) || // 192.0.0.0/24 IETF protocol assignments
+    (a === 192 && b === 0 && c === 2) || // 192.0.2.0/24 TEST-NET-1
     (a === 192 && b === 168) || // 192.168.0.0/16
+    (a === 198 && (b === 18 || b === 19)) || // 198.18.0.0/15 benchmarking
+    (a === 198 && b === 51 && c === 100) || // 198.51.100.0/24 TEST-NET-2
+    (a === 203 && b === 0 && c === 113) || // 203.0.113.0/24 TEST-NET-3
     a >= 224 // multicast, reserved and broadcast
   );
 }
@@ -54,7 +63,13 @@ function parseIpv6(host: string): number[] | null {
   return groups.map((g) => parseInt(g, 16));
 }
 
-/** Unspecified, loopback, link-local, unique-local, multicast, and IPv4-mapped/compatible private addresses. */
+/**
+ * Unspecified, loopback, link-local, site-local, unique-local, multicast,
+ * IPv4-mapped/compatible private addresses, and the translation and tunnel
+ * prefixes that embed an IPv4 address (NAT64, 6to4, Teredo) plus the
+ * documentation prefix. The embedding prefixes are refused whole rather than
+ * decoded, which is the safe side.
+ */
 function isBlockedIpv6(groups: number[]): boolean {
   const first = groups[0];
   const upperZero = groups.slice(0, 5).every((g) => g === 0);
@@ -64,9 +79,16 @@ function isBlockedIpv6(groups: number[]): boolean {
     if (groups[5] === 0 && groups[6] === 0 && groups[7] <= 1) return true; // :: and ::1
     return isBlockedIpv4(v4);
   }
+  const second = groups[1];
   return (
+    (first === 0x64 && second === 0xff9b && groups.slice(2, 6).every((g) => g === 0)) || // 64:ff9b::/96 NAT64
+    (first === 0x64 && second === 0xff9b && groups[2] === 1) || // 64:ff9b:1::/48 local-use NAT64
+    (first === 0x2001 && second === 0) || // 2001::/32 Teredo
+    (first === 0x2001 && second === 0xdb8) || // 2001:db8::/32 documentation
+    first === 0x2002 || // 2002::/16 6to4
     (first & 0xfe00) === 0xfc00 || // fc00::/7 unique-local
     (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+    (first & 0xffc0) === 0xfec0 || // fec0::/10 site-local (deprecated)
     (first & 0xff00) === 0xff00 // ff00::/8 multicast
   );
 }
@@ -119,24 +141,39 @@ export type LookupAll = (hostname: string, options: { all: true }) => Promise<{ 
 
 const defaultLookup: LookupAll = (hostname, options) => dnsLookup(hostname, options);
 
+/** How long a DNS lookup may take before the host counts as not public. */
+export const DNS_LOOKUP_TIMEOUT_MS = 3_000;
+
 /**
  * True when every address `hostname` resolves to is public, by the same range
  * rules as IP literals. An IP literal (IPv6 with or without brackets) is
- * checked as is. No addresses, or a lookup error, is false. Never throws.
+ * checked as is. No addresses, a lookup error, or a lookup slower than
+ * `timeoutMs` is false; the timer is always cleared. Never throws.
  *
  * This is check-then-fetch: the fetch resolves the name again, so a DNS
  * rebinding answer can still differ between the check and the connection.
  * Closing that gap would mean pinning the checked address with a custom
  * HTTP agent, which this does not do.
  */
-export async function resolvesToPublicAddress(hostname: string, lookup: LookupAll = defaultLookup): Promise<boolean> {
+export async function resolvesToPublicAddress(
+  hostname: string,
+  lookup: LookupAll = defaultLookup,
+  timeoutMs: number = DNS_LOOKUP_TIMEOUT_MS,
+): Promise<boolean> {
   const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^\[(.*)\]$/, "$1");
   if (!host) return false;
   if (parseIpv4(host) || host.includes(":")) return isPublicIpAddress(host);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const addresses = await lookup(host, { all: true });
+    const timedOut = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    const addresses = await Promise.race([lookup(host, { all: true }), timedOut]);
+    if (!addresses) return false;
     return addresses.length > 0 && addresses.every((entry) => isPublicIpAddress(entry.address));
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }

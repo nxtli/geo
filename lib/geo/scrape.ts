@@ -53,6 +53,11 @@ const MAX_CHARS = 16_000;
 const PAGE_TIMEOUT_MS = 7_000;
 const SIGNAL_TIMEOUT_MS = 5_000;
 
+/** Guarded mode only: the most of a page body that is read; the rest is cancelled. */
+export const PAGE_MAX_BYTES = 2 * 1024 * 1024;
+/** Guarded mode only: the most of robots.txt or llms.txt that is read. */
+export const SIGNAL_MAX_BYTES = 512 * 1024;
+
 interface Probe {
   status: number | null; // null = network error / timeout (truly unknown)
   text: string | null;
@@ -88,7 +93,7 @@ export async function fetchPage(url: string, options: FetchPageOptions = {}): Pr
  * or failed signal file counts as unreachable (robots unknown, llms unknown).
  */
 async function fetchPageGuarded(url: string, guard: UrlGuard): Promise<ScrapeResult> {
-  const page = await guardedProbe(url, PAGE_TIMEOUT_MS, guard, true);
+  const page = await guardedProbe(url, PAGE_TIMEOUT_MS, guard, PAGE_MAX_BYTES, true);
   if (page.kind !== "response") {
     return {
       text: null,
@@ -103,7 +108,7 @@ async function fetchPageGuarded(url: string, guard: UrlGuard): Promise<ScrapeRes
   const origin = originOf(finalUrl);
   const signal = async (path: string): Promise<Probe> => {
     if (!origin) return { status: null, text: null };
-    const result = await guardedProbe(`${origin}${path}`, SIGNAL_TIMEOUT_MS, guard);
+    const result = await guardedProbe(`${origin}${path}`, SIGNAL_TIMEOUT_MS, guard, SIGNAL_MAX_BYTES);
     return result.kind === "response" ? result.probe : { status: null, text: null };
   };
   const [robots, llms] = await Promise.all([signal("/robots.txt"), signal("/llms.txt")]);
@@ -216,9 +221,16 @@ async function allowed(guard: UrlGuard, url: string): Promise<boolean> {
  * hops by hand. Each Location is resolved against the current URL and every
  * hop, the first included, must pass the guard. One timeout covers the whole
  * chain. A network error or timeout is a response with status null; a
- * redirect without a usable Location is returned as that 3xx response.
+ * redirect without a usable Location is returned as that 3xx response. At
+ * most `maxBytes` of the final body are read (see readCappedText).
  */
-async function guardedProbe(target: string, timeoutMs: number, guard: UrlGuard, html = false): Promise<GuardedProbe> {
+async function guardedProbe(
+  target: string,
+  timeoutMs: number,
+  guard: UrlGuard,
+  maxBytes: number,
+  html = false,
+): Promise<GuardedProbe> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let current = target;
@@ -249,7 +261,7 @@ async function guardedProbe(target: string, timeoutMs: number, guard: UrlGuard, 
       }
       let text: string | null = null;
       try {
-        text = await res.text();
+        text = await readCappedText(res, maxBytes);
       } catch {
         text = null;
       }
@@ -258,6 +270,30 @@ async function guardedProbe(target: string, timeoutMs: number, guard: UrlGuard, 
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Reads at most `maxBytes` of the body as UTF-8 (what `res.text()` decodes
+ * as), then cancels the stream so the rest is never downloaded. A body cut
+ * inside a multi-byte character ends in a replacement character. A missing
+ * body is "". Throws only when the stream itself errors.
+ */
+export async function readCappedText(res: Response, maxBytes: number): Promise<string> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+  while (received < maxBytes) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    const room = maxBytes - received;
+    const chunk = value.byteLength > room ? value.subarray(0, room) : value;
+    received += chunk.byteLength;
+    text += decoder.decode(chunk, { stream: true });
+  }
+  await reader.cancel().catch(() => {});
+  return text + decoder.decode();
 }
 
 /** A Location header resolved against the URL it came from, or null when it does not parse. */

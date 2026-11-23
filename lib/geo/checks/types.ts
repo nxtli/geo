@@ -1,5 +1,6 @@
 import type { ScrapeResult } from "../scrape";
 import type { PageFacts } from "../facts/page";
+import type { SpeedMeasurement } from "../speed";
 
 /** Every check id, in registry order. The route's body schema is built from this list. */
 export const CHECK_IDS = [
@@ -39,6 +40,12 @@ export interface CheckContext {
   facts: PageFacts | null;
   /** The moment ages are measured against; injected so results are reproducible. */
   now: Date;
+  /**
+   * A PageSpeed Insights measurement taken before the checks run; absent or
+   * null when speed was not requested or not measured (the speed check is
+   * then n/a). Checks never measure anything themselves.
+   */
+  speed?: SpeedMeasurement | null;
 }
 
 export interface CheckDefinition {

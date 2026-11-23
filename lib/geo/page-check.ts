@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { CHECK_IDS, runChecks, type CheckId, type CheckResult } from "./checks";
 import { fetchPage as defaultFetchPage, type FetchPageOptions, type ScrapeResult, type UrlGuard } from "./scrape";
+import type { SpeedMeasurement } from "./speed";
 import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
 
 /**
@@ -45,6 +46,12 @@ export function checkMachineAuth(
   return safeEqual(match[1], expectedToken) ? "ok" : "unauthorized";
 }
 
+/**
+ * The full result shape. A page that could not be loaded (network error,
+ * timeout, or a 4xx/5xx answer) also comes back in this shape, with
+ * `fetched: false`, its `status` (null on a network error or timeout) and its
+ * checks as unknown or n/a.
+ */
 export interface PageCheckFetched {
   url: string;
   /** Where the redirects ended; only present when that differs from `url`. */
@@ -60,6 +67,13 @@ export interface PageCheckFetched {
   llms_txt: boolean | null;
 }
 
+/**
+ * The short shape, only for a URL that was never measured: `url_not_allowed`
+ * when the URL or a redirect hop was refused by the guard, `fetch_failed` when
+ * the redirect chain ran past MAX_REDIRECTS or the fetch threw unexpectedly.
+ * A page that merely failed to load is NOT reported this way (see
+ * PageCheckFetched).
+ */
 export interface PageCheckFailed {
   url: string;
   fetched: false;
@@ -79,6 +93,12 @@ export interface PageCheckDeps {
   /** DNS lookup behind the guard; defaults to `dns.promises.lookup`. */
   lookup?: LookupAll;
   now?: () => Date;
+  /**
+   * Takes one PageSpeed Insights measurement of a page URL. Without it speed
+   * is never measured and the speed check is n/a; the route wires the real
+   * one (lib/geo/speed.ts) with the API key from the environment.
+   */
+  measureSpeed?: (url: string) => Promise<SpeedMeasurement>;
 }
 
 /**
@@ -109,6 +129,15 @@ async function mapWithLimit<T, R>(items: T[], limit: number, worker: (item: T) =
   return results;
 }
 
+/** A measurer that breaks its never-throws promise counts as a network failure, not a failed page. */
+async function measureSafely(measure: (url: string) => Promise<SpeedMeasurement>, url: string): Promise<SpeedMeasurement> {
+  try {
+    return await measure(url);
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
+
 function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): PageCheckFetched {
   return {
     url,
@@ -130,13 +159,21 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
  * `url_not_allowed` without being fetched, and a fetch (or check) that throws
  * becomes `fetch_failed`; the other URLs still run. Each fetch runs under
  * `pageCheckGuard`: a hop it refuses (redirect or DNS) is `url_not_allowed`,
- * a chain past the redirect limit is `fetch_failed`. Checks run against the
- * final URL.
+ * a chain past the redirect limit is `fetch_failed`. A page that was reached
+ * but did not load (network error, 4xx/5xx) is a full result with
+ * `fetched: false`. Checks run against the final URL.
+ *
+ * Speed is measured only when the `speed` check is requested (or no checks
+ * are named), `measureSpeed` is given and the page was fetched, on the final
+ * URL, inside the same lane as its fetch, so at most FETCH_CONCURRENCY pages
+ * are fetched or measured at once.
  */
 export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}): Promise<PageCheckResponse> {
   const fetchPage = deps.fetchPage ?? defaultFetchPage;
   const now = (deps.now ?? (() => new Date()))();
   const ids: CheckId[] | undefined = body.checks;
+  const wantsSpeed = !ids || ids.length === 0 || ids.includes("speed");
+  const measure = wantsSpeed ? deps.measureSpeed : undefined;
   const urls = dedupeUrls(body.urls).slice(0, MAX_URLS);
   const guard = pageCheckGuard(deps.lookup);
 
@@ -146,7 +183,9 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
       const scrape = await fetchPage(url, { guard });
       if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
       if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
-      return toResult(url, scrape, runChecks(scrape, scrape.finalUrl ?? url, ids, now));
+      const finalUrl = scrape.finalUrl ?? url;
+      const speed = measure && scrape.metadata.fetched ? await measureSafely(measure, finalUrl) : null;
+      return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed));
     } catch {
       return { url, fetched: false, error: "fetch_failed" };
     }

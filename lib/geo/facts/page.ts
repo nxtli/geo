@@ -32,17 +32,34 @@ export interface PageFacts {
     orgName: string | null;
     /** First JSON-LD `author` name (a string, an object with `name`, or the first of a list). */
     authorName: string | null;
+    /** `ratingValue` of the first AggregateRating, at any depth (also an untyped `aggregateRating` object). */
+    ratingValue: number | null;
+    /** `reviewCount`, else `ratingCount`, of that same AggregateRating. */
+    reviewCount: number | null;
+    /** Number of nodes typed Review, at any depth. */
+    reviewNodes: number;
+    /** Distinct http(s) `sameAs` URLs, from every node (in practice the Organization, LocalBusiness or Person). */
+    sameAs: string[];
   };
   /** `<meta name="author">`, as the page states it. */
   metaAuthor: string | null;
   /** Datum die een bezoeker op de pagina ziet, met jaartal. */
   visibleDate: string | null;
   metaModified: string | null;
+  /** `<meta property="og:type">`, lower-cased (e.g. "website", "article", "product"). */
+  ogType: string | null;
+  /** `<meta property="article:published_time">`, as the page states it. */
+  articlePublishedTime: string | null;
   hasPrice: boolean;
   priceSamples: string[];
   images: { total: number; missingAlt: number };
   links: { internal: number; vagueAnchors: string[] };
+  /** Distinct absolute http(s) links to other hosts, in page order, capped at MAX_EXTERNAL_LINKS. */
+  externalLinks: string[];
 }
+
+/** Cap on `externalLinks`, so a link farm cannot grow the facts without bound. */
+export const MAX_EXTERNAL_LINKS = 200;
 
 const VAGUE = /^(lees (meer|verder)|meer (lezen|info|informatie|weten)|klik hier|hier|bekijk|read more|learn more|click here|more)\.?$/i;
 const MONTHS =
@@ -115,6 +132,18 @@ function authorNameOf(author: unknown): string | null {
   return null;
 }
 
+/** A JSON-LD number that may be written as a string ("4,6" or "212"); null when it is not a finite number. */
+function numberOf(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim().replace(",", ".")) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+/** `sameAs` as a list of http(s) URLs (a string or a list of strings). */
+function sameAsOf(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter((v): v is string => typeof v === "string" && /^https?:\/\//i.test(v.trim())).map((v) => v.trim());
+}
+
 function collectJsonLd(html: string) {
   const out = {
     blocks: 0,
@@ -123,6 +152,19 @@ function collectJsonLd(html: string) {
     dateModified: null as string | null,
     orgName: null as string | null,
     authorName: null as string | null,
+    ratingValue: null as number | null,
+    reviewCount: null as number | null,
+    reviewNodes: 0,
+    sameAs: [] as string[],
+  };
+  let ratingSeen = false;
+  const sameAs = new Set<string>();
+  const readRating = (rating: unknown) => {
+    if (ratingSeen || !rating || typeof rating !== "object" || Array.isArray(rating)) return;
+    const r = rating as Record<string, unknown>;
+    ratingSeen = true;
+    out.ratingValue = numberOf(r.ratingValue);
+    out.reviewCount = numberOf(r.reviewCount) ?? numberOf(r.ratingCount);
   };
   const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   const types = new Set<string>();
@@ -137,6 +179,10 @@ function collectJsonLd(html: string) {
     const ts = typeof t === "string" ? [t] : Array.isArray(t) ? t : [];
     if (!out.orgName && typeof o.name === "string" && ts.some((x) => /^(Organization|WebSite|LocalBusiness|Corporation|Brand)$/.test(String(x)))) out.orgName = o.name.trim();
     if (!out.authorName) out.authorName = authorNameOf(o.author);
+    if (ts.includes("AggregateRating")) readRating(o);
+    readRating(o.aggregateRating);
+    if (ts.includes("Review")) out.reviewNodes++;
+    sameAsOf(o.sameAs).forEach((url) => sameAs.add(url));
     Object.values(o).forEach(walk);
   };
   let m: RegExpExecArray | null;
@@ -149,7 +195,25 @@ function collectJsonLd(html: string) {
     }
   }
   out.types = [...types];
+  out.sameAs = [...sameAs];
   return out;
+}
+
+/**
+ * Adds `href` to `into` when it is an absolute (or protocol-relative) http(s)
+ * link to another host than `pageHost`. Kept apart from the internal-link
+ * count, which treats a protocol-relative link as internal.
+ */
+function collectExternal(href: string, pageHost: string, into: Set<string>): void {
+  if (into.size >= MAX_EXTERNAL_LINKS) return;
+  const absolute = /^https?:/i.test(href) ? href : href.startsWith("//") ? `https:${href}` : null;
+  if (!absolute) return;
+  try {
+    const url = new URL(decode(absolute));
+    if (url.hostname.replace(/^www\./, "") !== pageHost) into.add(url.href);
+  } catch {
+    /* not a usable URL */
+  }
 }
 
 export function extractPageFacts(
@@ -203,11 +267,13 @@ export function extractPageFacts(
   }
   let internal = 0;
   const vague = new Set<string>();
+  const external = new Set<string>();
   const are = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
   let am: RegExpExecArray | null;
   while ((am = are.exec(body))) {
     const href = attr(`<a ${am[1]}>`, "href") ?? "";
     if (!href || href.startsWith("#") || /^(mailto|tel|javascript):/i.test(href)) continue;
+    collectExternal(href, host, external);
     let isInternal = href.startsWith("/") || !/^https?:/i.test(href);
     if (!isInternal) {
       try {
@@ -252,10 +318,13 @@ export function extractPageFacts(
     jsonLd,
     visibleDate,
     metaModified: metaContent(html, "property", "article:modified_time"),
+    ogType: metaContent(html, "property", "og:type")?.toLowerCase() || null,
+    articlePublishedTime: metaContent(html, "property", "article:published_time") || null,
     metaAuthor: metaContent(html, "name", "author") || null,
     hasPrice: priceSamples.length > 0,
     priceSamples,
     images: { total: imgs.length, missingAlt },
     links: { internal, vagueAnchors: [...vague].slice(0, 8) },
+    externalLinks: [...external],
   };
 }

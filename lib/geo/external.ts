@@ -9,8 +9,9 @@ import type { PageFacts } from "./facts/page";
 
 /**
  * Review sites, by registrable domain. A `*` TLD (e.g. "tripadvisor.*") means
- * any country domain ("tripadvisor.nl", "tripadvisor.co.uk"). Google Maps is
- * matched separately, by path (see `reviewSiteOf`).
+ * one of the country suffixes in ALLOWED_TLDS ("tripadvisor.nl",
+ * "tripadvisor.co.uk"), not any TLD. Google Maps is matched separately, by
+ * place path (see `reviewSiteOf`).
  */
 export const REVIEW_SITE_HOSTS = [
   "trustpilot.com",
@@ -44,8 +45,14 @@ export const SEARCH_TIMEOUT_MS = 10_000;
 /** How long the LLM brand probe may take; its engines are time-boxed at 18 s each. */
 export const BRAND_PROBE_TIMEOUT_MS = 30_000;
 
-/** Second-level labels that form a country suffix together with the TLD, as in "co.uk" or "com.au". */
-const COUNTRY_SECOND_LEVELS = new Set(["co", "com", "org", "net", "ac", "gov"]);
+/** The suffixes a "name.*" pattern (and Google) may end in. Anything else, e.g. "tripadvisor.example", does not match. */
+export const ALLOWED_TLDS = [
+  "com", "nl", "be", "de", "fr", "co.uk", "es", "it", "at", "ch", "eu", "ie", "se", "dk", "no", "pl", "pt", "ca", "com.au",
+] as const;
+const ALLOWED_TLD_SET = new Set<string>(ALLOWED_TLDS);
+
+/** Longest brand string sent to a search provider or a model; a longer one is not sent at all. */
+export const MAX_BRAND_LENGTH = 80;
 
 /** Lower-cased hostname without a leading "www."; null for anything that is not an http(s) URL. */
 export function hostOf(url: string): string | null {
@@ -64,31 +71,43 @@ export function hostMatches(host: string, domain: string): boolean {
 }
 
 /**
- * For a "name.*" pattern: the registrable domain when `host` is "name.<tld>"
- * or "name.<co|com|…>.<tld>", optionally under subdomains; otherwise null.
- * "tripadvisor.evil.example" does not match.
+ * For a "name.*" pattern: the registrable domain when `host` is
+ * "name.<suffix>" with a suffix from ALLOWED_TLDS, optionally under
+ * subdomains; otherwise null. "tripadvisor.evil.example" and
+ * "tripadvisor.xyz" do not match.
  */
-function anyTldMatch(host: string, name: string): string | null {
+function allowedTldMatch(host: string, name: string): string | null {
   const labels = host.split(".");
   for (let i = 0; i < labels.length - 1; i++) {
     if (labels[i] !== name) continue;
-    const tail = labels.slice(i + 1);
-    if (tail.length === 1 || (tail.length === 2 && COUNTRY_SECOND_LEVELS.has(tail[0]))) return [name, ...tail].join(".");
+    const tail = labels.slice(i + 1).join(".");
+    if (ALLOWED_TLD_SET.has(tail)) return `${name}.${tail}`;
   }
   return null;
 }
 
 /** The domain a host matches in `pattern` (a plain domain or "name.*"), or null. */
 function matchPattern(host: string, pattern: string): string | null {
-  if (pattern.endsWith(".*")) return anyTldMatch(host, pattern.slice(0, -2));
+  if (pattern.endsWith(".*")) return allowedTldMatch(host, pattern.slice(0, -2));
   return hostMatches(host, pattern) ? pattern : null;
+}
+
+/** The URL's path, or "" when it does not parse. */
+function pathnameOf(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "";
+  }
 }
 
 /**
  * The review site a URL points to, as reported in `review_sites`: the listed
- * domain ("trustpilot.com"), the country domain for a "name.*" entry
- * ("tripadvisor.nl"), or "google.<tld>/maps" for a Google Maps place
- * (maps.google.<tld>, or google.<tld>/maps). Null when it is none of them.
+ * domain ("trustpilot.com", "g.page"), the country domain for a "name.*"
+ * entry ("tripadvisor.nl"), or "google.<tld>/maps" for a Google Maps place
+ * (google.<tld>/maps/place/… or maps.google.<tld>/maps/place/…). Any other
+ * Google or Maps URL (a route, a search, "?cid=") is not a review site. Null
+ * when it is none of them.
  */
 export function reviewSiteOf(url: string): string | null {
   const host = hostOf(url);
@@ -97,23 +116,52 @@ export function reviewSiteOf(url: string): string | null {
     const match = matchPattern(host, pattern);
     if (match) return match;
   }
-  const google = anyTldMatch(host, "google");
-  if (!google) return null;
-  const onMapsHost = host.startsWith("maps.");
-  let onMapsPath = false;
-  try {
-    onMapsPath = /^\/maps(\/|$)/.test(new URL(url).pathname);
-  } catch {
-    /* hostOf already parsed it */
-  }
-  return onMapsHost || onMapsPath ? `${google}/maps` : null;
+  const google = allowedTldMatch(host, "google");
+  if (!google || !(host === google || host === `maps.${google}`)) return null;
+  return /^\/maps\/place(\/|$)/i.test(pathnameOf(url)) ? `${google}/maps` : null;
 }
 
-/** The profile host a URL points to ("linkedin.com" for nl.linkedin.com/company/x), or null. */
+/** Share, intent and single-video endpoints per profile host: links there are not a profile of the brand. */
+const NON_PROFILE_PATHS: Record<string, RegExp> = {
+  "x.com": /^\/(intent|share)(\/|$)/i,
+  "twitter.com": /^\/(intent|share)(\/|$)/i,
+  "facebook.com": /^\/(sharer|share\.php|dialog\/)/i,
+  "linkedin.com": /^\/(shareArticle|sharing\/)/i,
+  "youtube.com": /^\/(watch|embed|shorts)(\/|$)/i,
+};
+
+/** The listed profile domain a host belongs to, by host alone (no path rule). */
+function profileDomainOf(host: string): string | null {
+  return PROFILE_HOSTS.find((domain) => hostMatches(host, domain)) ?? null;
+}
+
+/**
+ * The profile host a link points to ("linkedin.com" for
+ * nl.linkedin.com/company/x), or null. A profile link needs a path other
+ * than "/" that is not a share, intent or single-video endpoint
+ * (NON_PROFILE_PATHS); youtu.be links are videos and never a profile.
+ */
 export function profileHostOf(url: string): string | null {
   const host = hostOf(url);
   if (!host) return null;
-  return PROFILE_HOSTS.find((domain) => hostMatches(host, domain)) ?? null;
+  const domain = profileDomainOf(host);
+  if (!domain) return null;
+  const path = pathnameOf(url);
+  if (path === "" || path === "/") return null;
+  return NON_PROFILE_PATHS[domain]?.test(path) ? null : domain;
+}
+
+/**
+ * Whether a JSON-LD `sameAs` URL counts as a profile: its host is a listed
+ * profile host or review site (by host, so a bare "linkedin.com/company/x"
+ * and a review-site page both count) and is not the page's own host or a
+ * parent or subdomain of it. The listed domain or review site, or null.
+ */
+export function listedSameAsOf(url: string, pageHost: string | null): string | null {
+  const host = hostOf(url);
+  if (!host) return null;
+  if (pageHost && (hostMatches(host, pageHost) || hostMatches(pageHost, host))) return null;
+  return profileDomainOf(host) ?? reviewSiteOf(url);
 }
 
 /**
@@ -124,6 +172,17 @@ export function profileHostOf(url: string): string | null {
 export function brandOf(facts: Pick<PageFacts, "siteName" | "jsonLd"> | null, hostname: string): string {
   const stated = facts?.siteName?.trim() || facts?.jsonLd.orgName?.trim();
   return stated || hostname.split(".")[0] || hostname;
+}
+
+/**
+ * The brand as it may be sent out: whitespace collapsed to single spaces on
+ * one line and trimmed. Null when that is empty or longer than
+ * MAX_BRAND_LENGTH; the caller then skips the search and the probe instead
+ * of sending a truncated or oversized string.
+ */
+export function sendableBrand(brand: string): string | null {
+  const line = brand.replace(/\s+/g, " ").trim();
+  return line && line.length <= MAX_BRAND_LENGTH ? line : null;
 }
 
 /** One brand mention a search provider found. */
@@ -189,12 +248,26 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T
   }
 }
 
-/** Runs a search provider; a throw or a timeout is "error", never a failed page. */
+/** A mention element with a string `url`; anything else (null, a string, a number) is dropped. */
+function isMention(value: unknown): value is SearchMention {
+  return !!value && typeof value === "object" && typeof (value as { url?: unknown }).url === "string";
+}
+
+/**
+ * Runs a search provider; a throw, a timeout or a malformed result (not an
+ * object, or `mentions` not a list) is "error", never a failed page. Mention
+ * elements without a string `url` are dropped.
+ */
 export async function runSearch(provider: SearchProvider | undefined, brand: string, hostname: string): Promise<SearchOutcome> {
   if (!provider) return { status: "off" };
   try {
-    const { mentions } = await withTimeout(provider.search({ brand, hostname }), SEARCH_TIMEOUT_MS);
-    return { status: "ok", mentions: Array.isArray(mentions) ? mentions : [] };
+    const result: unknown = await withTimeout(provider.search({ brand, hostname }), SEARCH_TIMEOUT_MS);
+    const mentions = result && typeof result === "object" ? (result as { mentions?: unknown }).mentions : undefined;
+    if (!Array.isArray(mentions)) return { status: "error" };
+    return {
+      status: "ok",
+      mentions: mentions.filter(isMention).map((m) => ({ url: m.url, title: typeof m.title === "string" ? m.title : "" })),
+    };
   } catch {
     return { status: "error" };
   }
@@ -205,7 +278,7 @@ export async function runBrandProbe(probe: BrandProbe | undefined, brand: string
   if (!probe) return { status: "off" };
   try {
     const { mentioned, detail } = await withTimeout(probe(brand, hostname), BRAND_PROBE_TIMEOUT_MS);
-    return { status: mentioned ? "mentioned" : "not_mentioned", detail };
+    return { status: mentioned ? "mentioned" : "not_mentioned", detail: typeof detail === "string" ? detail : "" };
   } catch {
     return { status: "error" };
   }

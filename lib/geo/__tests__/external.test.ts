@@ -1,18 +1,23 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { extractPageFacts } from "../facts/page";
+import { MAX_CLASSIFIED_LINKS, MAX_EXTERNAL_LINKS, MAX_SAME_AS, extractPageFacts } from "../facts/page";
+import { MAX_SAME_AS_HOSTS } from "../checks/external";
 import { analyzeRobots } from "../facts/robots";
 import type { ScrapeResult } from "../scrape";
 import { runChecks } from "../checks";
 import {
   BRAND_PROBE_TIMEOUT_MS,
   EXTERNAL_SOURCES_OFF,
+  MAX_BRAND_LENGTH,
   SEARCH_TIMEOUT_MS,
   brandOf,
   profileHostOf,
   reviewSiteOf,
+  runSearch,
   selectSearchProvider,
+  sendableBrand,
   type BrandProbe,
   type ExternalSources,
+  type SearchMention,
   type SearchProvider,
 } from "../external";
 import { pageCheckBodySchema, runPageCheck, type PageCheckFetched, type PageCheckResult } from "../page-check";
@@ -81,7 +86,10 @@ describe("review-site and profile matching", () => {
     ["https://g.page/voorbeeld", "g.page"],
     ["https://maps.app.goo.gl/abc", "maps.app.goo.gl"],
     ["https://www.google.com/maps/place/Voorbeeld", "google.com/maps"],
-    ["https://maps.google.nl/?cid=1", "google.nl/maps"],
+    ["https://maps.google.nl/maps/place/Voorbeeld", "google.nl/maps"],
+    ["https://www.google.co.uk/maps/place/Voorbeeld/@52,4,17z", "google.co.uk/maps"],
+    ["https://www.tripadvisor.com.au/Hotel_Review-x", "tripadvisor.com.au"],
+    ["https://www.yelp.ie/biz/x", "yelp.ie"],
   ])("matches %s as %s", (url, site) => {
     expect(reviewSiteOf(url)).toBe(site);
   });
@@ -93,6 +101,14 @@ describe("review-site and profile matching", () => {
     "https://www.google.com/search?q=voorbeeld",
     "https://evil.example/maps.google.com",
     "mailto:info@trustpilot.com",
+    "https://maps.google.nl/?cid=1",
+    "https://www.google.com/maps",
+    "https://www.google.com/maps/dir/Amsterdam/Utrecht",
+    "https://www.google.com/maps?q=voorbeeld",
+    "https://news.google.com/maps/place/Voorbeeld",
+    "https://www.tripadvisor.xyz/Hotel_Review-x",
+    "https://www.capterra.co.jp/p/1/x",
+    "https://www.google.xyz/maps/place/Voorbeeld",
   ])("does not match the look-alike %s as a review site", (url) => {
     expect(reviewSiteOf(url)).toBeNull();
   });
@@ -104,6 +120,8 @@ describe("review-site and profile matching", () => {
     ["https://twitter.com/voorbeeld", "twitter.com"],
     ["https://nl.wikipedia.org/wiki/Voorbeeld", "wikipedia.org"],
     ["https://www.wikidata.org/wiki/Q1", "wikidata.org"],
+    ["https://www.youtube.com/@voorbeeld", "youtube.com"],
+    ["https://www.facebook.com/voorbeeld.share", "facebook.com"],
   ])("matches %s as the profile host %s", (url, host) => {
     expect(profileHostOf(url)).toBe(host);
   });
@@ -114,6 +132,38 @@ describe("review-site and profile matching", () => {
       expect(profileHostOf(url)).toBeNull();
     },
   );
+
+  it.each([
+    "https://twitter.com/intent/tweet?text=x",
+    "https://x.com/intent/post?text=x",
+    "https://x.com/share?url=https://voorbeeld.example",
+    "https://www.facebook.com/sharer/sharer.php?u=x",
+    "https://www.facebook.com/sharer.php?u=x",
+    "https://www.facebook.com/share.php?u=x",
+    "https://www.facebook.com/dialog/share?app_id=1",
+    "https://www.linkedin.com/shareArticle?mini=true&url=x",
+    "https://www.linkedin.com/sharing/share-offsite/?url=x",
+    "https://www.youtube.com/watch?v=abc",
+    "https://www.youtube.com/embed/abc",
+    "https://www.youtube.com/shorts/abc",
+    "https://youtu.be/abc",
+    "https://www.linkedin.com/",
+    "https://www.facebook.com",
+  ])("does not count the share, intent, video or bare-host link %s as a profile", (url) => {
+    expect(profileHostOf(url)).toBeNull();
+  });
+
+  it("fails a page whose only outside links are share buttons, a video and a Maps route", () => {
+    const html = page(
+      "",
+      link("https://twitter.com/intent/tweet?text=x") +
+        link("https://www.facebook.com/sharer/sharer.php?u=x") +
+        link("https://www.linkedin.com/shareArticle?url=x") +
+        link("https://www.youtube.com/watch?v=abc") +
+        link("https://www.google.com/maps/dir/Amsterdam/Utrecht"),
+    );
+    expect(external(html).status).toBe("fail");
+  });
 
   it("grades a page linking only to look-alike hosts as fail", () => {
     const html = page("", link("https://trustpilot.com.evil.example/x") + link("https://mylinkedin.com/x"));
@@ -149,7 +199,7 @@ describe("external signals", () => {
     const result = external(page(SAME_AS));
     expect({ status: result.status, sameAs: result.facts.same_as_count, hosts: result.facts.profile_hosts }).toEqual({
       status: "attention",
-      sameAs: 4,
+      sameAs: 3,
       hosts: ["linkedin.com", "facebook.com", "instagram.com"],
     });
   });
@@ -167,7 +217,7 @@ describe("external signals", () => {
     const result = external(page(RATING + SAME_AS, TRUSTPILOT));
     expect({ status: result.status, evidence: result.evidence }).toEqual({
       status: "pass",
-      evidence: "AggregateRating 4.6 (212 reviews); review sites: trustpilot.com; sameAs: 4 profiles",
+      evidence: "AggregateRating 4.6 (212 reviews); review sites: trustpilot.com; sameAs: 3 profiles",
     });
   });
 
@@ -332,7 +382,7 @@ describe("runPageCheck external sources", () => {
     expect({ probe: result?.facts.llm_probe, status: result?.status, evidence: result?.evidence }).toEqual({
       probe: "mentioned",
       status: "attention",
-      evidence: "sameAs: 4 profiles; AI probe: recognised by ChatGPT",
+      evidence: "sameAs: 3 profiles; AI probe: recognised by ChatGPT",
     });
   });
 
@@ -375,5 +425,239 @@ describe("brandOf", () => {
       "Voorbeeld BV",
       "voorbeeld",
     ]);
+  });
+});
+
+describe("sameAs filter", () => {
+  it("counts only sameAs URLs on a listed profile or review-site host, and reports only their hosts", () => {
+    const result = external(page(SAME_AS));
+    expect([result.facts.same_as_count, result.facts.same_as_hosts]).toEqual([3, ["linkedin.com", "facebook.com", "instagram.com"]]);
+  });
+
+  it("fails a page whose only sameAs points to an unlisted host", () => {
+    const result = external(page(ld({ "@type": "Organization", name: "X", sameAs: ["https://www.kvk.nl/zoeken/?q=x", "https://example.org/x"] })));
+    expect({ status: result.status, count: result.facts.same_as_count }).toEqual({ status: "fail", count: 0 });
+  });
+
+  it("does not count a sameAs on the page's own host", () => {
+    const html = page(ld({ "@type": "Organization", name: "X", sameAs: "https://linkedin.com/company/x" }));
+    const [result] = runChecks(scrapeOf(html, "https://www.linkedin.com/over"), "https://www.linkedin.com/over", ["external"], NOW);
+    expect(result?.facts.same_as_count).toBe(0);
+  });
+
+  it("counts a review-site sameAs toward reviews and toward profiles", () => {
+    const result = external(page(ld({ "@type": "Organization", name: "X", sameAs: ["https://nl.trustpilot.com/review/voorbeeld.example"] })));
+    expect({ status: result.status, sites: result.facts.review_sites, count: result.facts.same_as_count, hosts: result.facts.profile_hosts }).toEqual({
+      status: "pass",
+      sites: ["trustpilot.com"],
+      count: 1,
+      hosts: [],
+    });
+  });
+});
+
+describe("caps", () => {
+  const unrelated = (n: number) => Array.from({ length: n }, (_v, i) => link(`https://ander${i}.example/x`)).join("");
+
+  it(`keeps review-site and profile links after ${MAX_EXTERNAL_LINKS} unrelated outbound links`, () => {
+    const html = page("", unrelated(MAX_EXTERNAL_LINKS) + TRUSTPILOT + LINKEDIN);
+    const facts = extractPageFacts(html, PAGE_URL);
+    expect({
+      external: facts.externalLinks.length,
+      reviews: facts.reviewLinks,
+      profiles: facts.profileLinks,
+      status: external(html).status,
+    }).toEqual({
+      external: MAX_EXTERNAL_LINKS,
+      reviews: ["https://nl.trustpilot.com/review/voorbeeld.example"],
+      profiles: ["https://www.linkedin.com/company/voorbeeld"],
+      status: "pass",
+    });
+  });
+
+  it(`caps review-site links at ${MAX_CLASSIFIED_LINKS}`, () => {
+    const links = Array.from({ length: MAX_CLASSIFIED_LINKS + 10 }, (_v, i) => link(`https://nl.trustpilot.com/review/x${i}`)).join("");
+    expect(extractPageFacts(page("", links), PAGE_URL).reviewLinks).toHaveLength(MAX_CLASSIFIED_LINKS);
+  });
+
+  it(`caps profile links at ${MAX_CLASSIFIED_LINKS}`, () => {
+    const links = Array.from({ length: MAX_CLASSIFIED_LINKS + 10 }, (_v, i) => link(`https://www.linkedin.com/company/x${i}`)).join("");
+    expect(extractPageFacts(page("", links), PAGE_URL).profileLinks).toHaveLength(MAX_CLASSIFIED_LINKS);
+  });
+
+  it(`keeps at most ${MAX_SAME_AS} sameAs URLs, listed hosts first`, () => {
+    const unlisted = Array.from({ length: MAX_SAME_AS + 5 }, (_v, i) => `https://register${i}.example/x`);
+    const facts = extractPageFacts(page(ld({ "@type": "Organization", name: "X", sameAs: [...unlisted, "https://www.linkedin.com/company/x"] })), PAGE_URL);
+    expect({ length: facts.jsonLd.sameAs.length, first: facts.jsonLd.sameAs[0] }).toEqual({
+      length: MAX_SAME_AS,
+      first: "https://www.linkedin.com/company/x",
+    });
+  });
+
+  it(`reports at most ${MAX_SAME_AS_HOSTS} same_as_hosts`, () => {
+    const sameAs = Array.from({ length: MAX_SAME_AS_HOSTS + 5 }, (_v, i) => `https://c${i}.linkedin.com/company/x`);
+    const result = external(page(ld({ "@type": "Organization", name: "X", sameAs })));
+    expect([(result.facts.same_as_hosts as string[]).length, result.facts.same_as_count]).toEqual([MAX_SAME_AS_HOSTS, MAX_SAME_AS_HOSTS + 5]);
+  });
+});
+
+describe("rating parsing", () => {
+  it("skips an AggregateRating without a usable ratingValue and reads a later real one", () => {
+    const html = page(
+      ld({
+        "@graph": [
+          { "@type": "Organization", name: "X", aggregateRating: { "@type": "AggregateRating", ratingValue: "" } },
+          { "@type": "Product", name: "Fiets", aggregateRating: { "@type": "AggregateRating", ratingValue: "4.5", reviewCount: 10 } },
+        ],
+      }),
+    );
+    expect([external(html).facts.rating_value, external(html).facts.review_count]).toEqual([4.5, 10]);
+  });
+
+  it.each([
+    ["empty", ""],
+    ["non-numeric", "n/a"],
+    ["whitespace", "  "],
+  ])("reads a %s ratingValue as no rating, not 0", (_label, ratingValue) => {
+    const result = external(page(ld({ "@type": "Organization", name: "X", aggregateRating: { ratingValue, reviewCount: 3 } })));
+    expect({ rating: result.facts.rating_value, status: result.status }).toEqual({ rating: null, status: "fail" });
+  });
+
+  it.each([
+    ["empty", ""],
+    ["non-numeric", "veel"],
+  ])("reads a %s reviewCount as null, not 0", (_label, reviewCount) => {
+    const result = external(page(ld({ "@type": "Organization", name: "X", aggregateRating: { ratingValue: 4, reviewCount } })));
+    expect([result.facts.rating_value, result.facts.review_count]).toEqual([4, null]);
+  });
+});
+
+describe("malformed search results", () => {
+  it("skips null and garbage mention elements", () => {
+    const mentions = [null, "https://nieuws.example/a", { url: 3 }, { url: "https://nieuws.example/b", title: "Nieuws" }] as unknown as SearchMention[];
+    const result = external(page(SAME_AS), { ...EXTERNAL_SOURCES_OFF, search: { status: "ok", mentions } });
+    expect({ status: result.status, mentions: result.facts.search_mentions }).toEqual({ status: "pass", mentions: 1 });
+  });
+
+  it.each([
+    ["null", null],
+    ["a string", "nothing"],
+    ["mentions not a list", { mentions: "x" }],
+    ["no mentions", {}],
+  ])("reports a provider result that is %s as search error", async (_label, value) => {
+    const provider = { name: "fake", search: async () => value as unknown as { mentions: [] } };
+    expect(await runSearch(provider, "Voorbeeld", "voorbeeld.example")).toEqual({ status: "error" });
+  });
+
+  it("keeps only mention elements with a string url", async () => {
+    const provider = { name: "fake", search: async () => ({ mentions: [null, { title: "geen url" }, { url: "https://nieuws.example/a" }] }) as unknown as { mentions: [] } };
+    expect(await runSearch(provider, "Voorbeeld", "voorbeeld.example")).toEqual({ status: "ok", mentions: [{ url: "https://nieuws.example/a", title: "" }] });
+  });
+
+  it("keeps the page fetched when the provider returns garbage", async () => {
+    const fetchPage = vi.fn(async (url: string) => scrapeOf(page(SAME_AS), url));
+    const searchProvider = { name: "fake", search: async () => ({ mentions: [null, 7] }) as unknown as { mentions: [] } };
+    const { results } = await runPageCheck(pageCheckBodySchema.parse({ urls: [PAGE_URL] }), { fetchPage, now: () => NOW, searchProvider });
+    const result = (results[0] as PageCheckFetched).checks.find((c) => c.id === "external");
+    expect({ fetched: results[0]?.fetched, search: result?.facts.search, mentions: result?.facts.search_mentions }).toEqual({
+      fetched: true,
+      search: "ok",
+      mentions: 0,
+    });
+  });
+});
+
+describe("sendableBrand", () => {
+  it("collapses whitespace to one trimmed line", () => {
+    expect(sendableBrand("  Voorbeeld \n\t BV  ")).toBe("Voorbeeld BV");
+  });
+
+  it(`keeps a brand of exactly ${MAX_BRAND_LENGTH} characters`, () => {
+    expect(sendableBrand("b".repeat(MAX_BRAND_LENGTH))).toBe("b".repeat(MAX_BRAND_LENGTH));
+  });
+
+  it.each([
+    ["empty", ""],
+    ["only whitespace", " \n "],
+    ["over the cap", "b".repeat(MAX_BRAND_LENGTH + 1)],
+  ])("refuses a brand that is %s", (_label, brand) => {
+    expect(sendableBrand(brand)).toBeNull();
+  });
+});
+
+describe("runPageCheck sources per hostname", () => {
+  function siteNamed(name: string): string {
+    return page(`<meta property="og:site_name" content="${name}">${SAME_AS}`);
+  }
+
+  function externalOf(result: PageCheckResult) {
+    return (result as PageCheckFetched).checks.find((c) => c.id === "external");
+  }
+
+  it("asks the probe once per hostname and gives each page the outcome for its own site", async () => {
+    const fetchPage = vi.fn(async (url: string) => scrapeOf(siteNamed(new URL(url).hostname), url));
+    const brandProbe = vi.fn<BrandProbe>(async (_brand, hostname) => ({ mentioned: hostname === "a.example", detail: hostname }));
+    const { results } = await runPageCheck(pageCheckBodySchema.parse({ urls: ["https://a.example/1", "https://b.example/1", "https://a.example/2"] }), {
+      fetchPage,
+      now: () => NOW,
+      brandProbe,
+    });
+    expect({ calls: brandProbe.mock.calls.length, outcomes: results.map((r) => externalOf(r)?.facts.llm_probe) }).toEqual({
+      calls: 2,
+      outcomes: ["mentioned", "not_mentioned", "mentioned"],
+    });
+  });
+
+  it("uses the brand of the first URL in input order for a hostname, even when a later one loads first", async () => {
+    const fetchPage = vi.fn(async (url: string) => {
+      if (url.endsWith("/eerst")) await new Promise((resolve) => setTimeout(resolve, 20));
+      return scrapeOf(siteNamed(url.endsWith("/eerst") ? "Eerste Merk" : "Tweede Merk"), url);
+    });
+    const brandProbe = vi.fn<BrandProbe>(async () => ({ mentioned: true, detail: "x" }));
+    await runPageCheck(pageCheckBodySchema.parse({ urls: ["https://voorbeeld.example/eerst", "https://voorbeeld.example/later"] }), {
+      fetchPage,
+      now: () => NOW,
+      brandProbe,
+    });
+    expect(brandProbe.mock.calls).toEqual([["Eerste Merk", "voorbeeld.example"]]);
+  });
+
+  it("skips an earlier URL on the same hostname that did not load", async () => {
+    const fetchPage = vi.fn(async (url: string): Promise<ScrapeResult> => {
+      if (url.endsWith("/weg")) return { text: null, metadata: { fetched: false, status: 404 }, robotsTxt: null, facts: null, robots: analyzeRobots(null, url) };
+      return scrapeOf(siteNamed("Tweede Merk"), url);
+    });
+    const brandProbe = vi.fn<BrandProbe>(async () => ({ mentioned: true, detail: "x" }));
+    await runPageCheck(pageCheckBodySchema.parse({ urls: ["https://voorbeeld.example/weg", "https://voorbeeld.example/later"] }), {
+      fetchPage,
+      now: () => NOW,
+      brandProbe,
+    });
+    expect(brandProbe.mock.calls).toEqual([["Tweede Merk", "voorbeeld.example"]]);
+  });
+
+  it("sends the brand collapsed to one line", async () => {
+    const fetchPage = vi.fn(async (url: string) => scrapeOf(siteNamed("Voorbeeld\n    BV"), url));
+    const search = vi.fn<SearchProvider["search"]>(async () => ({ mentions: [] }));
+    await runPageCheck(pageCheckBodySchema.parse({ urls: [PAGE_URL] }), { fetchPage, now: () => NOW, searchProvider: { name: "fake", search } });
+    expect(search.mock.calls).toEqual([[{ brand: "Voorbeeld BV", hostname: "voorbeeld.example" }]]);
+  });
+
+  it(`turns search and probe off for a brand over ${MAX_BRAND_LENGTH} characters, without calling either`, async () => {
+    const fetchPage = vi.fn(async (url: string) => scrapeOf(siteNamed("Merk ".repeat(30)), url));
+    const search = vi.fn<SearchProvider["search"]>(async () => ({ mentions: [] }));
+    const brandProbe = vi.fn<BrandProbe>(async () => ({ mentioned: true, detail: "x" }));
+    const { results } = await runPageCheck(pageCheckBodySchema.parse({ urls: [PAGE_URL] }), {
+      fetchPage,
+      now: () => NOW,
+      searchProvider: { name: "fake", search },
+      brandProbe,
+    });
+    const result = externalOf(results[0]!);
+    expect({ calls: [search.mock.calls.length, brandProbe.mock.calls.length], search: result?.facts.search, probe: result?.facts.llm_probe }).toEqual({
+      calls: [0, 0],
+      search: "off",
+      probe: "off",
+    });
   });
 });

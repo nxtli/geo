@@ -8,10 +8,10 @@ import {
   hostOf,
   runBrandProbe,
   runSearch,
+  sendableBrand,
+  EXTERNAL_SOURCES_OFF,
   type BrandProbe,
-  type BrandProbeOutcome,
   type ExternalSources,
-  type SearchOutcome,
   type SearchProvider,
 } from "./external";
 import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
@@ -118,8 +118,8 @@ export interface PageCheckDeps {
   searchProvider?: SearchProvider;
   /**
    * LLM brand probe, for the external check's `llm_probe` fact. Off when
-   * absent. Asked at most once per request (for the first fetched page's
-   * brand), never per page.
+   * absent. Asked once per hostname per request, like the search, never per
+   * page.
    */
   brandProbe?: BrandProbe;
 }
@@ -193,7 +193,10 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
  *
  * The external check's optional sources (`searchProvider`, `brandProbe`) run
  * only when that check is requested and the page loaded, next to the speed
- * measurement; the search once per hostname, the probe once per request.
+ * measurement, each once per hostname of the final URL, so a page only shows
+ * the result for its own site. The brand asked about is that of the first URL
+ * in input order whose page loaded on that hostname (see `brandFor`); a brand
+ * that is empty or over MAX_BRAND_LENGTH turns both sources off for the host.
  */
 export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}): Promise<PageCheckResponse> {
   const fetchPage = deps.fetchPage ?? defaultFetchPage;
@@ -206,39 +209,71 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
   const wantsExternal = !ids || ids.length === 0 || ids.includes("external");
   const searchProvider = wantsExternal ? deps.searchProvider : undefined;
   const brandProbe = wantsExternal ? deps.brandProbe : undefined;
-  const searches = new Map<string, Promise<SearchOutcome>>();
-  let probeOnce: Promise<BrandProbeOutcome> | null = null;
+  const sourcesByHost = new Map<string, Promise<ExternalSources>>();
 
-  /** The off-page sources for one fetched page; null when both are off. Shares one search per hostname and one probe per request. */
-  const gatherExternal = async (scrape: ScrapeResult, finalUrl: string): Promise<ExternalSources | null> => {
-    if (!searchProvider && !brandProbe) return null;
-    const hostname = hostOf(finalUrl) ?? "";
-    const brand = brandOf(scrape.facts, hostname);
-    let search = searches.get(hostname);
-    if (!search) {
-      search = runSearch(searchProvider, brand, hostname);
-      searches.set(hostname, search);
-    }
-    if (!probeOnce) probeOnce = runBrandProbe(brandProbe, brand, hostname);
-    const [searchOutcome, llmProbe] = await Promise.all([search, probeOnce]);
-    return { search: searchOutcome, llmProbe };
+  /**
+   * Per input index: settles once that URL's fetch is over, with the
+   * hostname and brand when its page loaded, else null. Settled right after
+   * the fetch (before speed or the external sources), and a fetch never waits
+   * on another URL, so waiting on earlier indexes cannot deadlock the lanes.
+   */
+  const settles: Array<(loaded: { hostname: string; brand: string } | null) => void> = [];
+  const loadedPages = urls.map(
+    () => new Promise<{ hostname: string; brand: string } | null>((resolve) => settles.push(resolve)),
+  );
+
+  /**
+   * The brand for `hostname`, deterministic per request: that of the first
+   * URL in input order (up to and including `index`) whose page loaded on
+   * this hostname. Lanes take URLs in input order, so the earlier ones are
+   * already fetching or done.
+   */
+  const brandFor = async (index: number, hostname: string, own: string): Promise<string> => {
+    const earlier = await Promise.all(loadedPages.slice(0, index));
+    return earlier.find((page) => page?.hostname === hostname)?.brand ?? own;
   };
 
-  const results = await mapWithLimit(urls, FETCH_CONCURRENCY, async (url): Promise<PageCheckResult> => {
-    if (!isPublicHttpUrl(url)) return { url, fetched: false, error: "url_not_allowed" };
+  /** The off-page sources for one loaded page; null when both are off. One search and one probe per hostname. */
+  const gatherExternal = async (index: number, hostname: string, own: string): Promise<ExternalSources | null> => {
+    if (!searchProvider && !brandProbe) return null;
+    let sources = sourcesByHost.get(hostname);
+    if (!sources) {
+      sources = brandFor(index, hostname, own).then(async (raw): Promise<ExternalSources> => {
+        const brand = sendableBrand(raw);
+        if (!brand) return EXTERNAL_SOURCES_OFF;
+        const [search, llmProbe] = await Promise.all([runSearch(searchProvider, brand, hostname), runBrandProbe(brandProbe, brand, hostname)]);
+        return { search, llmProbe };
+      });
+      sourcesByHost.set(hostname, sources);
+    }
+    return sources;
+  };
+
+  const results = await mapWithLimit(urls.map((url, index) => ({ url, index })), FETCH_CONCURRENCY, async ({ url, index }): Promise<PageCheckResult> => {
+    let settled = false;
+    const settle = (loaded: { hostname: string; brand: string } | null) => {
+      if (!settled) settles[index](loaded);
+      settled = true;
+    };
     try {
+      if (!isPublicHttpUrl(url)) return { url, fetched: false, error: "url_not_allowed" };
       const scrape = await fetchPage(url, { guard });
       if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
       if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
       const finalUrl = scrape.finalUrl ?? url;
+      const hostname = hostOf(finalUrl) ?? "";
       const loaded = scrape.metadata.fetched && !!scrape.facts;
+      const brand = brandOf(scrape.facts, hostname);
+      settle(loaded ? { hostname, brand } : null);
       const [speed, external] = await Promise.all([
         measure && scrape.metadata.fetched ? measureSafely(measure, finalUrl) : null,
-        loaded ? gatherExternal(scrape, finalUrl) : null,
+        loaded ? gatherExternal(index, hostname, brand) : null,
       ]);
       return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed, external));
     } catch {
       return { url, fetched: false, error: "fetch_failed" };
+    } finally {
+      settle(null);
     }
   });
 

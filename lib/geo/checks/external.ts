@@ -1,7 +1,10 @@
-import { hostMatches, hostOf, profileHostOf, reviewSiteOf, type ExternalSources, EXTERNAL_SOURCES_OFF } from "../external";
+import { hostMatches, hostOf, listedSameAsOf, profileHostOf, reviewSiteOf, type ExternalSources, EXTERNAL_SOURCES_OFF } from "../external";
 import type { PageFacts } from "../facts/page";
 import type { CheckDefinition, CheckResult } from "./types";
 import { notFetched } from "./types";
+
+/** Cap on `same_as_hosts`. */
+export const MAX_SAME_AS_HOSTS = 20;
 
 function unique(values: Array<string | null>): string[] {
   return [...new Set(values.filter((v): v is string => !!v))];
@@ -10,25 +13,31 @@ function unique(values: Array<string | null>): string[] {
 /** The review signals on the page: rating schema, Review nodes and links (or sameAs) to review sites. */
 function reviewSignals(facts: PageFacts) {
   const { ratingValue, reviewCount, reviewNodes, sameAs } = facts.jsonLd;
-  const sites = unique([...facts.externalLinks, ...sameAs].map(reviewSiteOf));
+  const sites = unique([...facts.reviewLinks, ...sameAs].map(reviewSiteOf));
   const hasSchema = ratingValue !== null || reviewNodes > 0;
   return { ratingValue, reviewCount: reviewCount ?? (reviewNodes > 0 ? reviewNodes : null), reviewNodes, sites, present: hasSchema || sites.length > 0 };
 }
 
-/** The profile signals: sameAs URLs and links to the listed social or reference profiles. */
-function profileSignals(facts: PageFacts) {
-  const sameAs = facts.jsonLd.sameAs;
-  const linkHosts = unique(facts.externalLinks.map(profileHostOf));
-  const hosts = unique([...sameAs.map(profileHostOf), ...linkHosts]);
-  const sameAsHosts = unique(sameAs.map(hostOf));
+/**
+ * The profile signals: sameAs URLs on a listed profile or review-site host
+ * other than the page's own (`listedSameAsOf`), and profile links. Any other
+ * sameAs (a chamber-of-commerce entry, the site itself) does not count.
+ */
+function profileSignals(facts: PageFacts, pageHost: string | null) {
+  const sameAs = facts.jsonLd.sameAs.filter((url) => listedSameAsOf(url, pageHost) !== null);
+  const linkHosts = unique(facts.profileLinks.map(profileHostOf));
+  const hosts = unique([...sameAs.map((url) => (reviewSiteOf(url) ? null : listedSameAsOf(url, pageHost))), ...linkHosts]);
+  const sameAsHosts = unique(sameAs.map(hostOf)).slice(0, MAX_SAME_AS_HOSTS);
   return { sameAsCount: sameAs.length, sameAsHosts, linkHosts, hosts, present: sameAs.length > 0 || linkHosts.length > 0 };
 }
 
-/** Search mentions that are not on the page's own site (or its subdomains). */
+/** Search mentions that are not on the page's own site (or its subdomains); an element without a string `url` is skipped. */
 function offSiteMentions(sources: ExternalSources, pageHost: string | null): number | null {
   if (sources.search.status !== "ok") return null;
-  return sources.search.mentions.filter((mention) => {
-    const host = hostOf(mention.url);
+  const mentions: unknown[] = Array.isArray(sources.search.mentions) ? sources.search.mentions : [];
+  return mentions.filter((mention) => {
+    const url = mention && typeof mention === "object" ? (mention as { url?: unknown }).url : undefined;
+    const host = typeof url === "string" ? hostOf(url) : null;
     return !!host && !(pageHost && (hostMatches(host, pageHost) || hostMatches(pageHost, host)));
   }).length;
 }
@@ -56,8 +65,8 @@ function evidenceOf(
 /**
  * Confirmation of the brand outside its own site, from free signals. Three
  * groups: reviews (AggregateRating or Review schema, or a link to a review
- * site), profiles (JSON-LD sameAs, or a link to a social or reference
- * profile) and, only when a search provider is injected, search mentions on
+ * site), profiles (a JSON-LD sameAs on a listed profile or review-site host,
+ * or a profile link that is not a share or video endpoint) and, only when a search provider is injected, search mentions on
  * other hosts. Pass: two groups or more, attention: one, fail: none. With no
  * search provider that means pass = reviews and profiles. The LLM brand
  * probe is reported in `llm_probe` but never changes the grade. Unknown
@@ -70,8 +79,9 @@ export const externalCheck: CheckDefinition = {
     if (!facts) return notFetched("external");
     const sources = external ?? EXTERNAL_SOURCES_OFF;
     const reviews = reviewSignals(facts);
-    const profiles = profileSignals(facts);
-    const mentions = offSiteMentions(sources, hostOf(url));
+    const pageHost = hostOf(url);
+    const profiles = profileSignals(facts, pageHost);
+    const mentions = offSiteMentions(sources, pageHost);
 
     const found: string[] = [];
     const missing: string[] = [];

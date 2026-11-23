@@ -20,7 +20,7 @@ export const maxDuration = 120;
  * PageSpeed Insights for the speed check, and runs the pure checks; it never
  * touches the scan flow (no lead, mail, CRM or database). It makes model
  * calls only when GEO_EXTERNAL_LLM_PROBE is "1" (the external check's brand
- * probe, once per request). The logic lives in lib/geo/page-check.ts.
+ * probe, once per hostname per request). The logic lives in lib/geo/page-check.ts.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const auth = checkMachineAuth(request.headers.get("authorization"), process.env.GEO_MACHINE_TOKEN);

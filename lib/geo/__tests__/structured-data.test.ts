@@ -98,7 +98,7 @@ describe("structured_data per page type", () => {
   it("needs attention on a home page with only a BreadcrumbList, naming the page type and the missing type", () => {
     const result = structuredData(page(ld({ "@type": "BreadcrumbList" })), HOME);
     expect({ status: result.status, expected: result.facts.expected_present }).toEqual({ status: "attention", expected: false });
-    expect(result.summary).toBe("Page type home should declare Organization (or a subtype) or WebSite, but the JSON-LD only declares BreadcrumbList.");
+    expect(result.summary).toBe("Page type home should declare Organization (or a subtype, including a LocalBusiness type) or WebSite at the top level, but the top level only declares BreadcrumbList.");
   });
 
   it("passes a product page that declares Product", () => {
@@ -193,6 +193,96 @@ describe("structured_data per page type", () => {
   it("is unknown when the page was not fetched", () => {
     const scrape: ScrapeResult = { text: null, metadata: { fetched: false, status: 404 }, robotsTxt: null, facts: null, robots: analyzeRobots(null, INNER) };
     expect(runChecks(scrape, INNER, ["structured_data"], NOW)[0]?.status).toBe("unknown");
+  });
+});
+
+describe("structured_data type families", () => {
+  it.each(["Restaurant", "Hotel", "Dentist", "Attorney", "Plumber", "CafeOrCoffeeShop", "HomeAndConstructionBusiness", "AutomotiveBusiness", "Brand", "Organization"])(
+    "passes a home page that declares %s",
+    (type) => {
+      expect(structuredData(page(ld({ "@type": type, name: "Voorbeeld" })), HOME).status).toBe("pass");
+    },
+  );
+
+  it.each(["ScholarlyArticle", "TechArticle", "DiscussionForumPosting", "SocialMediaPosting", "Report"])(
+    "infers and passes an article page that declares %s",
+    (type) => {
+      const result = structuredData(page(ld({ "@type": type, headline: "Nieuws" })));
+      expect({ status: result.status, page_type: result.facts.page_type }).toEqual({ status: "pass", page_type: "article" });
+    },
+  );
+
+  it.each(["ProductGroup", "IndividualProduct", "ProductModel", "SomeProducts"])("infers and passes a product page that declares %s", (type) => {
+    const result = structuredData(page(ld({ "@type": type, name: "Fiets" })));
+    expect({ status: result.status, page_type: result.facts.page_type }).toEqual({ status: "pass", page_type: "product" });
+  });
+
+  it.each(["product.item", "og:product", "product.group"])("infers a product page from og:type %s", (ogType) => {
+    expect(typeOf(page(`<meta property="og:type" content="${ogType}">`))).toBe("product");
+  });
+});
+
+describe("structured_data expectation at the top level", () => {
+  it("does not let a publisher Organization nested in a Review satisfy a home page", () => {
+    const html = page(ld({ "@type": "Review", publisher: { "@type": "Organization", name: "Voorbeeld" } }));
+    const result = structuredData(html, HOME);
+    expect({ status: result.status, expected: result.facts.expected_present, types: result.facts.types }).toEqual({
+      status: "attention",
+      expected: false,
+      types: ["Review", "Organization"],
+    });
+  });
+
+  it("does not let an Organization nested in a WebPage satisfy a home page, and says so", () => {
+    const result = structuredData(page(ld({ publisher: { "@type": "Organization", name: "Voorbeeld" } })), HOME);
+    expect(result.summary).toBe(
+      "Page type home should declare Organization (or a subtype, including a LocalBusiness type) or WebSite at the top level, but the top level declares no type (nested only: Organization).",
+    );
+  });
+
+  it("accepts the expected type as a top-level @graph member", () => {
+    const html = page(ld({ "@context": "https://schema.org", "@graph": [{ "@type": "WebPage" }, { "@type": "Organization", name: "Voorbeeld" }] }));
+    expect(structuredData(html, HOME).status).toBe("pass");
+  });
+
+  it("accepts the expected type in a top-level list of nodes", () => {
+    expect(structuredData(page(ld([{ "@type": "BreadcrumbList" }, { "@type": "WebSite", url: HOME }])), HOME).status).toBe("pass");
+  });
+
+  it("records topLevelTypes next to every type in the facts, with a mainEntity one level down", () => {
+    const html = page(
+      ld({
+        "@graph": [
+          { "@type": "WebPage", mainEntity: { "@type": "FAQPage", author: { "@type": "Person", name: "P" } } },
+          { "@type": "Organization", name: "X" },
+        ],
+      }),
+    );
+    const { types, topLevelTypes } = extractPageFacts(html, HOME).jsonLd;
+    expect({ types, topLevelTypes }).toEqual({
+      types: ["WebPage", "FAQPage", "Person", "Organization"],
+      topLevelTypes: ["WebPage", "Organization", "FAQPage"],
+    });
+  });
+
+  it.each([
+    ["mainEntity: Product", { "@type": "WebPage", mainEntity: { "@type": "Product", name: "Fiets" } }, "product"],
+    ["mainEntity: [Article]", { "@type": "WebPage", mainEntity: [{ "@type": "Article", headline: "Nieuws" }] }, "article"],
+    ["mainEntityOfPage: FAQPage", { "@type": "WebPage", mainEntityOfPage: { "@type": "FAQPage" } }, "faq"],
+  ])("passes a WebPage whose %s satisfies the page type", (_label, node, pageType) => {
+    const result = structuredData(page(ld(node)));
+    expect({ status: result.status, page_type: result.facts.page_type }).toEqual({ status: "pass", page_type: pageType });
+  });
+
+  it("does not count a type two levels down, under a mainEntity", () => {
+    const html = page(ld({ "@type": "WebPage", mainEntity: { "@type": "ItemList", itemListElement: { "@type": "Product", name: "Fiets" } } }));
+    const result = structuredData(html);
+    expect({ status: result.status, page_type: result.facts.page_type }).toEqual({ status: "attention", page_type: "product" });
+  });
+
+  it("still passes an other page whose only types are nested", () => {
+    const result = structuredData(page(ld({ about: { "@type": "Thing", name: "X" } })));
+    expect({ status: result.status, page_type: result.facts.page_type }).toEqual({ status: "pass", page_type: "other" });
   });
 });
 

@@ -396,10 +396,10 @@ describe("speed", () => {
     });
   });
 
-  it("tells the reader how to get a higher quota when it was exhausted", () => {
+  it("names the quota in one neutral sentence that does not tell a key holder to set a key", () => {
     const result = speedCheck({ ok: false, reason: "quota" });
     expect(result.summary).toBe(
-      "Page speed was not measured: the PageSpeed Insights quota was exhausted. Set PAGESPEED_API_KEY for a higher quota.",
+      "Page speed was not measured: the PageSpeed Insights quota was exhausted (a PAGESPEED_API_KEY raises it).",
     );
   });
 

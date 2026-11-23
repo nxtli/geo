@@ -38,7 +38,7 @@ export const speedCheck: CheckDefinition = {
       return {
         id: "speed",
         status: "n/a",
-        summary: "Page speed was not measured: the PageSpeed Insights quota was exhausted. Set PAGESPEED_API_KEY for a higher quota.",
+        summary: "Page speed was not measured: the PageSpeed Insights quota was exhausted (a PAGESPEED_API_KEY raises it).",
         facts: { lcp_ms: null, fcp_ms: null, performance_score: null, strategy: "mobile", failure_reason: "quota" },
         evidence: null,
       };

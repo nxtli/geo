@@ -1,3 +1,5 @@
+import { listedSameAsOf, profileHostOf, reviewSiteOf } from "../external";
+
 /**
  * Feiten uit de ruwe HTML en de HTTP-headers van een pagina. Alles hier is
  * gemeten, niets is een oordeel. Het taalmodel krijgt deze feiten mee en mag
@@ -28,17 +30,27 @@ export interface PageFacts {
     blocks: number;
     invalid: number;
     types: string[];
+    /**
+     * Types declared on a block's top-level node(s) or on the members of a
+     * top-level `@graph`, not on nodes nested inside another node. Used for
+     * the per-page-type expectation; `types` keeps every type at any depth.
+     */
+    topLevelTypes: string[];
     dateModified: string | null;
     orgName: string | null;
     /** First JSON-LD `author` name (a string, an object with `name`, or the first of a list). */
     authorName: string | null;
-    /** `ratingValue` of the first AggregateRating, at any depth (also an untyped `aggregateRating` object). */
+    /** `ratingValue` of the first AggregateRating with a usable ratingValue, at any depth (also an untyped `aggregateRating` object). */
     ratingValue: number | null;
-    /** `reviewCount`, else `ratingCount`, of that same AggregateRating. */
+    /** `reviewCount`, else `ratingCount`, of that same AggregateRating; null when empty or not a number. */
     reviewCount: number | null;
     /** Number of nodes typed Review, at any depth. */
     reviewNodes: number;
-    /** Distinct http(s) `sameAs` URLs, from every node (in practice the Organization, LocalBusiness or Person). */
+    /**
+     * Distinct http(s) `sameAs` URLs, from every node (in practice the
+     * Organization, LocalBusiness or Person); at most MAX_SAME_AS, URLs on a
+     * listed profile or review-site host first.
+     */
     sameAs: string[];
   };
   /** `<meta name="author">`, as the page states it. */
@@ -56,10 +68,18 @@ export interface PageFacts {
   links: { internal: number; vagueAnchors: string[] };
   /** Distinct absolute http(s) links to other hosts, in page order, capped at MAX_EXTERNAL_LINKS. */
   externalLinks: string[];
+  /** The external links that point to a review site (`reviewSiteOf`), in page order, at most MAX_CLASSIFIED_LINKS; kept even past the externalLinks cap. */
+  reviewLinks: string[];
+  /** The external links that are a profile link (`profileHostOf`), in page order, at most MAX_CLASSIFIED_LINKS; kept even past the externalLinks cap. */
+  profileLinks: string[];
 }
 
 /** Cap on `externalLinks`, so a link farm cannot grow the facts without bound. */
 export const MAX_EXTERNAL_LINKS = 200;
+/** Cap on `reviewLinks` and on `profileLinks`, each. */
+export const MAX_CLASSIFIED_LINKS = 50;
+/** Cap on `jsonLd.sameAs`. */
+export const MAX_SAME_AS = 50;
 
 const VAGUE = /^(lees (meer|verder)|meer (lezen|info|informatie|weten)|klik hier|hier|bekijk|read more|learn more|click here|more)\.?$/i;
 const MONTHS =
@@ -132,10 +152,48 @@ function authorNameOf(author: unknown): string | null {
   return null;
 }
 
-/** A JSON-LD number that may be written as a string ("4,6" or "212"); null when it is not a finite number. */
+/** A JSON-LD number that may be written as a string ("4,6" or "212"); null when it is empty, not numeric or not finite. */
 function numberOf(value: unknown): number | null {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim().replace(",", ".")) : NaN;
-  return Number.isFinite(n) ? n : null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(",", ".");
+  return /^[+-]?\d+(\.\d+)?$/.test(text) ? Number(text) : null;
+}
+
+/** The `@type` value as a list of strings. */
+function typesOf(node: unknown): string[] {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return [];
+  const t = (node as Record<string, unknown>)["@type"];
+  return typeof t === "string" ? [t] : Array.isArray(t) ? t.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** A property value as a list of objects (an object, or the objects in a list); anything else is dropped. */
+function objectsOf(value: unknown): unknown[] {
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter((v) => !!v && typeof v === "object" && !Array.isArray(v));
+}
+
+/**
+ * The top-level nodes of a parsed block: the node itself (or each entry of a
+ * top-level list), the members of a top-level `@graph`, and, one level down
+ * only, the `mainEntity` / `mainEntityOfPage` objects of those nodes (so
+ * WebPage → mainEntity: Product counts). Other nested nodes (publisher,
+ * author, itemReviewed, …) are not top-level.
+ */
+function topLevelNodesOf(parsed: unknown): unknown[] {
+  const roots = Array.isArray(parsed) ? parsed : [parsed];
+  const nodes: unknown[] = [];
+  for (const root of roots) {
+    nodes.push(root);
+    const graph = root && typeof root === "object" ? (root as Record<string, unknown>)["@graph"] : undefined;
+    nodes.push(...objectsOf(graph));
+  }
+  const entities = nodes.flatMap((node) => {
+    if (!node || typeof node !== "object" || Array.isArray(node)) return [];
+    const o = node as Record<string, unknown>;
+    return [...objectsOf(o.mainEntity), ...objectsOf(o.mainEntityOfPage)];
+  });
+  return [...nodes, ...entities];
 }
 
 /** `sameAs` as a list of http(s) URLs (a string or a list of strings). */
@@ -149,6 +207,7 @@ function collectJsonLd(html: string) {
     blocks: 0,
     invalid: 0,
     types: [] as string[],
+    topLevelTypes: [] as string[],
     dateModified: null as string | null,
     orgName: null as string | null,
     authorName: null as string | null,
@@ -162,12 +221,15 @@ function collectJsonLd(html: string) {
   const readRating = (rating: unknown) => {
     if (ratingSeen || !rating || typeof rating !== "object" || Array.isArray(rating)) return;
     const r = rating as Record<string, unknown>;
+    const value = numberOf(r.ratingValue);
+    if (value === null) return; // no usable rating here: a later real one may still count
     ratingSeen = true;
-    out.ratingValue = numberOf(r.ratingValue);
+    out.ratingValue = value;
     out.reviewCount = numberOf(r.reviewCount) ?? numberOf(r.ratingCount);
   };
   const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   const types = new Set<string>();
+  const topLevelTypes = new Set<string>();
   const walk = (node: unknown) => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== "object") return;
@@ -189,31 +251,54 @@ function collectJsonLd(html: string) {
   while ((m = re.exec(html))) {
     out.blocks++;
     try {
-      walk(JSON.parse(m[1].trim()));
+      const parsed: unknown = JSON.parse(m[1].trim());
+      topLevelNodesOf(parsed).forEach((node) => typesOf(node).forEach((t) => topLevelTypes.add(t)));
+      walk(parsed);
     } catch {
       out.invalid++;
     }
   }
   out.types = [...types];
-  out.sameAs = [...sameAs];
+  out.topLevelTypes = [...topLevelTypes];
+  const listed = [...sameAs].filter((url) => listedSameAsOf(url, null) !== null);
+  const rest = [...sameAs].filter((url) => listedSameAsOf(url, null) === null);
+  out.sameAs = [...listed, ...rest].slice(0, MAX_SAME_AS);
   return out;
 }
 
+interface ExternalCollector {
+  all: Set<string>;
+  reviews: Set<string>;
+  profiles: Set<string>;
+}
+
+/** Adds `url` to `into` unless it is full. */
+function addCapped(into: Set<string>, url: string, cap: number): void {
+  if (into.size < cap) into.add(url);
+}
+
 /**
- * Adds `href` to `into` when it is an absolute (or protocol-relative) http(s)
- * link to another host than `pageHost`. Kept apart from the internal-link
- * count, which treats a protocol-relative link as internal.
+ * Records `href` when it is an absolute (or protocol-relative) http(s) link
+ * to another host than `pageHost`. It is classified before any cap applies:
+ * a review-site or profile link goes into its own list (each capped at
+ * MAX_CLASSIFIED_LINKS) even when `all` is already full at
+ * MAX_EXTERNAL_LINKS, so unrelated outbound links cannot push them out. Kept
+ * apart from the internal-link count, which treats a protocol-relative link
+ * as internal.
  */
-function collectExternal(href: string, pageHost: string, into: Set<string>): void {
-  if (into.size >= MAX_EXTERNAL_LINKS) return;
+function collectExternal(href: string, pageHost: string, into: ExternalCollector): void {
   const absolute = /^https?:/i.test(href) ? href : href.startsWith("//") ? `https:${href}` : null;
   if (!absolute) return;
+  let url: URL;
   try {
-    const url = new URL(decode(absolute));
-    if (url.hostname.replace(/^www\./, "") !== pageHost) into.add(url.href);
+    url = new URL(decode(absolute));
   } catch {
-    /* not a usable URL */
+    return; // not a usable URL
   }
+  if (url.hostname.replace(/^www\./, "") === pageHost) return;
+  if (reviewSiteOf(url.href)) addCapped(into.reviews, url.href, MAX_CLASSIFIED_LINKS);
+  if (profileHostOf(url.href)) addCapped(into.profiles, url.href, MAX_CLASSIFIED_LINKS);
+  addCapped(into.all, url.href, MAX_EXTERNAL_LINKS);
 }
 
 export function extractPageFacts(
@@ -267,7 +352,7 @@ export function extractPageFacts(
   }
   let internal = 0;
   const vague = new Set<string>();
-  const external = new Set<string>();
+  const external: ExternalCollector = { all: new Set(), reviews: new Set(), profiles: new Set() };
   const are = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
   let am: RegExpExecArray | null;
   while ((am = are.exec(body))) {
@@ -325,6 +410,8 @@ export function extractPageFacts(
     priceSamples,
     images: { total: imgs.length, missingAlt },
     links: { internal, vagueAnchors: [...vague].slice(0, 8) },
-    externalLinks: [...external],
+    externalLinks: [...external.all],
+    reviewLinks: [...external.reviews],
+    profileLinks: [...external.profiles],
   };
 }

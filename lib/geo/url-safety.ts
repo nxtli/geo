@@ -1,10 +1,13 @@
+import { lookup as dnsLookup } from "node:dns/promises";
+
 /**
- * Pure syntactic check that a URL points at a public web page, for endpoints
- * that fetch caller-supplied URLs.
+ * Checks that a URL points at a public web page, for endpoints that fetch
+ * caller-supplied URLs.
  *
- * This does NOT resolve DNS: a public-looking hostname that resolves to a
- * private address, or a redirect to one, passes this check. It only rejects
- * what can be seen in the URL itself.
+ * `isPublicHttpUrl` is purely syntactic: it does not resolve DNS, so a
+ * public-looking hostname that resolves to a private address passes it.
+ * `resolvesToPublicAddress` adds the DNS half. Redirects are covered by the
+ * caller running both on every hop (see `fetchPage`'s guard option).
  */
 
 const ALLOWED_PORTS = new Set(["", "80", "443"]);
@@ -100,4 +103,40 @@ export function isPublicHttpUrl(url: string): boolean {
   if (host === "localhost" || host.endsWith(".localhost")) return false;
   if (!host.includes(".")) return false;
   return true;
+}
+
+/** True when `address` is an IPv4 or IPv6 literal outside every blocked range above. */
+export function isPublicIpAddress(address: string): boolean {
+  const ipv4 = parseIpv4(address);
+  if (ipv4) return !isBlockedIpv4(ipv4);
+  // A zone id ("fe80::1%eth0") does not parse and is refused, which is the safe side.
+  const ipv6 = parseIpv6(address);
+  return ipv6 !== null && !isBlockedIpv6(ipv6);
+}
+
+/** The shape of `dns.promises.lookup` with `{ all: true }`, injectable so tests never touch the network. */
+export type LookupAll = (hostname: string, options: { all: true }) => Promise<{ address: string; family: number }[]>;
+
+const defaultLookup: LookupAll = (hostname, options) => dnsLookup(hostname, options);
+
+/**
+ * True when every address `hostname` resolves to is public, by the same range
+ * rules as IP literals. An IP literal (IPv6 with or without brackets) is
+ * checked as is. No addresses, or a lookup error, is false. Never throws.
+ *
+ * This is check-then-fetch: the fetch resolves the name again, so a DNS
+ * rebinding answer can still differ between the check and the connection.
+ * Closing that gap would mean pinning the checked address with a custom
+ * HTTP agent, which this does not do.
+ */
+export async function resolvesToPublicAddress(hostname: string, lookup: LookupAll = defaultLookup): Promise<boolean> {
+  const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^\[(.*)\]$/, "$1");
+  if (!host) return false;
+  if (parseIpv4(host) || host.includes(":")) return isPublicIpAddress(host);
+  try {
+    const addresses = await lookup(host, { all: true });
+    return addresses.length > 0 && addresses.every((entry) => isPublicIpAddress(entry.address));
+  } catch {
+    return false;
+  }
 }

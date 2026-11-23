@@ -2,7 +2,16 @@ import { describe, it, expect } from "vitest";
 import { extractPageFacts } from "../facts/page";
 import { analyzeRobots } from "../facts/robots";
 import type { ScrapeResult } from "../scrape";
-import { CHECK_IDS, CHECK_REGISTRY, ageInDays, parsePageDate, runChecks, type CheckId } from "../checks";
+import {
+  AGING_MAX_AGE_DAYS,
+  CHECK_IDS,
+  CHECK_REGISTRY,
+  RECENT_MAX_AGE_DAYS,
+  ageInDays,
+  parsePageDate,
+  runChecks,
+  type CheckId,
+} from "../checks";
 
 const PAGE_URL = "https://voorbeeld.example/diensten/lease";
 const NOW = new Date("2026-11-23T12:00:00Z");
@@ -46,6 +55,11 @@ function check(id: CheckId, scrape: ScrapeResult, now = NOW) {
   return result;
 }
 
+/** A page whose only date is article:modified_time, `days` days before NOW. */
+function aged(days: number): ScrapeResult {
+  return scrapeOf(withMetaModified(new Date(NOW.getTime() - days * DAY_MS).toISOString()));
+}
+
 function withMetaModified(iso: string): string {
   return `<html><head><meta property="article:modified_time" content="${iso}"></head><body><p>tekst</p></body></html>`;
 }
@@ -81,6 +95,11 @@ describe("check registry", () => {
     expect(ids).toEqual(["author_publisher", "clarity"]);
   });
 
+  it("gives null evidence for every unknown and n/a result", () => {
+    const results = runChecks(notFetchedScrape(), PAGE_URL, undefined, NOW);
+    expect(results.map((r) => r.evidence)).toEqual(results.map(() => null));
+  });
+
   it("reports unknown for every measurable check when the page was not fetched", () => {
     const results = runChecks(notFetchedScrape(), PAGE_URL, undefined, NOW);
     const byId = Object.fromEntries(results.map((r) => [r.id, r.status]));
@@ -100,6 +119,7 @@ describe("author_publisher", () => {
     const result = check("author_publisher", scrapeOf(GOOD_HTML));
     expect(result.status).toBe("pass");
     expect(result.facts).toMatchObject({ publisher: "Voorbeeld BV", author: "Jan Jansen", author_source: "json_ld" });
+    expect(result.evidence).toBe("publisher: Voorbeeld BV (JSON-LD); author: Jan Jansen (JSON-LD)");
   });
 
   it("falls back to og:site_name and meta author", () => {
@@ -107,10 +127,17 @@ describe("author_publisher", () => {
     const result = check("author_publisher", scrapeOf(html));
     expect(result.status).toBe("pass");
     expect(result.facts).toMatchObject({ publisher: "Voorbeeld", publisher_source: "og:site_name", author: "Anne", author_source: "meta_author" });
+    expect(result.evidence).toBe("publisher: Voorbeeld (og:site_name); author: Anne (meta author)");
   });
 
-  it("needs attention when nobody is named", () => {
-    expect(check("author_publisher", scrapeOf(BARE_HTML)).status).toBe("attention");
+  it("names only the author in the evidence when there is no publisher", () => {
+    const result = check("author_publisher", scrapeOf(`<head><meta name="author" content="Anne"></head>`));
+    expect(result.evidence).toBe("author: Anne (meta author)");
+  });
+
+  it("needs attention when nobody is named, with null evidence", () => {
+    const result = check("author_publisher", scrapeOf(BARE_HTML));
+    expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "attention", evidence: null });
   });
 });
 
@@ -124,21 +151,38 @@ describe("recency", () => {
       newest_source: "json_ld_date_modified",
       age_days: 22,
     });
+    expect(result.evidence).toBe("2026-11-01 (JSON-LD dateModified)");
   });
 
-  it("passes at exactly 365 days and needs attention at 366", () => {
-    const at365 = check("recency", scrapeOf(withMetaModified(new Date(NOW.getTime() - 365 * DAY_MS).toISOString())));
-    expect(at365.facts.age_days).toBe(365);
-    expect(at365.status).toBe("pass");
-    const at366 = check("recency", scrapeOf(withMetaModified(new Date(NOW.getTime() - 366 * DAY_MS).toISOString())));
-    expect(at366.facts.age_days).toBe(366);
-    expect(at366.status).toBe("attention");
+  it("quotes a visible date as found, with its source", () => {
+    const html = `<html><body><p>Bijgewerkt op 3 oktober 2026. tekst</p></body></html>`;
+    expect(check("recency", scrapeOf(html)).evidence).toBe("3 oktober 2026 (visible date)");
   });
 
-  it("is unknown when no date is found", () => {
+  it("uses tiers of 180 and 365 days", () => {
+    expect([RECENT_MAX_AGE_DAYS, AGING_MAX_AGE_DAYS]).toEqual([180, 365]);
+  });
+
+  it.each([
+    [180, "pass"],
+    [181, "attention"],
+    [365, "attention"],
+    [366, "fail"],
+  ])("at %i days is %s", (days, status) => {
+    const result = check("recency", aged(days));
+    expect({ age: result.facts.age_days, status: result.status }).toEqual({ age: days, status });
+  });
+
+  it("passes a date in the future", () => {
+    const result = check("recency", aged(-30));
+    expect({ age: result.facts.age_days, status: result.status }).toEqual({ age: -30, status: "pass" });
+  });
+
+  it("is unknown when no date is found, with null evidence", () => {
     const result = check("recency", scrapeOf(BARE_HTML));
     expect(result.status).toBe("unknown");
     expect(result.facts.age_days).toBeNull();
+    expect(result.evidence).toBeNull();
   });
 
   it("counts whole days against the injected now", () => {
@@ -169,6 +213,7 @@ describe("structured_data", () => {
     expect(result.status).toBe("pass");
     expect(result.facts).toMatchObject({ blocks: 2, invalid_blocks: 0 });
     expect(result.facts.types).toEqual(expect.arrayContaining(["Organization", "Article", "Person"]));
+    expect(result.evidence).toBe((result.facts.types as string[]).join(", "));
   });
 
   it("needs attention when a block is invalid JSON", () => {
@@ -178,8 +223,9 @@ describe("structured_data", () => {
     expect(result.facts).toMatchObject({ blocks: 2, invalid_blocks: 1 });
   });
 
-  it("needs attention when there is no JSON-LD", () => {
-    expect(check("structured_data", scrapeOf(BARE_HTML)).status).toBe("attention");
+  it("needs attention when there is no JSON-LD, with null evidence", () => {
+    const result = check("structured_data", scrapeOf(BARE_HTML));
+    expect({ status: result.status, evidence: result.evidence }).toEqual({ status: "attention", evidence: null });
   });
 });
 
@@ -188,6 +234,21 @@ describe("clarity", () => {
     const result = check("clarity", scrapeOf(GOOD_HTML));
     expect(result.status).toBe("pass");
     expect(result.facts).toMatchObject({ h1_count: 1, skipped_heading_level: false, title_present: true, description_present: true, js_shell: false });
+    expect(result.evidence).toBe("Zakelijk leasen");
+  });
+
+  it("quotes the first h1 and cuts a long one to 120 characters", () => {
+    const long = "Lang ".repeat(40).trim();
+    const result = check("clarity", scrapeOf(`<html><body><h1>${long}</h1><h1>Tweede</h1></body></html>`));
+    expect({ length: result.evidence?.length, end: result.evidence?.slice(-1), start: result.evidence?.slice(0, 9) }).toEqual({
+      length: 120,
+      end: "…",
+      start: "Lang Lang",
+    });
+  });
+
+  it("has null evidence when there is no h1", () => {
+    expect(check("clarity", scrapeOf(`<html><body><h2>Alleen h2</h2></body></html>`)).evidence).toBeNull();
   });
 
   it("needs attention for a skipped level, missing title and description, and thin text", () => {
@@ -216,5 +277,6 @@ describe("speed and external", () => {
     expect(check("speed", scrapeOf(GOOD_HTML)).status).toBe("n/a");
     expect(check("external", scrapeOf(GOOD_HTML)).status).toBe("n/a");
     expect(check("speed", scrapeOf(GOOD_HTML)).summary).toMatch(/not measured yet/);
+    expect(check("external", scrapeOf(GOOD_HTML)).evidence).toBeNull();
   });
 });

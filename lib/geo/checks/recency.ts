@@ -3,8 +3,17 @@ import { notFetched } from "./types";
 
 const DAY_MS = 86_400_000;
 
-/** Older than this many days counts as attention. */
-export const STALE_AFTER_DAYS = 365;
+/** Up to this many days old is pass (a future date is pass too). */
+export const RECENT_MAX_AGE_DAYS = 180;
+/** Up to this many days old is attention; older is fail. */
+export const AGING_MAX_AGE_DAYS = 365;
+
+/** How each date source is named in the evidence string. */
+const SOURCE_LABELS: Record<string, string> = {
+  visible_date: "visible date",
+  json_ld_date_modified: "JSON-LD dateModified",
+  meta_modified_time: "article:modified_time",
+};
 
 const MONTH_NUMBERS: Record<string, number> = {
   januari: 1, january: 1,
@@ -62,7 +71,9 @@ export function ageInDays(date: Date, now: Date): number {
 /**
  * The newest of the visible date, JSON-LD dateModified and
  * article:modified_time, with its age in days against the injected `now`.
- * Pass up to STALE_AFTER_DAYS, attention when older, unknown when no date parses.
+ * Pass up to RECENT_MAX_AGE_DAYS (and for a future date), attention up to
+ * AGING_MAX_AGE_DAYS, fail when older, unknown when no date parses. Evidence
+ * is the date as found plus its source, e.g. "3 oktober 2026 (visible date)".
  */
 export const recencyCheck: CheckDefinition = {
   id: "recency",
@@ -74,10 +85,10 @@ export const recencyCheck: CheckDefinition = {
       { source: "json_ld_date_modified", raw: facts.jsonLd.dateModified },
       { source: "meta_modified_time", raw: facts.metaModified },
     ];
-    let newest: { source: string; date: Date } | null = null;
+    let newest: { source: string; raw: string; date: Date } | null = null;
     for (const { source, raw } of candidates) {
       const date = parsePageDate(raw);
-      if (date && (!newest || date.getTime() > newest.date.getTime())) newest = { source, date };
+      if (raw && date && (!newest || date.getTime() > newest.date.getTime())) newest = { source, raw: raw.trim(), date };
     }
     const result = {
       visible_date: facts.visibleDate,
@@ -88,14 +99,15 @@ export const recencyCheck: CheckDefinition = {
       age_days: newest ? ageInDays(newest.date, now) : null,
     };
     if (!newest || result.age_days === null) {
-      return { id: "recency", status: "unknown", summary: "No date found on the page.", facts: result };
+      return { id: "recency", status: "unknown", summary: "No date found on the page.", facts: result, evidence: null };
     }
     const age = result.age_days;
     return {
       id: "recency",
-      status: age > STALE_AFTER_DAYS ? "attention" : "pass",
+      status: age <= RECENT_MAX_AGE_DAYS ? "pass" : age <= AGING_MAX_AGE_DAYS ? "attention" : "fail",
       summary: `Newest date ${result.newest_date} (${newest.source}), ${age} day(s) old.`,
       facts: result,
+      evidence: `${newest.raw} (${SOURCE_LABELS[newest.source] ?? newest.source})`,
     };
   },
 };

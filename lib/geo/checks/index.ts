@@ -8,7 +8,7 @@ import { structuredDataCheck } from "./structured-data";
 import type { CheckDefinition, CheckId, CheckResult } from "./types";
 
 export * from "./types";
-export { parsePageDate, ageInDays, STALE_AFTER_DAYS } from "./recency";
+export { parsePageDate, ageInDays, RECENT_MAX_AGE_DAYS, AGING_MAX_AGE_DAYS } from "./recency";
 export { THIN_WORD_COUNT } from "./clarity";
 
 /** All checks, in the order results are returned. Must match CHECK_IDS. */

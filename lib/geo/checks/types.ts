@@ -23,6 +23,12 @@ export interface CheckResult {
   /** One short English sentence describing what was measured. */
   summary: string;
   facts: Record<string, CheckFactValue>;
+  /**
+   * A short quotable string of what was actually found on the page (a date
+   * with its source, the JSON-LD types, the names, the h1). Null when nothing
+   * was found, and always null for "unknown" and "n/a" results.
+   */
+  evidence: string | null;
 }
 
 /** What a check gets to look at: the page as already scraped. No network, no model. */
@@ -43,10 +49,10 @@ export interface CheckDefinition {
 
 /** The shared result for a measurable check when there is no page to measure. */
 export function notFetched(id: CheckId): CheckResult {
-  return { id, status: "unknown", summary: "The page could not be fetched, so this was not measured.", facts: {} };
+  return { id, status: "unknown", summary: "The page could not be fetched, so this was not measured.", facts: {}, evidence: null };
 }
 
 /** The shared result for a check that has no measurement yet. */
 export function notMeasured(id: CheckId, what: string): CheckResult {
-  return { id, status: "n/a", summary: `${what} is not measured yet.`, facts: {} };
+  return { id, status: "n/a", summary: `${what} is not measured yet.`, facts: {}, evidence: null };
 }

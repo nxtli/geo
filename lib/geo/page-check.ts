@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { CHECK_IDS, runChecks, type CheckId, type CheckResult } from "./checks";
-import { fetchPage as defaultFetchPage, type ScrapeResult } from "./scrape";
-import { isPublicHttpUrl } from "./url-safety";
+import { fetchPage as defaultFetchPage, type FetchPageOptions, type ScrapeResult, type UrlGuard } from "./scrape";
+import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
 
 /**
  * Logic behind POST /api/geo/page-check: fetch each page and run the pure
@@ -47,6 +47,8 @@ export function checkMachineAuth(
 
 export interface PageCheckFetched {
   url: string;
+  /** Where the redirects ended; only present when that differs from `url`. */
+  final_url?: string;
   /** Whether the page itself came back with a 2xx and HTML. */
   fetched: boolean;
   /** HTTP status of the page, null on a network error or timeout. */
@@ -73,8 +75,19 @@ export interface PageCheckResponse {
 }
 
 export interface PageCheckDeps {
-  fetchPage?: (url: string) => Promise<ScrapeResult>;
+  fetchPage?: (url: string, options?: FetchPageOptions) => Promise<ScrapeResult>;
+  /** DNS lookup behind the guard; defaults to `dns.promises.lookup`. */
+  lookup?: LookupAll;
   now?: () => Date;
+}
+
+/**
+ * The guard for every hop of a page-check fetch: a public http(s) URL whose
+ * host resolves only to public addresses. The DNS-rebinding gap described at
+ * `resolvesToPublicAddress` remains.
+ */
+export function pageCheckGuard(lookup?: LookupAll): UrlGuard {
+  return async (url) => isPublicHttpUrl(url) && resolvesToPublicAddress(new URL(url).hostname, lookup);
 }
 
 /** Trims and removes exact duplicates, keeping the first occurrence's position. */
@@ -99,6 +112,7 @@ async function mapWithLimit<T, R>(items: T[], limit: number, worker: (item: T) =
 function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): PageCheckFetched {
   return {
     url,
+    ...(scrape.finalUrl && scrape.finalUrl !== url ? { final_url: scrape.finalUrl } : {}),
     fetched: scrape.metadata.fetched,
     status: scrape.metadata.status ?? null,
     title: scrape.facts?.title ?? scrape.metadata.title ?? null,
@@ -114,19 +128,25 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
 /**
  * Checks up to MAX_URLS pages. Never throws: a URL that is not public becomes
  * `url_not_allowed` without being fetched, and a fetch (or check) that throws
- * becomes `fetch_failed`; the other URLs still run.
+ * becomes `fetch_failed`; the other URLs still run. Each fetch runs under
+ * `pageCheckGuard`: a hop it refuses (redirect or DNS) is `url_not_allowed`,
+ * a chain past the redirect limit is `fetch_failed`. Checks run against the
+ * final URL.
  */
 export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}): Promise<PageCheckResponse> {
   const fetchPage = deps.fetchPage ?? defaultFetchPage;
   const now = (deps.now ?? (() => new Date()))();
   const ids: CheckId[] | undefined = body.checks;
   const urls = dedupeUrls(body.urls).slice(0, MAX_URLS);
+  const guard = pageCheckGuard(deps.lookup);
 
   const results = await mapWithLimit(urls, FETCH_CONCURRENCY, async (url): Promise<PageCheckResult> => {
     if (!isPublicHttpUrl(url)) return { url, fetched: false, error: "url_not_allowed" };
     try {
-      const scrape = await fetchPage(url);
-      return toResult(url, scrape, runChecks(scrape, url, ids, now));
+      const scrape = await fetchPage(url, { guard });
+      if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
+      if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
+      return toResult(url, scrape, runChecks(scrape, scrape.finalUrl ?? url, ids, now));
     } catch {
       return { url, fetched: false, error: "fetch_failed" };
     }

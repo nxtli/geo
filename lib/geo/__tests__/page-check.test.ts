@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { extractPageFacts } from "../facts/page";
 import { analyzeRobots } from "../facts/robots";
-import type { ScrapeResult } from "../scrape";
+import { fetchPage, MAX_REDIRECTS, type ScrapeResult } from "../scrape";
+import type { LookupAll } from "../url-safety";
 import {
   FETCH_CONCURRENCY,
   checkMachineAuth,
@@ -95,6 +96,14 @@ describe("runPageCheck", () => {
       llms_txt: true,
     });
     expect(result.checks.map((c) => c.id)).toEqual(["author_publisher", "recency", "structured_data", "clarity", "speed", "external"]);
+    expect(result.checks.map((c) => [c.id, c.status, c.evidence])).toEqual([
+      ["author_publisher", "attention", null],
+      ["recency", "unknown", null],
+      ["structured_data", "attention", null],
+      ["clarity", "attention", "Pagina"],
+      ["speed", "n/a", null],
+      ["external", "n/a", null],
+    ]);
   });
 
   it("runs only the requested checks", async () => {
@@ -153,5 +162,151 @@ describe("checkMachineAuth", () => {
   it("accepts the right bearer token", () => {
     expect(checkMachineAuth("Bearer s3cret-token", "s3cret-token")).toBe("ok");
     expect(checkMachineAuth("bearer s3cret-token", "s3cret-token")).toBe("ok");
+  });
+});
+
+describe("runPageCheck with the real fetchPage (redirect and DNS guard)", () => {
+  const PUBLIC_IP = "93.184.216.34";
+
+  /** A lookup answering from `table`; an unknown host fails like ENOTFOUND. */
+  function lookupFrom(table: Record<string, string[]>): LookupAll {
+    return vi.fn(async (hostname: string) => {
+      const addresses = table[hostname];
+      if (!addresses) throw new Error(`getaddrinfo ENOTFOUND ${hostname}`);
+      return addresses.map((address) => ({ address, family: address.includes(":") ? 6 : 4 }));
+    });
+  }
+
+  const htmlPage = () => new Response(HTML, { status: 200, headers: { "content-type": "text/html" } });
+  const redirectTo = (location: string) => () => new Response(null, { status: 302, headers: { location } });
+
+  /** Stubs global fetch: known URLs answer from `routes`, anything else is a 404. */
+  function stubFetch(routes: Record<string, () => Response>) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const route = routes[String(input)];
+      return route ? route() : new Response("", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  const fetchedUrls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.map(([input]) => String(input));
+
+  const check = async (url: string, lookup: LookupAll) =>
+    (await runPageCheck(pageCheckBodySchema.parse({ urls: [url] }), { lookup, now: () => NOW })).results[0];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses a redirect to a private address without fetching it", async () => {
+    const fetchMock = stubFetch({ "https://example.com/a": redirectTo("http://10.0.0.5/admin") });
+
+    const result = await check("https://example.com/a", lookupFrom({ "example.com": [PUBLIC_IP] }));
+
+    expect(result).toEqual({ url: "https://example.com/a", fetched: false, error: "url_not_allowed" });
+    expect(fetchedUrls(fetchMock)).toEqual(["https://example.com/a"]);
+  });
+
+  it("follows a redirect chain to a public page and reports the final url", async () => {
+    const fetchMock = stubFetch({
+      "https://example.com/a": redirectTo("/b"),
+      "https://example.com/b": redirectTo("https://www.example.com/c"),
+      "https://www.example.com/c": htmlPage,
+      "https://www.example.com/robots.txt": () => new Response("User-agent: PerplexityBot\nDisallow: /", { status: 200 }),
+    });
+
+    const result = await check(
+      "https://example.com/a",
+      lookupFrom({ "example.com": [PUBLIC_IP], "www.example.com": [PUBLIC_IP] }),
+    );
+
+    expect(result).toMatchObject({
+      url: "https://example.com/a",
+      final_url: "https://www.example.com/c",
+      fetched: true,
+      status: 200,
+      robots: { known: true, blocked_search: ["PerplexityBot"] },
+      llms_txt: false,
+    });
+    expect(fetchedUrls(fetchMock)).toEqual(
+      expect.arrayContaining(["https://www.example.com/robots.txt", "https://www.example.com/llms.txt"]),
+    );
+    expect(fetchMock.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
+  });
+
+  it("leaves final_url out when there was no redirect", async () => {
+    stubFetch({ "https://example.com/a": htmlPage });
+
+    const result = await check("https://example.com/a", lookupFrom({ "example.com": [PUBLIC_IP] }));
+
+    expect(result).not.toHaveProperty("final_url");
+  });
+
+  it(`follows ${MAX_REDIRECTS} redirects`, async () => {
+    const routes: Record<string, () => Response> = { [`https://example.com/${MAX_REDIRECTS}`]: htmlPage };
+    for (let i = 0; i < MAX_REDIRECTS; i++) routes[`https://example.com/${i}`] = redirectTo(`/${i + 1}`);
+    stubFetch(routes);
+
+    const result = await check("https://example.com/0", lookupFrom({ "example.com": [PUBLIC_IP] }));
+
+    expect(result).toMatchObject({ fetched: true, final_url: `https://example.com/${MAX_REDIRECTS}` });
+  });
+
+  it("turns a chain of 6 redirects into fetch_failed", async () => {
+    const routes: Record<string, () => Response> = {};
+    for (let i = 0; i < 6; i++) routes[`https://example.com/${i}`] = redirectTo(`/${i + 1}`);
+    routes["https://example.com/6"] = htmlPage;
+    const fetchMock = stubFetch(routes);
+
+    const result = await check("https://example.com/0", lookupFrom({ "example.com": [PUBLIC_IP] }));
+
+    expect(result).toEqual({ url: "https://example.com/0", fetched: false, error: "fetch_failed" });
+    expect(fetchedUrls(fetchMock)).not.toContain("https://example.com/6");
+  });
+
+  it.each([
+    ["resolves to 10.x", { "intranet.example.com": ["10.1.2.3"] }],
+    ["has one private address among public ones", { "intranet.example.com": [PUBLIC_IP, "192.168.1.10"] }],
+    ["does not resolve", {}],
+  ])("refuses a hostname that %s, without fetching", async (_label, table: Record<string, string[]>) => {
+    const fetchMock = stubFetch({ "https://intranet.example.com/": htmlPage });
+
+    const result = await check("https://intranet.example.com/", lookupFrom(table));
+
+    expect({ result, fetches: fetchMock.mock.calls.length }).toEqual({
+      result: { url: "https://intranet.example.com/", fetched: false, error: "url_not_allowed" },
+      fetches: 0,
+    });
+  });
+
+  it("treats a refused robots.txt redirect as unreachable", async () => {
+    stubFetch({
+      "https://example.com/a": htmlPage,
+      "https://example.com/robots.txt": redirectTo("http://127.0.0.1/robots.txt"),
+    });
+
+    const result = await check("https://example.com/a", lookupFrom({ "example.com": [PUBLIC_IP] }));
+
+    expect(result).toMatchObject({ fetched: true, robots: { known: false } });
+  });
+});
+
+describe("fetchPage without a guard", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps today's behaviour: every fetch follows redirects itself and no final url is added", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(HTML, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchPage("https://example.com/a");
+
+    expect({
+      redirects: fetchMock.mock.calls.map(([, init]) => init?.redirect),
+      finalUrl: result.finalUrl,
+      fetchError: result.fetchError,
+    }).toEqual({ redirects: ["follow", "follow", "follow"], finalUrl: undefined, fetchError: undefined });
   });
 });

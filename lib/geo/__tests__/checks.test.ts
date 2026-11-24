@@ -242,6 +242,32 @@ describe("recency", () => {
     expect(result.evidence).toBeNull();
   });
 
+  it.each([
+    ["a homepage", "https://voorbeeld.example/", BARE_HTML, "n/a", "A homepage does not need a date."],
+    [
+      "an article",
+      "https://voorbeeld.example/blog/bericht",
+      `<html><head><meta property="og:type" content="article"></head><body><p>tekst</p></body></html>`,
+      "unknown",
+      "No date found on the page.",
+    ],
+    ["any other page", PAGE_URL, BARE_HTML, "unknown", "No date found on the page."],
+  ])("without a date, %s is %s", (_, url, html, status, summary) => {
+    const [result] = runChecks(scrapeOf(html, url), url, ["recency"], NOW);
+    expect({ status: result!.status, summary: result!.summary, evidence: result!.evidence, age: result!.facts.age_days }).toEqual({
+      status,
+      summary,
+      evidence: null,
+      age: null,
+    });
+  });
+
+  it("keeps a homepage with only a future date unknown", () => {
+    const html = `<html><head><meta property="article:modified_time" content="2027-03-01T00:00:00Z"></head><body><p>tekst</p></body></html>`;
+    const [result] = runChecks(scrapeOf(html, "https://voorbeeld.example/"), "https://voorbeeld.example/", ["recency"], NOW);
+    expect({ status: result!.status, ignored: result!.facts.ignored_future_date }).toEqual({ status: "unknown", ignored: "2027-03-01" });
+  });
+
   it("counts whole days against the injected now", () => {
     expect(ageInDays(new Date("2026-11-13T00:00:00Z"), new Date("2026-11-23T23:59:00Z"))).toBe(10);
     expect(ageInDays(new Date("2026-11-23T00:00:00Z"), new Date("2026-11-23T23:59:00Z"))).toBe(0);
@@ -421,7 +447,6 @@ describe("speed", () => {
   });
 
   it.each([
-    ["timeout", /timed out/],
     ["http_error", /returned an error/],
     ["invalid_response", /unreadable/],
     ["network", /could not be reached/],
@@ -433,6 +458,16 @@ describe("speed", () => {
       reason,
     });
     expect(result.summary).toMatch(text);
+  });
+
+  it("is n/a, not unknown, when the measurement took too long, and keeps the reason", () => {
+    const result = speedCheck({ ok: false, reason: "timeout" });
+    expect({ status: result.status, evidence: result.evidence, reason: result.facts.failure_reason, summary: result.summary }).toEqual({
+      status: "n/a",
+      evidence: null,
+      reason: "timeout",
+      summary: "Page speed was not measured: the measurement took too long.",
+    });
   });
 
   it("is n/a, not unknown, when the PageSpeed Insights quota was exhausted", () => {

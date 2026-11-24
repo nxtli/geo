@@ -163,8 +163,8 @@ export function hasExpectedType(pageType: PageType, declared: string[]): boolean
 export const structuredDataCheck: CheckDefinition = {
   id: "structured_data",
   label: "Structured data",
-  run({ url, facts }): CheckResult {
-    if (!facts) return notFetched("structured_data");
+  run({ url, facts, unreachable }): CheckResult {
+    if (!facts) return notFetched("structured_data", unreachable);
     const { blocks, invalid, types, topLevelTypes } = facts.jsonLd;
     const pageType = inferPageType(url, facts);
     // `other` accepts any type at any depth; the named expectations must be top-level.

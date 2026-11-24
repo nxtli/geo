@@ -9,8 +9,15 @@ import { z } from "zod";
 
 export const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
-/** Per-page cap on one PSI call, so a slow measurement cannot hold up the batch. */
-export const SPEED_TIMEOUT_MS = 25_000;
+/**
+ * Per-page cap on one PSI call, so a slow measurement cannot hold up the
+ * batch. Mobile lab runs on heavy pages often take 15 to 40 s, so the cap
+ * sits at the top of that range. The request's PAGE_CHECK_BUDGET_MS (90 s,
+ * under the route's maxDuration of 120 s) still bounds the whole batch: with
+ * FETCH_CONCURRENCY 3 lanes, a measurement still running at the budget
+ * counts as a timeout and a page not fetched by then is out of time.
+ */
+export const SPEED_TIMEOUT_MS = 40_000;
 
 export type SpeedFailureReason = "timeout" | "quota" | "http_error" | "invalid_response" | "network";
 

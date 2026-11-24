@@ -34,8 +34,8 @@ function nameEvidence(
 export const authorPublisherCheck: CheckDefinition = {
   id: "author_publisher",
   label: "Author and publisher",
-  run({ facts }) {
-    if (!facts) return notFetched("author_publisher");
+  run({ facts, unreachable }) {
+    if (!facts) return notFetched("author_publisher", unreachable);
     const publisher = facts.jsonLd.orgName || facts.siteName || null;
     const publisherSource = facts.jsonLd.orgName ? "json_ld" : facts.siteName ? "og:site_name" : null;
     const author = facts.jsonLd.authorName || facts.metaAuthor || null;

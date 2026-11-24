@@ -1,5 +1,6 @@
 import type { CheckDefinition } from "./types";
 import { notFetched } from "./types";
+import { inferPageType } from "./structured-data";
 
 const DAY_MS = 86_400_000;
 
@@ -79,14 +80,17 @@ export function ageInDays(date: Date, now: Date): number {
  * A date more than FUTURE_TOLERANCE_DAYS after `now` is ignored when picking
  * the newest and reported in `ignored_future_date`. Pass up to
  * RECENT_MAX_AGE_DAYS, attention up to AGING_MAX_AGE_DAYS, fail when older,
- * unknown when no usable date parses. Evidence is the date as found plus its
+ * unknown when no usable date parses, except on a homepage (the page type
+ * the structured_data check infers) with no date at all, which is n/a: a
+ * homepage does not need one. A homepage with only a future date stays
+ * unknown. Evidence is the date as found plus its
  * source, e.g. "3 oktober 2026 (visible date)".
  */
 export const recencyCheck: CheckDefinition = {
   id: "recency",
   label: "Recency",
-  run({ facts, now }) {
-    if (!facts) return notFetched("recency");
+  run({ url, facts, now, unreachable }) {
+    if (!facts) return notFetched("recency", unreachable);
     const candidates = [
       { source: "visible_date", raw: facts.visibleDate },
       { source: "json_ld_date_modified", raw: facts.jsonLd.dateModified },
@@ -116,6 +120,9 @@ export const recencyCheck: CheckDefinition = {
     };
     const futureNote = ignoredFutureDate ? ` A date in the future (${ignoredFutureDate}) was ignored.` : "";
     if (!newest || result.age_days === null) {
+      if (!ignoredFutureDate && inferPageType(url, facts) === "home") {
+        return { id: "recency", status: "n/a", summary: "A homepage does not need a date.", facts: result, evidence: null };
+      }
       const summary = ignoredFutureDate
         ? `Only a date in the future (${ignoredFutureDate}) was found; it was ignored.`
         : "No date found on the page.";

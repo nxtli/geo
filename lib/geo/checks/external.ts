@@ -75,8 +75,8 @@ function evidenceOf(
 export const externalCheck: CheckDefinition = {
   id: "external",
   label: "External mentions",
-  run({ url, facts, external }): CheckResult {
-    if (!facts) return notFetched("external");
+  run({ url, facts, external, unreachable }): CheckResult {
+    if (!facts) return notFetched("external", unreachable);
     const sources = external ?? EXTERNAL_SOURCES_OFF;
     const reviews = reviewSignals(facts);
     const pageHost = hostOf(url);

@@ -41,8 +41,8 @@ function structureOf(facts: PageFacts): { status: "pass" | "attention" | "fail";
 export const clarityCheck: CheckDefinition = {
   id: "clarity",
   label: "Clarity",
-  run({ facts, clarity }) {
-    if (!facts) return notFetched("clarity");
+  run({ facts, clarity, unreachable }) {
+    if (!facts) return notFetched("clarity", unreachable);
     const verdict = !facts.jsShell && clarity?.ok ? clarity : null;
     const result = {
       h1_count: facts.h1Count,

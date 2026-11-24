@@ -59,6 +59,11 @@ export interface CheckContext {
    * only). `ok: false` means it was asked but gave no verdict.
    */
   clarity?: ClarityOutcome | null;
+  /**
+   * Set only when the page's connection failed: why, so the unmeasured checks
+   * say so instead of the generic not-fetched summary. Absent or null otherwise.
+   */
+  unreachable?: Unreachable | null;
 }
 
 export type ClarityOutcome =
@@ -71,9 +76,34 @@ export interface CheckDefinition {
   run(ctx: CheckContext): CheckResult;
 }
 
-/** The shared result for a measurable check when there is no page to measure. */
-export function notFetched(id: CheckId): CheckResult {
-  return { id, status: "unknown", summary: "The page could not be fetched, so this was not measured.", facts: {}, evidence: null };
+/** The summary of {@link notFetched}. */
+export const NOT_FETCHED_SUMMARY = "The page could not be fetched, so this was not measured.";
+
+/**
+ * The shared result for a measurable check when there is no page to measure.
+ * Pass the context's `unreachable` so a failed connection says why.
+ */
+export function notFetched(id: CheckId, unreachable?: Unreachable | null): CheckResult {
+  if (unreachable) return notReached(id, unreachable);
+  return { id, status: "unknown", summary: NOT_FETCHED_SUMMARY, facts: {}, evidence: null };
+}
+
+/** Why a page could not be reached at all: no connection, or a host with only an IPv6 address. */
+export type UnreachableReason = "unreachable" | "ipv6_only";
+
+/** A failed connection: the reason, and for "ipv6_only" the host that has no IPv4 record. */
+export interface Unreachable {
+  reason: UnreachableReason;
+  host?: string;
+}
+
+/** {@link notFetched} for a page whose connection failed, with the reason; same status. */
+export function notReached(id: CheckId, { reason, host }: Unreachable): CheckResult {
+  const summary =
+    reason === "ipv6_only"
+      ? `The page could not be reached: ${host ?? "this address"} has no IPv4 record (IPv6 only).`
+      : "The page could not be reached (connection failed).";
+  return { id, status: "unknown", summary, facts: { reason }, evidence: null };
 }
 
 /** Why a page was not checked at all: the request's time budget ran out first. */

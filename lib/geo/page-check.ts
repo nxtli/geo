@@ -1,6 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { CHECK_IDS, outOfTime, runChecks, selectedCheckIds, type CheckId, type CheckResult, type ClarityOutcome } from "./checks";
+import {
+  CHECK_IDS,
+  outOfTime,
+  runChecks,
+  selectedCheckIds,
+  type CheckId,
+  type CheckResult,
+  type ClarityOutcome,
+  type Unreachable,
+} from "./checks";
 import { firstScreenOf, type ClarityJudge } from "./clarity-judge";
 import { fetchPage as defaultFetchPage, type FetchPageOptions, type ScrapeResult, type UrlGuard } from "./scrape";
 import type { SpeedMeasurement } from "./speed";
@@ -15,7 +24,7 @@ import {
   type ExternalSources,
   type SearchProvider,
 } from "./external";
-import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
+import { DNS_LOOKUP_TIMEOUT_MS, hasOnlyIpv6Addresses, isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-safety";
 
 /**
  * Logic behind POST /api/geo/page-check: fetch each page and run the pure
@@ -80,6 +89,8 @@ export interface PageCheckFetched {
   url: string;
   /** Where the redirects ended; only present when that differs from `url`. */
   final_url?: string;
+  /** How the page was reached when that was unusual, e.g. the www host failed and the address without www answered. */
+  fetch_note?: string;
   /** Whether the page itself came back with a 2xx and HTML. */
   fetched: boolean;
   /** HTTP status of the page, null on a network error or timeout. */
@@ -216,6 +227,25 @@ async function mapWithLimit<T, R>(items: T[], limit: number, worker: (item: T) =
   return results;
 }
 
+/**
+ * Why the requested address could not be reached: "ipv6_only" when its host
+ * has only IPv6 addresses (one more lookup, within the time left), else
+ * "unreachable". Only for a chain in which no hop answered at all.
+ */
+async function unreachableReason(url: string, lookup: LookupAll | undefined, msLeft: number): Promise<Unreachable> {
+  const plain: Unreachable = { reason: "unreachable" };
+  // The host as asked, www included (hostOf drops it).
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return plain;
+  }
+  if (!host || msLeft <= 0) return plain;
+  const ipv6Only = await hasOnlyIpv6Addresses(host, lookup, Math.min(msLeft, DNS_LOOKUP_TIMEOUT_MS));
+  return ipv6Only ? { reason: "ipv6_only", host } : plain;
+}
+
 /** A measurer that breaks its never-throws promise counts as a network failure, not a failed page. */
 async function measureSafely(measure: (url: string) => Promise<SpeedMeasurement>, url: string): Promise<SpeedMeasurement> {
   try {
@@ -229,6 +259,7 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
   return {
     url,
     ...(scrape.finalUrl && scrape.finalUrl !== url ? { final_url: scrape.finalUrl } : {}),
+    ...(scrape.fetchNote ? { fetch_note: scrape.fetchNote } : {}),
     fetched: scrape.metadata.fetched,
     status: scrape.metadata.status ?? null,
     title: scrape.facts?.title ?? scrape.metadata.title ?? null,
@@ -345,7 +376,17 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
       if (fetched === OUT_OF_TIME) return outOfTimeResult(url, ids);
       const scrape = fetched;
       if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
-      if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
+      if (scrape.fetchError && scrape.fetchError !== "unreachable") return { url, fetched: false, error: "fetch_failed" };
+      if (scrape.fetchError === "unreachable") {
+        // A page nobody could connect to: the full shape with status null, as before, but each unmeasured check says why.
+        // After a redirect answered, a later host failed: no claim about the address asked for.
+        const unreachable = scrape.failedAfterRedirect
+          ? ({ reason: "unreachable" } as const)
+          : await unreachableReason(url, deps.lookup, left());
+        const checks = runChecks(scrape, scrape.finalUrl ?? url, ids, now, null, null, null, unreachable);
+        settle(null);
+        return toResult(url, scrape, checks);
+      }
       const finalUrl = scrape.finalUrl ?? url;
       const hostname = hostOf(finalUrl) ?? "";
       const loaded = scrape.metadata.fetched && !!scrape.facts;

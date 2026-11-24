@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { extractPageFacts } from "../facts/page";
 import { analyzeRobots } from "../facts/robots";
-import { fetchPage, MAX_REDIRECTS, type ScrapeResult } from "../scrape";
+import { fetchPage, MAX_REDIRECTS, WWW_FALLBACK_ANSWERED, WWW_FALLBACK_FAILED, type ScrapeResult } from "../scrape";
 import { measureSpeed, type SpeedMeasurement } from "../speed";
 import type { LookupAll } from "../url-safety";
 import type { ClarityJudge } from "../clarity-judge";
@@ -297,9 +297,9 @@ describe("runPageCheck speed measurement", () => {
       lastFinished: finished[finished.length - 1],
       summary: speedOf(results[0]!)?.summary,
     }).toEqual({
-      statuses: ["unknown", "pass", "pass", "pass"],
+      statuses: ["n/a", "pass", "pass", "pass"],
       lastFinished: "https://example.com/a",
-      summary: "Page speed could not be measured: the measurement timed out.",
+      summary: "Page speed was not measured: the measurement took too long.",
     });
   });
 });
@@ -441,6 +441,188 @@ describe("runPageCheck with the real fetchPage (redirect and DNS guard)", () => 
     });
   });
 
+  describe("www host that cannot be reached", () => {
+    const PUBLIC_IPV6 = "2606:2800:220:1:248:1893:25c8:1946";
+    /** A route whose connection fails, as fetch does without a route to the host. */
+    const unreachable = (): Response => {
+      throw new TypeError("fetch failed");
+    };
+    const pageOf = (result: PageCheckResult) => result as PageCheckFetched;
+
+    it("falls back to the address without www, under the guard, and reports where it answered", async () => {
+      const fetchMock = stubFetch({ "https://www.example.com/a?x=1": unreachable, "https://example.com/a?x=1": htmlPage });
+      const lookup = lookupFrom({ "www.example.com": [PUBLIC_IPV6], "example.com": [PUBLIC_IP] });
+
+      const result = await check("https://www.example.com/a?x=1", lookup);
+
+      expect({
+        result: pageOf(result),
+        pageFetches: fetchedUrls(fetchMock).slice(0, 2),
+        looked: vi.mocked(lookup).mock.calls.map(([host]) => host),
+      }).toMatchObject({
+        result: { final_url: "https://example.com/a?x=1", fetch_note: WWW_FALLBACK_ANSWERED, fetched: true, status: 200 },
+        pageFetches: ["https://www.example.com/a?x=1", "https://example.com/a?x=1"],
+        looked: expect.arrayContaining(["www.example.com", "example.com"]),
+      });
+    });
+
+    it("does not fetch the address without www when the guard refuses it", async () => {
+      const fetchMock = stubFetch({ "https://www.example.com/": unreachable, "https://example.com/": htmlPage });
+
+      const result = await check("https://www.example.com/", lookupFrom({ "www.example.com": [PUBLIC_IP], "example.com": ["10.0.0.5"] }));
+
+      expect({ result, fetches: fetchedUrls(fetchMock) }).toEqual({
+        result: { url: "https://www.example.com/", fetched: false, error: "url_not_allowed" },
+        fetches: ["https://www.example.com/"],
+      });
+    });
+
+    it("says the address has no IPv4 record when neither answers and www is IPv6 only", async () => {
+      const fetchMock = stubFetch({ "https://www.example.com/": unreachable, "https://example.com/": unreachable });
+
+      const result = pageOf(
+        await check("https://www.example.com/", lookupFrom({ "www.example.com": [PUBLIC_IPV6], "example.com": [PUBLIC_IP] })),
+      );
+
+      expect({
+        fetches: fetchedUrls(fetchMock),
+        finalUrl: result.final_url,
+        note: result.fetch_note,
+        fetched: result.fetched,
+        status: result.status,
+        clarity: result.checks.find((c) => c.id === "clarity"),
+      }).toEqual({
+        fetches: ["https://www.example.com/", "https://example.com/"],
+        finalUrl: undefined,
+        note: WWW_FALLBACK_FAILED,
+        fetched: false,
+        status: null,
+        clarity: {
+          id: "clarity",
+          status: "unknown",
+          summary: "The page could not be reached: www.example.com has no IPv4 record (IPv6 only).",
+          facts: { reason: "ipv6_only" },
+          evidence: null,
+        },
+      });
+    });
+
+    it("does not fall back for a host without www, says the connection failed and skips the signal files", async () => {
+      const fetchMock = stubFetch({ "https://example.com/a": unreachable });
+
+      const result = pageOf(await check("https://example.com/a", lookupFrom({ "example.com": [PUBLIC_IP] })));
+
+      expect({
+        pageFetches: fetchedUrls(fetchMock),
+        robots: result.robots.known,
+        llms: result.llms_txt,
+        note: result.fetch_note,
+        status: result.status,
+        summary: result.checks.find((c) => c.id === "recency")?.summary,
+      }).toEqual({
+        pageFetches: ["https://example.com/a"],
+        robots: false,
+        llms: null,
+        note: undefined,
+        status: null,
+        summary: "The page could not be reached (connection failed).",
+      });
+    });
+
+    it("keeps the host that failed after the address without www redirected, and makes no IPv6 claim", async () => {
+      const fetchMock = stubFetch({
+        "https://www.example.com/a": unreachable,
+        "https://example.com/a": redirectTo("https://shop.example.net/a"),
+        "https://shop.example.net/a": unreachable,
+      });
+      const lookup = lookupFrom({ "www.example.com": [PUBLIC_IPV6], "example.com": [PUBLIC_IP], "shop.example.net": [PUBLIC_IP] });
+
+      const result = pageOf(await check("https://www.example.com/a", lookup));
+
+      expect({
+        fetches: fetchedUrls(fetchMock),
+        finalUrl: result.final_url,
+        note: result.fetch_note,
+        status: result.status,
+        recency: result.checks.find((c) => c.id === "recency"),
+      }).toEqual({
+        fetches: ["https://www.example.com/a", "https://example.com/a", "https://shop.example.net/a"],
+        finalUrl: "https://shop.example.net/a",
+        note: WWW_FALLBACK_FAILED,
+        status: null,
+        recency: {
+          id: "recency",
+          status: "unknown",
+          summary: "The page could not be reached (connection failed).",
+          facts: { reason: "unreachable" },
+          evidence: null,
+        },
+      });
+    });
+
+    it("does not say the address without www answered when it timed out", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+          if (String(input) === "https://www.example.com/") return Promise.reject(new TypeError("fetch failed"));
+          // Hangs until the chain's own timeout aborts it, as a host that never answers does.
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          });
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        const pending = fetchPage("https://www.example.com/", { guard: async () => true });
+        await vi.advanceTimersByTimeAsync(10_000);
+        const scrape = await pending;
+
+        expect({
+          fetches: fetchMock.mock.calls.map(([input]) => String(input)),
+          fetched: scrape.metadata.fetched,
+          status: scrape.metadata.status,
+          finalUrl: scrape.finalUrl,
+          note: scrape.fetchNote,
+          error: scrape.fetchError,
+        }).toEqual({
+          fetches: ["https://www.example.com/", "https://example.com/"],
+          fetched: false,
+          status: null,
+          finalUrl: "https://www.example.com/",
+          note: WWW_FALLBACK_FAILED,
+          error: undefined,
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("counts the fallback as a hop towards the redirect limit", async () => {
+      const routes: Record<string, () => Response> = { "https://www.example.com/0": unreachable };
+      for (let i = 0; i < MAX_REDIRECTS; i++) routes[`https://example.com/${i}`] = redirectTo(`/${i + 1}`);
+      routes[`https://example.com/${MAX_REDIRECTS}`] = htmlPage;
+      const fetchMock = stubFetch(routes);
+
+      const result = await check("https://www.example.com/0", lookupFrom({ "www.example.com": [PUBLIC_IP], "example.com": [PUBLIC_IP] }));
+
+      expect({ result, last: fetchedUrls(fetchMock).includes(`https://example.com/${MAX_REDIRECTS}`) }).toEqual({
+        result: { url: "https://www.example.com/0", fetched: false, error: "fetch_failed" },
+        last: false,
+      });
+    });
+
+    it("does not fall back when the www host answers with an HTTP error", async () => {
+      const fetchMock = stubFetch({ "https://www.example.com/": () => new Response("", { status: 500 }), "https://example.com/": htmlPage });
+
+      const result = pageOf(await check("https://www.example.com/", lookupFrom({ "www.example.com": [PUBLIC_IP], "example.com": [PUBLIC_IP] })));
+
+      expect({ status: result.status, note: result.fetch_note, apex: fetchedUrls(fetchMock).includes("https://example.com/") }).toEqual({
+        status: 500,
+        note: undefined,
+        apex: false,
+      });
+    });
+  });
+
   it("treats a refused robots.txt redirect as unreachable", async () => {
     stubFetch({
       "https://example.com/a": htmlPage,
@@ -533,7 +715,12 @@ describe("runPageCheck time budget", () => {
       ["speed"],
     );
 
-    expect((results[0] as PageCheckFetched).checks[0]?.facts).toMatchObject({ failure_reason: "timeout" });
+    const speed = (results[0] as PageCheckFetched).checks[0];
+    expect({ status: speed?.status, summary: speed?.summary, reason: speed?.facts.failure_reason }).toEqual({
+      status: "n/a",
+      summary: "Page speed was not measured: the measurement took too long.",
+      reason: "timeout",
+    });
   });
 
   it("counts an off-page source still running at the budget as an error", async () => {

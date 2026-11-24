@@ -26,11 +26,25 @@ export interface ScrapeResult {
    */
   finalUrl?: string;
   /**
-   * Only set by a guarded fetch that stopped before reading the page:
-   * "url_not_allowed" when the guard refused a hop, "too_many_redirects" when
-   * the chain ran past MAX_REDIRECTS.
+   * Only set by a guarded fetch that did not read the page: "url_not_allowed"
+   * when the guard refused a hop, "too_many_redirects" when the chain ran past
+   * MAX_REDIRECTS, "unreachable" when the connection itself failed (a thrown
+   * fetch that was not our own timeout). An unreachable page still carries
+   * status null; robots.txt and llms.txt are then not asked for (robots
+   * unknown, llms unknown), since their origin did not answer either.
    */
-  fetchError?: "url_not_allowed" | "too_many_redirects";
+  fetchError?: "url_not_allowed" | "too_many_redirects" | "unreachable";
+  /**
+   * Only set with fetchError "unreachable": an earlier hop answered with a
+   * redirect, so the connection that failed was to a later address (finalUrl),
+   * not to the one asked for.
+   */
+  failedAfterRedirect?: true;
+  /**
+   * Only set by a guarded fetch that fell back from a "www." host to the same
+   * address without "www." after the first connection failed.
+   */
+  fetchNote?: string;
 }
 
 /** Decides whether a URL may be fetched; called on every hop of a guarded fetch. */
@@ -45,6 +59,11 @@ export interface FetchPageOptions {
    */
   guard?: UrlGuard;
 }
+
+/** fetchNote when the www host failed to connect and the address without www answered. */
+export const WWW_FALLBACK_ANSWERED = "www address unreachable; the address without www answered";
+/** fetchNote when neither the www host nor the address without www could be reached. */
+export const WWW_FALLBACK_FAILED = "www address unreachable; the address without www did not answer either";
 
 /** Redirects a guarded fetch follows before giving up. */
 export const MAX_REDIRECTS = 5;
@@ -93,7 +112,7 @@ export async function fetchPage(url: string, options: FetchPageOptions = {}): Pr
  * or failed signal file counts as unreachable (robots unknown, llms unknown).
  */
 async function fetchPageGuarded(url: string, guard: UrlGuard): Promise<ScrapeResult> {
-  const page = await guardedProbe(url, PAGE_TIMEOUT_MS, guard, PAGE_MAX_BYTES, true);
+  const page = await guardedProbe(url, PAGE_TIMEOUT_MS, guard, PAGE_MAX_BYTES, true, true);
   if (page.kind !== "response") {
     return {
       text: null,
@@ -104,15 +123,42 @@ async function fetchPageGuarded(url: string, guard: UrlGuard): Promise<ScrapeRes
       fetchError: page.kind === "refused" ? "url_not_allowed" : "too_many_redirects",
     };
   }
-  const finalUrl = page.url;
+  // No HTTP response at the end of the chain: a connection failure or our timeout.
+  const failed = page.probe.status === null;
+  // When nothing after the fallback answered, the address asked for is what failed;
+  // when a redirect answered first, the hop that failed is kept.
+  const finalUrl = failed && page.fellBack && !page.redirected ? url : page.url;
   const origin = originOf(finalUrl);
+  const none: Probe = { status: null, text: null };
   const signal = async (path: string): Promise<Probe> => {
-    if (!origin) return { status: null, text: null };
+    if (!origin) return none;
     const result = await guardedProbe(`${origin}${path}`, SIGNAL_TIMEOUT_MS, guard, SIGNAL_MAX_BYTES);
-    return result.kind === "response" ? result.probe : { status: null, text: null };
+    return result.kind === "response" ? result.probe : none;
   };
-  const [robots, llms] = await Promise.all([signal("/robots.txt"), signal("/llms.txt")]);
-  return { ...buildResult(finalUrl, page.probe, robots, llms), finalUrl };
+  // An origin whose connection failed (or a www host that failed and a fallback that
+  // gave no answer) is not asked for its signal files: same result as a failed probe.
+  const deadOrigin = failed && (page.unreachable || page.fellBack);
+  const [robots, llms] = deadOrigin ? [none, none] : await Promise.all([signal("/robots.txt"), signal("/llms.txt")]);
+  return {
+    ...buildResult(finalUrl, page.probe, robots, llms),
+    finalUrl,
+    ...(page.unreachable ? { fetchError: "unreachable" as const } : {}),
+    ...(page.unreachable && page.redirected ? { failedAfterRedirect: true as const } : {}),
+    ...(page.fellBack ? { fetchNote: failed ? WWW_FALLBACK_FAILED : WWW_FALLBACK_ANSWERED } : {}),
+  };
+}
+
+/** The same URL without a leading "www." on its host, or null when there is none to drop. */
+function withoutWww(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.startsWith("www.") || !host.slice(4).includes(".")) return null;
+    parsed.hostname = host.slice(4);
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 function originOf(url: string): string | null {
@@ -203,7 +249,17 @@ function looksLikeHtml(s: string): boolean {
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 type GuardedProbe =
-  | { kind: "response"; url: string; probe: Probe }
+  | {
+      kind: "response";
+      url: string;
+      probe: Probe;
+      /** The last connection failed (a thrown fetch, not our timeout); probe.status is null. */
+      unreachable?: boolean;
+      /** The www host failed to connect and the address without www was tried. */
+      fellBack?: boolean;
+      /** With probe.status null: an earlier hop answered with a redirect before the chain failed. */
+      redirected?: boolean;
+    }
   | { kind: "refused" }
   | { kind: "too_many_redirects" };
 
@@ -223,6 +279,12 @@ async function allowed(guard: UrlGuard, url: string): Promise<boolean> {
  * chain. A network error or timeout is a response with status null; a
  * redirect without a usable Location is returned as that 3xx response. At
  * most `maxBytes` of the final body are read (see readCappedText).
+ *
+ * With `wwwFallback`, a first hop to a "www." host whose connection fails
+ * (not a guard refusal, not an HTTP status, not our timeout) is tried once
+ * more without "www." (some www hosts have only an IPv6 address, which an
+ * IPv4-only network cannot reach). That retry is a hop like a redirect: it
+ * passes the guard, counts towards MAX_REDIRECTS and shares the one timeout.
  */
 async function guardedProbe(
   target: string,
@@ -230,10 +292,13 @@ async function guardedProbe(
   guard: UrlGuard,
   maxBytes: number,
   html = false,
+  wwwFallback = false,
 ): Promise<GuardedProbe> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let current = target;
+  let fellBack = false;
+  let redirected = false;
   try {
     for (let hop = 0; ; hop++) {
       if (!(await allowed(guard, current))) return { kind: "refused" };
@@ -249,13 +314,28 @@ async function guardedProbe(
         });
       } catch (error) {
         if (html) logError("scrape.fetchPage", error);
-        return { kind: "response", url: current, probe: { status: null, text: null } };
+        const timedOut = controller.signal.aborted;
+        const apex = wwwFallback && hop === 0 && !timedOut ? withoutWww(current) : null;
+        if (apex) {
+          fellBack = true;
+          current = apex;
+          continue;
+        }
+        return {
+          kind: "response",
+          url: current,
+          probe: { status: null, text: null },
+          ...(timedOut ? {} : { unreachable: true }),
+          ...(fellBack ? { fellBack } : {}),
+          ...(redirected ? { redirected } : {}),
+        };
       }
       const location = REDIRECT_STATUSES.has(res.status) ? res.headers.get("location") : null;
       const next = location ? resolveLocation(location, current) : null;
       if (next) {
         await res.body?.cancel().catch(() => {});
         if (hop >= MAX_REDIRECTS) return { kind: "too_many_redirects" };
+        redirected = true;
         current = next;
         continue;
       }
@@ -265,7 +345,12 @@ async function guardedProbe(
       } catch {
         text = null;
       }
-      return { kind: "response", url: current, probe: { status: res.status, text, xRobotsTag: res.headers.get("x-robots-tag") } };
+      return {
+        kind: "response",
+        url: current,
+        probe: { status: res.status, text, xRobotsTag: res.headers.get("x-robots-tag") },
+        ...(fellBack ? { fellBack } : {}),
+      };
     }
   } finally {
     clearTimeout(timeout);

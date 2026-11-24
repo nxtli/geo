@@ -145,6 +145,32 @@ const defaultLookup: LookupAll = (hostname, options) => dnsLookup(hostname, opti
 export const DNS_LOOKUP_TIMEOUT_MS = 3_000;
 
 /**
+ * True when `hostname` resolves to at least one address and every one of them
+ * is IPv6 (no IPv4 record). A lookup error, no addresses or a lookup slower
+ * than `timeoutMs` is false. Never throws.
+ */
+export async function hasOnlyIpv6Addresses(
+  hostname: string,
+  lookup: LookupAll = defaultLookup,
+  timeoutMs: number = DNS_LOOKUP_TIMEOUT_MS,
+): Promise<boolean> {
+  const host = hostname.toLowerCase().replace(/\.$/, "");
+  if (!host || parseIpv4(host) || host.includes(":") || host.startsWith("[")) return false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timedOut = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    const addresses = await Promise.race([lookup(host, { all: true }), timedOut]);
+    return !!addresses && addresses.length > 0 && addresses.every((entry) => entry.family === 6);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * True when every address `hostname` resolves to is public, by the same range
  * rules as IP literals. An IP literal (IPv6 with or without brackets) is
  * checked as is. No addresses, a lookup error, or a lookup slower than

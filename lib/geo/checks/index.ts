@@ -7,7 +7,7 @@ import { externalCheck } from "./external";
 import { recencyCheck } from "./recency";
 import { speedCheck } from "./speed";
 import { structuredDataCheck } from "./structured-data";
-import type { CheckDefinition, CheckId, CheckResult, ClarityOutcome } from "./types";
+import type { CheckDefinition, CheckId, CheckResult, ClarityOutcome, Unreachable } from "./types";
 
 export * from "./types";
 
@@ -35,7 +35,9 @@ export const CHECK_REGISTRY: readonly CheckDefinition[] = [
  * `ids` narrows the set (order still follows the registry); omitted or empty
  * runs them all. `speed` is a measurement taken beforehand, if any, and
  * `external` what the off-page sources returned, if any, and `clarity` the
- * model's first-screen verdict, if asked. Pure: no network, no model.
+ * model's first-screen verdict, if asked. `unreachable` says why a page's
+ * connection failed, for the checks that could not measure it. Pure: no
+ * network, no model.
  */
 export function runChecks(
   scrape: ScrapeResult,
@@ -45,8 +47,9 @@ export function runChecks(
   speed: SpeedMeasurement | null = null,
   external: ExternalSources | null = null,
   clarity: ClarityOutcome | null = null,
+  unreachable: Unreachable | null = null,
 ): CheckResult[] {
   const wanted = ids && ids.length > 0 ? new Set(ids) : null;
-  const ctx = { url, scrape, facts: scrape.facts, now, speed, external, clarity };
+  const ctx = { url, scrape, facts: scrape.facts, now, speed, external, clarity, unreachable };
   return CHECK_REGISTRY.filter((check) => !wanted || wanted.has(check.id)).map((check) => check.run(ctx));
 }

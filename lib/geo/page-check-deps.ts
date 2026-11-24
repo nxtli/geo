@@ -2,6 +2,7 @@ import type { PageCheckDeps } from "./page-check";
 import { measureSpeed, SPEED_TIMEOUT_MS } from "./speed";
 import { selectSearchProvider } from "./external";
 import { llmBrandProbe } from "./external-llm-probe";
+import { clarityJudgeFromEnv } from "./clarity-judge";
 
 /**
  * The environment the page check reads from. Typed as a plain string record so
@@ -18,6 +19,8 @@ export type PageCheckEnv = Readonly<Record<string, string | undefined>>;
  * - GEO_EXTERNAL_SEARCH_PROVIDER: picks the external check's search source;
  *   no provider ships yet, so every value (unset, "none" or other) is off.
  * - GEO_EXTERNAL_LLM_PROBE: "1" turns on the LLM brand probe (supporting only).
+ * - ANTHROPIC_API_KEY / GEO_CLARITY_LLM: the clarity check's model verdict is
+ *   on when the key is set, unless GEO_CLARITY_LLM is "off".
  */
 export function pageCheckDepsFromEnv(env: PageCheckEnv = process.env): PageCheckDeps {
   const apiKey = env.PAGESPEED_API_KEY || undefined;
@@ -25,9 +28,11 @@ export function pageCheckDepsFromEnv(env: PageCheckEnv = process.env): PageCheck
     measureSpeed(url, { fetch, timeoutMs: SPEED_TIMEOUT_MS, ...(apiKey ? { apiKey } : {}) });
   const searchProvider = selectSearchProvider(env.GEO_EXTERNAL_SEARCH_PROVIDER);
   const brandProbe = env.GEO_EXTERNAL_LLM_PROBE === "1" ? llmBrandProbe : undefined;
+  const judgeClarity = clarityJudgeFromEnv(env as NodeJS.ProcessEnv);
   return {
     measureSpeed: measure,
     ...(searchProvider ? { searchProvider } : {}),
     ...(brandProbe ? { brandProbe } : {}),
+    ...(judgeClarity ? { judgeClarity } : {}),
   };
 }

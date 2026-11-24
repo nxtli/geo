@@ -10,7 +10,7 @@ import { z } from "zod";
 export const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
 /** Per-page cap on one PSI call, so a slow measurement cannot hold up the batch. */
-export const SPEED_TIMEOUT_MS = 30_000;
+export const SPEED_TIMEOUT_MS = 25_000;
 
 export type SpeedFailureReason = "timeout" | "quota" | "http_error" | "invalid_response" | "network";
 

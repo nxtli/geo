@@ -40,7 +40,7 @@ function requestedUrl(fetchMock: ReturnType<typeof answering>): URL {
 
 describe("measureSpeed", () => {
   it("uses a 30 s per-page timeout", () => {
-    expect(SPEED_TIMEOUT_MS).toBe(30_000);
+    expect(SPEED_TIMEOUT_MS).toBe(25_000);
   });
 
   it("reads LCP and FCP in rounded ms and the score as a 0..100 integer", async () => {

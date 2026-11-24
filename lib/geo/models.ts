@@ -13,6 +13,9 @@
 /** Analyse en rapport. */
 export const ANALYSIS_MODELS = ["claude-sonnet-5-5", "claude-sonnet-4-6"];
 
+/** The per-page verdict "is the offer clear in the first screen?": small and fast. */
+export const CLARITY_MODELS = ["claude-haiku-5-5", "claude-haiku-4-5"];
+
 /** Charlie in de chat. */
 export const CHAT_MODELS = ["claude-haiku-5-5", "claude-haiku-4-5"];
 

@@ -53,7 +53,17 @@ export interface CheckContext {
    * were off. Checks never call them themselves.
    */
   external?: ExternalSources | null;
+  /**
+   * The model's verdict on the first screen, asked before the checks run;
+   * absent or null when no judge is set (the clarity check is then structure
+   * only). `ok: false` means it was asked but gave no verdict.
+   */
+  clarity?: ClarityOutcome | null;
 }
+
+export type ClarityOutcome =
+  | { ok: true; verdict: "pass" | "attention" | "fail"; reason: string }
+  | { ok: false; reason: "error" | "timeout" };
 
 export interface CheckDefinition {
   id: CheckId;
@@ -64,6 +74,17 @@ export interface CheckDefinition {
 /** The shared result for a measurable check when there is no page to measure. */
 export function notFetched(id: CheckId): CheckResult {
   return { id, status: "unknown", summary: "The page could not be fetched, so this was not measured.", facts: {}, evidence: null };
+}
+
+/** Why a page was not checked at all: the request's time budget ran out first. */
+export function outOfTime(id: CheckId): CheckResult {
+  return {
+    id,
+    status: "n/a",
+    summary: "Not checked: the time budget of this request ran out first.",
+    facts: { reason: "time_budget" },
+    evidence: null,
+  };
 }
 
 /** The shared result for a check that has no measurement yet. */

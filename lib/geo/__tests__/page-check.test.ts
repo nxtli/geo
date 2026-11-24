@@ -4,8 +4,10 @@ import { analyzeRobots } from "../facts/robots";
 import { fetchPage, MAX_REDIRECTS, type ScrapeResult } from "../scrape";
 import { measureSpeed, type SpeedMeasurement } from "../speed";
 import type { LookupAll } from "../url-safety";
+import type { ClarityJudge } from "../clarity-judge";
 import {
   FETCH_CONCURRENCY,
+  PAGE_CHECK_BUDGET_MS,
   checkMachineAuth,
   pageCheckBodySchema,
   runPageCheck,
@@ -467,5 +469,149 @@ describe("fetchPage without a guard", () => {
       finalUrl: result.finalUrl,
       fetchError: result.fetchError,
     }).toEqual({ redirects: ["follow", "follow", "follow"], finalUrl: undefined, fetchError: undefined });
+  });
+});
+
+describe("runPageCheck time budget", () => {
+  const never = <T,>() => new Promise<T>(() => {});
+
+  function runBudget(
+    urls: string[],
+    deps: { fetchPage: (url: string) => Promise<ScrapeResult>; measureSpeed?: (url: string) => Promise<SpeedMeasurement> },
+    budgetMs: number,
+    checks?: string[],
+  ) {
+    return runPageCheck(pageCheckBodySchema.parse({ urls, checks }), { ...deps, now: () => NOW, budgetMs });
+  }
+
+  it("has a 90 second default budget", () => {
+    expect(PAGE_CHECK_BUDGET_MS).toBe(90_000);
+  });
+
+  it("returns a page whose fetch outlasts the budget with every check n/a, and keeps the pages that finished", async () => {
+    const fetchPage = async (url: string) => (url.endsWith("/slow") ? never<ScrapeResult>() : fakeScrape(url));
+
+    const { results } = await runBudget(["https://example.com/a", "https://example.com/slow"], { fetchPage }, 50, [
+      "clarity",
+      "speed",
+    ]);
+
+    expect(results[0]).toMatchObject({ url: "https://example.com/a", fetched: true });
+    expect(results[1]).toEqual({
+      url: "https://example.com/slow",
+      fetched: false,
+      status: null,
+      title: null,
+      checks: ["clarity", "speed"].map((id) => ({
+        id,
+        status: "n/a",
+        summary: "Not checked: the time budget of this request ran out first.",
+        facts: { reason: "time_budget" },
+        evidence: null,
+      })),
+      robots: { known: false, blocked_search: [] },
+      llms_txt: null,
+    });
+  });
+
+  it("does not start a fetch once the budget is spent", async () => {
+    const fetchPage = vi.fn(async (url: string) => fakeScrape(url));
+
+    const { results } = await runBudget(["https://example.com/a"], { fetchPage }, 0);
+
+    expect({ calls: fetchPage.mock.calls.length, status: (results[0] as PageCheckFetched).checks[0]?.facts }).toEqual({
+      calls: 0,
+      status: { reason: "time_budget" },
+    });
+  });
+
+  it("counts a speed measurement still running at the budget as a timeout", async () => {
+    const { results } = await runBudget(
+      ["https://example.com/a"],
+      { fetchPage: async (url) => fakeScrape(url), measureSpeed: () => never<SpeedMeasurement>() },
+      50,
+      ["speed"],
+    );
+
+    expect((results[0] as PageCheckFetched).checks[0]?.facts).toMatchObject({ failure_reason: "timeout" });
+  });
+
+  it("counts an off-page source still running at the budget as an error", async () => {
+    const { results } = await runPageCheck(pageCheckBodySchema.parse({ urls: ["https://example.com/a"] }), {
+      fetchPage: async (url) => fakeScrape(url),
+      searchProvider: { name: "stub", search: () => never() },
+      now: () => NOW,
+      budgetMs: 50,
+    });
+
+    expect((results[0] as PageCheckFetched).checks.find((check) => check.id === "external")?.facts).toMatchObject({
+      search: "error",
+    });
+  });
+});
+
+describe("runPageCheck clarity verdict", () => {
+  const TEXT_HTML = `<html><head><title>Bakkerij</title><meta name="description" content="Brood"></head><body><h1>Vers brood</h1><p>${"woord ".repeat(200)}</p></body></html>`;
+
+  function textScrape(url: string): ScrapeResult {
+    return { ...fakeScrape(url), text: "Vers brood. Wij bakken elke dag.", facts: extractPageFacts(TEXT_HTML, url) };
+  }
+
+  function clarityOf(result: PageCheckResult) {
+    return (result as PageCheckFetched).checks.find((c) => c.id === "clarity");
+  }
+
+  function runJudged(judgeClarity: ClarityJudge, options: { checks?: string[]; scrape?: (url: string) => ScrapeResult; budgetMs?: number } = {}) {
+    const scrape = options.scrape ?? textScrape;
+    return runPageCheck(pageCheckBodySchema.parse({ urls: ["https://example.com/a"], checks: options.checks }), {
+      fetchPage: async (url) => scrape(url),
+      judgeClarity,
+      now: () => NOW,
+      ...(options.budgetMs !== undefined ? { budgetMs: options.budgetMs } : {}),
+    });
+  }
+
+  it("uses the model's verdict as the status and keeps the structure as evidence", async () => {
+    const judge = vi.fn<ClarityJudge>(async () => ({ verdict: "attention", reason: "The offer is named but not who it is for." }));
+
+    const { results } = await runJudged(judge, { checks: ["clarity"] });
+
+    expect(judge.mock.calls[0]?.[0]).toMatchObject({ url: "https://example.com/a", h1: "Vers brood", title: "Bakkerij" });
+    expect(clarityOf(results[0]!)).toMatchObject({
+      status: "attention",
+      summary: "The offer is named but not who it is for.",
+      facts: { h1_count: 1, title_present: true, llm_verdict: "attention", llm_reason: "The offer is named but not who it is for." },
+      evidence: "Vers brood",
+    });
+  });
+
+  it("is not asked when clarity is not requested", async () => {
+    const judge = vi.fn<ClarityJudge>(async () => ({ verdict: "pass", reason: "Clear." }));
+
+    await runJudged(judge, { checks: ["speed"] });
+
+    expect(judge).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the structure verdict when the judge throws", async () => {
+    const { results } = await runJudged(async () => {
+      throw new Error("overloaded");
+    }, { checks: ["clarity"] });
+
+    expect(clarityOf(results[0]!)).toMatchObject({ status: "pass", facts: { llm_verdict: null, llm_error: "error" } });
+  });
+
+  it("falls back to the structure verdict when the judge outlasts the budget", async () => {
+    const { results } = await runJudged(() => new Promise(() => {}), { checks: ["clarity"], budgetMs: 50 });
+
+    expect(clarityOf(results[0]!)).toMatchObject({ status: "pass", facts: { llm_verdict: null, llm_error: "timeout" } });
+  });
+
+  it("is not asked for a page without text", async () => {
+    const judge = vi.fn<ClarityJudge>(async () => ({ verdict: "pass", reason: "Clear." }));
+
+    await runJudged(judge, { checks: ["clarity"], scrape: fakeScrape });
+
+    expect(judge).not.toHaveBeenCalled();
   });
 });

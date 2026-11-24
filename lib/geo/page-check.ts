@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { CHECK_IDS, runChecks, type CheckId, type CheckResult } from "./checks";
+import { CHECK_IDS, outOfTime, runChecks, selectedCheckIds, type CheckId, type CheckResult, type ClarityOutcome } from "./checks";
+import { firstScreenOf, type ClarityJudge } from "./clarity-judge";
 import { fetchPage as defaultFetchPage, type FetchPageOptions, type ScrapeResult, type UrlGuard } from "./scrape";
 import type { SpeedMeasurement } from "./speed";
 import {
@@ -18,13 +19,25 @@ import { isPublicHttpUrl, resolvesToPublicAddress, type LookupAll } from "./url-
 
 /**
  * Logic behind POST /api/geo/page-check: fetch each page and run the pure
- * check registry over it. Nothing else happens here: no lead form, mail,
- * CRM, database write or model call.
+ * check registry over it. Nothing else happens here: no lead form, mail, CRM
+ * or database write. The only model calls are the optional ones injected
+ * through the deps (the clarity judge and the brand probe).
  */
 
 export const MAX_URLS = 10;
 export const MAX_URL_LENGTH = 2048;
 export const FETCH_CONCURRENCY = 3;
+
+/**
+ * Hard time budget for one request, well inside the routes' maxDuration
+ * (120 s). A page whose fetch has not started or finished by then comes back
+ * with every check n/a ("time budget"); a speed measurement or clarity
+ * verdict or off-page source still running is cut off at the budget. The
+ * batch itself never fails on time. The cut-off work is not aborted; each
+ * of those calls has its own timeout (fetch, SPEED_TIMEOUT_MS,
+ * CLARITY_TIMEOUT_MS).
+ */
+export const PAGE_CHECK_BUDGET_MS = 90_000;
 
 export const pageCheckBodySchema = z.object({
   urls: z.array(z.string().min(1).max(MAX_URL_LENGTH)).min(1).max(MAX_URLS),
@@ -122,6 +135,57 @@ export interface PageCheckDeps {
    * page.
    */
   brandProbe?: BrandProbe;
+  /**
+   * The model verdict for the clarity check. Off when absent (the check is
+   * then structure only). Asked once per loaded page that is not a JS shell,
+   * only when clarity is requested; a throw is "no verdict", never fatal.
+   */
+  judgeClarity?: ClarityJudge;
+  /** The request's time budget in ms; defaults to PAGE_CHECK_BUDGET_MS. */
+  budgetMs?: number;
+  /** Milliseconds clock for the budget; defaults to Date.now. Injected in tests. */
+  clock?: () => number;
+}
+
+const OUT_OF_TIME: unique symbol = Symbol("out_of_time");
+
+/** `work`, or OUT_OF_TIME when it has not settled within `ms` (the work itself keeps running). */
+async function withinTime<T>(work: Promise<T>, ms: number): Promise<T | typeof OUT_OF_TIME> {
+  if (ms <= 0) return OUT_OF_TIME;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<typeof OUT_OF_TIME>((resolve) => {
+    timer = setTimeout(() => resolve(OUT_OF_TIME), ms);
+  });
+  try {
+    return await Promise.race([work, expiry]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A page the budget ran out on before it was measured: the full shape, every check n/a. */
+function outOfTimeResult(url: string, ids: CheckId[] | undefined): PageCheckFetched {
+  return {
+    url,
+    fetched: false,
+    status: null,
+    title: null,
+    checks: selectedCheckIds(ids).map(outOfTime),
+    robots: { known: false, blocked_search: [] },
+    llms_txt: null,
+  };
+}
+
+/** A judge that throws gives no verdict; it never fails the page. */
+async function judgeSafely(judge: ClarityJudge, scrape: ScrapeResult, url: string): Promise<ClarityOutcome | null> {
+  const screen = firstScreenOf(scrape, url);
+  if (!screen) return null;
+  try {
+    const { verdict, reason } = await judge(screen);
+    return { ok: true, verdict, reason };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
 }
 
 /**
@@ -197,6 +261,15 @@ function toResult(url: string, scrape: ScrapeResult, checks: CheckResult[]): Pag
  * the result for its own site. The brand asked about is that of the first URL
  * in input order whose page loaded on that hostname (see `brandFor`); a brand
  * that is empty or over MAX_BRAND_LENGTH turns both sources off for the host.
+ *
+ * The clarity judge, when given and clarity is requested, runs next to the
+ * speed measurement for every loaded page that is not a JS shell.
+ *
+ * Everything runs under one time budget (`budgetMs`, PAGE_CHECK_BUDGET_MS by
+ * default): a page not fetched by then is returned with every check n/a and
+ * reason "time_budget" (see `outOfTimeResult`); a speed measurement still
+ * running counts as a timeout, a clarity verdict as none and an off-page
+ * source as an error.
  */
 export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}): Promise<PageCheckResponse> {
   const fetchPage = deps.fetchPage ?? defaultFetchPage;
@@ -210,6 +283,16 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
   const searchProvider = wantsExternal ? deps.searchProvider : undefined;
   const brandProbe = wantsExternal ? deps.brandProbe : undefined;
   const sourcesByHost = new Map<string, Promise<ExternalSources>>();
+  const wantsClarity = !ids || ids.length === 0 || ids.includes("clarity");
+  const judge = wantsClarity ? deps.judgeClarity : undefined;
+  const clock = deps.clock ?? Date.now;
+  const deadline = clock() + (deps.budgetMs ?? PAGE_CHECK_BUDGET_MS);
+  const left = () => deadline - clock();
+  /** The off-page sources that were on but had not answered by the deadline count as failed. */
+  const externalOutOfTime: ExternalSources = {
+    search: searchProvider ? { status: "error" } : { status: "off" },
+    llmProbe: brandProbe ? { status: "error" } : { status: "off" },
+  };
 
   /**
    * Per input index: settles once that URL's fetch is over, with the
@@ -257,7 +340,10 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
     };
     try {
       if (!isPublicHttpUrl(url)) return { url, fetched: false, error: "url_not_allowed" };
-      const scrape = await fetchPage(url, { guard });
+      if (left() <= 0) return outOfTimeResult(url, ids);
+      const fetched = await withinTime(fetchPage(url, { guard }), left());
+      if (fetched === OUT_OF_TIME) return outOfTimeResult(url, ids);
+      const scrape = fetched;
       if (scrape.fetchError === "url_not_allowed") return { url, fetched: false, error: "url_not_allowed" };
       if (scrape.fetchError) return { url, fetched: false, error: "fetch_failed" };
       const finalUrl = scrape.finalUrl ?? url;
@@ -265,11 +351,24 @@ export async function runPageCheck(body: PageCheckBody, deps: PageCheckDeps = {}
       const loaded = scrape.metadata.fetched && !!scrape.facts;
       const brand = brandOf(scrape.facts, hostname);
       settle(loaded ? { hostname, brand } : null);
-      const [speed, external] = await Promise.all([
-        measure && scrape.metadata.fetched ? measureSafely(measure, finalUrl) : null,
-        loaded ? gatherExternal(index, hostname, brand) : null,
+      const [speed, external, clarity] = await Promise.all([
+        measure && scrape.metadata.fetched
+          ? withinTime(measureSafely(measure, finalUrl), left()).then(
+              (measured): SpeedMeasurement => (measured === OUT_OF_TIME ? { ok: false, reason: "timeout" } : measured),
+            )
+          : null,
+        loaded
+          ? withinTime(gatherExternal(index, hostname, brand), left()).then((gathered) =>
+              gathered === OUT_OF_TIME ? externalOutOfTime : gathered,
+            )
+          : null,
+        judge && loaded && !scrape.facts!.jsShell
+          ? withinTime(judgeSafely(judge, scrape, finalUrl), left()).then(
+              (judged): ClarityOutcome | null => (judged === OUT_OF_TIME ? { ok: false, reason: "timeout" } : judged),
+            )
+          : null,
       ]);
-      return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed, external));
+      return toResult(url, scrape, runChecks(scrape, finalUrl, ids, now, speed, external, clarity));
     } catch {
       return { url, fetched: false, error: "fetch_failed" };
     } finally {

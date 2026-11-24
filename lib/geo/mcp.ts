@@ -75,7 +75,7 @@ export const CHECK_DESCRIPTIONS: Record<CheckId, string> = {
   recency: `The page's published and modified dates; passes when a plausible date is at most ${RECENT_MAX_AGE_DAYS} days old.`,
   structured_data:
     "The JSON-LD on the page, judged by page type (home, product, article, FAQ, other); passes when the type that page should declare is present at the top level.",
-  clarity: `Title, meta description, a single h1, heading order and body text (at least ${THIN_WORD_COUNT} words, not a JavaScript-only shell); passes when all are present and in order.`,
+  clarity: `Whether the core offer or message is clear in the first screen (a model verdict with a one-line reason, when the model is on), with the structure as evidence: title, meta description, a single h1, heading order and body text (at least ${THIN_WORD_COUNT} words, not a JavaScript-only shell). Without a verdict it passes when all of the structure is present and in order.`,
   speed: `Mobile Largest Contentful Paint from PageSpeed Insights; passes at ${LCP_PASS_MAX_MS / 1000} s or less, attention up to ${LCP_ATTENTION_MAX_MS / 1000} s.`,
   external:
     "Off-page confirmation from free signals: review markup, sameAs and profile links, and links to review sites; passes with review evidence and a profile signal.",

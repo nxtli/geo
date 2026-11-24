@@ -14,6 +14,7 @@ import {
   ageInDays,
   parsePageDate,
   runChecks,
+  type ClarityOutcome,
   type CheckId,
 } from "../checks";
 
@@ -340,6 +341,53 @@ describe("clarity", () => {
     const result = check("clarity", scrapeOf(JS_SHELL_HTML));
     expect(result.status).toBe("fail");
     expect(result.facts.js_shell).toBe(true);
+  });
+
+  function judged(scrape: ScrapeResult, clarity: ClarityOutcome) {
+    const [result] = runChecks(scrape, PAGE_URL, ["clarity"], NOW, null, null, clarity);
+    return result;
+  }
+
+  it("takes the model verdict as the status, with the structure issues after its reason", () => {
+    const result = judged(scrapeOf(BARE_HTML), { ok: true, verdict: "pass", reason: "Clear offer for small firms." });
+    expect({ status: result.status, verdict: result.facts.llm_verdict }).toEqual({ status: "pass", verdict: "pass" });
+    expect(result.summary).toMatch(/^Clear offer for small firms\. Structure issues: .*no title/);
+  });
+
+  it("lets a model fail a well-structured page", () => {
+    const result = judged(scrapeOf(GOOD_HTML), { ok: true, verdict: "fail", reason: "No offer is named." });
+    expect({ status: result.status, summary: result.summary, evidence: result.evidence }).toEqual({
+      status: "fail",
+      summary: "No offer is named.",
+      evidence: "Zakelijk leasen",
+    });
+  });
+
+  it("keeps a JavaScript shell a fail whatever the model says", () => {
+    const result = judged(scrapeOf(JS_SHELL_HTML), { ok: true, verdict: "pass", reason: "Clear." });
+    expect({ status: result.status, verdict: result.facts.llm_verdict }).toEqual({ status: "fail", verdict: null });
+  });
+
+  it("is structure only without a verdict, and says why the model gave none", () => {
+    const result = judged(scrapeOf(GOOD_HTML), { ok: false, reason: "timeout" });
+    expect({ status: result.status, verdict: result.facts.llm_verdict, error: result.facts.llm_error }).toEqual({
+      status: "pass",
+      verdict: null,
+      error: "timeout",
+    });
+  });
+
+  it("says in the summary that the verdict was unavailable", () => {
+    expect(judged(scrapeOf(GOOD_HTML), { ok: false, reason: "error" }).summary).toMatch(/verdict was unavailable; structure only\.$/);
+  });
+
+  it("has null model facts and no error when no model was asked", () => {
+    const result = check("clarity", scrapeOf(GOOD_HTML));
+    expect({ verdict: result.facts.llm_verdict, reason: result.facts.llm_reason, hasError: "llm_error" in result.facts }).toEqual({
+      verdict: null,
+      reason: null,
+      hasError: false,
+    });
   });
 });
 

@@ -1,25 +1,30 @@
 import type { Metadata, Viewport } from "next";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
+import { getServerBrand } from "@/lib/geo/brand-server";
+import { BrandProvider } from "@/components/geo/brand-context";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://geo.nxtli.com"),
-  title: {
-    default: "NXTLI GEO Scan: Word jij gevonden in AI-zoekresultaten?",
-    template: "%s | NXTLI GEO Scan",
-  },
-  description:
-    "Ontdek gratis hoe goed jouw website zichtbaar is voor ChatGPT, Claude en andere AI-antwoorden, en wat je kunt verbeteren om vaker genoemd te worden.",
-  openGraph: {
-    title: "NXTLI GEO Scan: Word jij gevonden in AI-zoekresultaten?",
-    description:
-      "Gratis AI-vindbaarheidsscan van je homepage, begeleid door Charlie, de AI-analist van NXTLI.",
-    url: "https://geo.nxtli.com",
-    siteName: "NXTLI GEO Scan",
-    locale: "nl_NL",
-    type: "website",
-  },
-  robots: { index: true, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getServerBrand();
+  const siteName = brand.id === "mat" ? "Marketing AI Team" : brand.product;
+  return {
+    metadataBase: new URL(brand.siteUrl),
+    title: { default: brand.meta.title, template: `%s | ${brand.product}` },
+    description: brand.meta.description,
+    alternates: { canonical: "/" },
+    openGraph: {
+      title: brand.meta.title,
+      description: brand.meta.description,
+      url: brand.siteUrl,
+      siteName,
+      locale: "nl_NL",
+      type: "website",
+      images: [{ url: brand.logo.src.startsWith("http") ? brand.logo.src : `${brand.siteUrl}${brand.logo.src}`, alt: brand.logo.alt }],
+    },
+    twitter: { card: "summary", title: brand.meta.title, description: brand.meta.description },
+    robots: { index: true, follow: true },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#ffffff",
@@ -27,14 +32,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const brand = await getServerBrand();
   return (
-    <html lang="nl">
-      <body>{children}</body>
+    <html lang="nl" data-brand={brand.id} className={brand.id === "mat" ? GeistSans.variable : undefined}>
+      <body>
+        <BrandProvider id={brand.id}>{children}</BrandProvider>
+      </body>
     </html>
   );
 }

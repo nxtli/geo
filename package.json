@@ -8,11 +8,14 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:skill": "node scripts/build-skill.mjs",
+    "build:prototype": "node scripts/build-prototype.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
     "@supabase/supabase-js": "^2.45.4",
+    "geist": "^1.9.2",
     "next": "^16.2.9",
     "pg": "^8.13.0",
     "react": "^19.2.0",

@@ -15,8 +15,10 @@ export type PageCheckEnv = Readonly<Record<string, string | undefined>>;
  * the HTTP route (app/api/geo/page-check) and the MCP route (app/api/geo/mcp)
  * so both answer the same for the same input.
  *
- * - PAGESPEED_API_KEY: read here only; also the Chrome UX Report API key.
- *   Unset means no CrUX call and a keyless PSI call.
+ * - PAGESPEED_API_KEY: read here only; the PageSpeed Insights key. Unset means
+ *   a keyless PSI call.
+ * - CHROMEUXREPORTS_API_KEY: read here only; the Chrome UX Report API key.
+ *   Unset means CrUX uses PAGESPEED_API_KEY; neither set means no CrUX call.
  * - GEO_EXTERNAL_SEARCH_PROVIDER: picks the external check's search source;
  *   no provider ships yet, so every value (unset, "none" or other) is off.
  * - GEO_EXTERNAL_LLM_PROBE: "1" turns on the LLM brand probe (supporting only).
@@ -25,8 +27,14 @@ export type PageCheckEnv = Readonly<Record<string, string | undefined>>;
  */
 export function pageCheckDepsFromEnv(env: PageCheckEnv = process.env): PageCheckDeps {
   const apiKey = env.PAGESPEED_API_KEY || undefined;
+  const cruxApiKey = env.CHROMEUXREPORTS_API_KEY || undefined;
   const measure = (url: string) =>
-    measurePageSpeed(url, { fetch, timeoutMs: SPEED_TIMEOUT_MS, ...(apiKey ? { apiKey } : {}) });
+    measurePageSpeed(url, {
+      fetch,
+      timeoutMs: SPEED_TIMEOUT_MS,
+      ...(apiKey ? { apiKey } : {}),
+      ...(cruxApiKey ? { cruxApiKey } : {}),
+    });
   const searchProvider = selectSearchProvider(env.GEO_EXTERNAL_SEARCH_PROVIDER);
   const brandProbe = env.GEO_EXTERNAL_LLM_PROBE === "1" ? llmBrandProbe : undefined;
   const judgeClarity = clarityJudgeFromEnv(env as NodeJS.ProcessEnv);

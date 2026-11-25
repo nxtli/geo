@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { CRUX_ENDPOINT, CRUX_TIMEOUT_MS, queryCruxLcp } from "../crux";
 import { measurePageSpeed, PSI_ENDPOINT, SPEED_TIMEOUT_MS, type SpeedMeasurement } from "../speed";
 import { speedCheck } from "../checks/speed";
+import { pageCheckDepsFromEnv } from "../page-check-deps";
 
 const PAGE = "https://voorbeeld.example/diensten?ref=a&b=c";
 const API_KEY = "test-crux-key-not-real";
@@ -220,6 +221,79 @@ describe("measurePageSpeed", () => {
     for (const fetchMock of [answering(json(record(1_650))), answering(json(NOT_ENABLED, 403), json(PSI_LAB))]) {
       expect(JSON.stringify(await measure(fetchMock))).not.toContain(API_KEY);
     }
+  });
+});
+
+describe("the CrUX key from the environment", () => {
+  const PSI_KEY = "test-psi-key-not-real";
+  const CRUX_KEY = "test-crux-only-key-not-real";
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function measureFromEnv(env: Record<string, string | undefined>, ...responses: (() => Response)[]) {
+    const fetchMock = answering(...responses);
+    vi.stubGlobal("fetch", fetchMock);
+    const { measureSpeed } = pageCheckDepsFromEnv(env);
+    return { fetchMock, result: measureSpeed!(PAGE) };
+  }
+
+  const calledUrl = (fetchMock: FetchMock, call: number) => String(fetchMock.mock.calls[call]?.[0]);
+
+  it("asks CrUX with CHROMEUXREPORTS_API_KEY and PSI with PAGESPEED_API_KEY", async () => {
+    const { fetchMock, result } = measureFromEnv(
+      { CHROMEUXREPORTS_API_KEY: CRUX_KEY, PAGESPEED_API_KEY: PSI_KEY },
+      json(NOT_FOUND, 404),
+      json(NOT_FOUND, 404),
+      json(PSI_LAB),
+    );
+    await result;
+
+    expect(calledUrl(fetchMock, 0)).toBe(`${CRUX_ENDPOINT}?key=${CRUX_KEY}`);
+    expect(calledUrl(fetchMock, 2)).toContain(PSI_ENDPOINT);
+    expect(calledUrl(fetchMock, 2)).toContain(`key=${PSI_KEY}`);
+    expect(calledUrl(fetchMock, 2)).not.toContain(CRUX_KEY);
+  });
+
+  it("falls back to PAGESPEED_API_KEY for CrUX when CHROMEUXREPORTS_API_KEY is unset", async () => {
+    const { fetchMock, result } = measureFromEnv({ PAGESPEED_API_KEY: PSI_KEY }, json(record(1_650)));
+
+    expect(await result).toMatchObject({ ok: true, source: "field", crux: "found" });
+    expect(calledUrl(fetchMock, 0)).toBe(`${CRUX_ENDPOINT}?key=${PSI_KEY}`);
+  });
+
+  it("falls back to PAGESPEED_API_KEY when CHROMEUXREPORTS_API_KEY is empty", async () => {
+    const { fetchMock, result } = measureFromEnv(
+      { CHROMEUXREPORTS_API_KEY: "", PAGESPEED_API_KEY: PSI_KEY },
+      json(record(1_650)),
+    );
+    await result;
+
+    expect(calledUrl(fetchMock, 0)).toBe(`${CRUX_ENDPOINT}?key=${PSI_KEY}`);
+  });
+
+  it("uses CHROMEUXREPORTS_API_KEY for CrUX and a keyless PSI call when only it is set", async () => {
+    const { fetchMock, result } = measureFromEnv(
+      { CHROMEUXREPORTS_API_KEY: CRUX_KEY },
+      json(NOT_FOUND, 404),
+      json(NOT_FOUND, 404),
+      json(PSI_LAB),
+    );
+    await result;
+
+    expect(calledUrl(fetchMock, 0)).toBe(`${CRUX_ENDPOINT}?key=${CRUX_KEY}`);
+    expect(calledUrl(fetchMock, 2)).not.toContain("key=");
+  });
+
+  it("skips CrUX (no_key) and has no field data when neither key is set", async () => {
+    const { fetchMock, result } = measureFromEnv({}, json(PSI_LAB));
+    const speed = await result;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(calledUrl(fetchMock, 0)).toContain(PSI_ENDPOINT);
+    expect(speed).toMatchObject({ ok: true, source: "lab", crux: "no_key" });
+    expect(speedCheck.run({ speed } as never).facts).toMatchObject({ crux: "no_key" });
   });
 });
 

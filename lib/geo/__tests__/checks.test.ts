@@ -530,7 +530,7 @@ describe("speed", () => {
     expect({ summary: result.summary, evidence: result.evidence, source: result.facts.source }).toEqual({
       summary:
         "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92. " +
-        "No real-user data for this page or site; a lab measurement can vary per run.",
+        "No real-user data for this page or site. A lab measurement can vary per run.",
       evidence: "LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)",
       source: "lab",
     });
@@ -541,7 +541,7 @@ describe("speed", () => {
     expect({ summary: result.summary, evidence: result.evidence, runs: result.facts.runs }).toEqual({
       summary:
         "Mobile lab measurement (lower of two runs): LCP 3100 ms, FCP 1100 ms, performance score 92. " +
-        "No real-user data for this page or site; a lab measurement can vary per run.",
+        "No real-user data for this page or site. A lab measurement can vary per run.",
       evidence: "LCP 3.1 s, FCP 1.1 s, score 92 (mobile, lab, lower of 2 runs)",
       runs: 2,
     });

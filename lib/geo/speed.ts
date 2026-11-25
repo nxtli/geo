@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LCP_ATTENTION_MAX_MS } from "./checks/speed";
+import { CRUX_TIMEOUT_MS, queryCruxLcp, type CruxStatus } from "./crux";
 import { logInfo } from "./logger";
 
 /**
@@ -16,6 +17,9 @@ import { logInfo } from "./logger";
  * - lab data: one Lighthouse run (`lighthouseResult`). Varies from run to run,
  *   and is missing when Lighthouse could not run the page (`runtimeError`).
  *   Used only when there is no field data.
+ *
+ * The page check calls measurePageSpeed, which asks the Chrome UX Report API
+ * for the field data first (crux.ts) and runs PSI only when CrUX has none.
  */
 
 export const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
@@ -79,12 +83,14 @@ export type SpeedMeasurement =
       performance_score: number | null;
       field: FieldLcp | null;
       lab: LabRun | null;
-      /** The number of PSI calls made for this page: 2 after a lab retry. */
-      runs: 1 | 2;
+      /** The number of PSI calls made for this page: 2 after a lab retry, 0 when CrUX answered. */
+      runs: 0 | 1 | 2;
       /** Set when field data was used because Lighthouse could not run the page. */
       lab_error: LighthouseError | null;
+      /** What the Chrome UX Report API answered; set by measurePageSpeed only. */
+      crux?: CruxStatus;
     }
-  | { ok: false; reason: SpeedFailureReason; lighthouse_error?: LighthouseError };
+  | { ok: false; reason: SpeedFailureReason; lighthouse_error?: LighthouseError; crux?: CruxStatus };
 
 export interface MeasureSpeedDeps {
   fetch: typeof fetch;
@@ -330,4 +336,38 @@ export async function measureSpeed(url: string, deps: MeasureSpeedDeps): Promise
   if (!second.ok) return first;
   if (second.source === "field") return { ...second, runs: 2 };
   return second.lcp_ms < first.lcp_ms ? { ...second, runs: 2 } : { ...first, runs: 2 };
+}
+
+/**
+ * Page speed for the page check: real-user LCP from the Chrome UX Report API
+ * first (fast, and independent of a Lighthouse run), and only when CrUX has
+ * nothing, PageSpeed Insights as before (measureSpeed, its field data and lab
+ * run) in the time that is left of `timeoutMs`. CrUX gets at most
+ * CRUX_TIMEOUT_MS of it. The result says what CrUX answered in `crux`.
+ */
+export async function measurePageSpeed(url: string, deps: MeasureSpeedDeps): Promise<SpeedMeasurement> {
+  const now = deps.now ?? Date.now;
+  const started = now();
+  const crux = await queryCruxLcp(url, {
+    fetch: deps.fetch,
+    timeoutMs: Math.min(CRUX_TIMEOUT_MS, deps.timeoutMs),
+    ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+  });
+  if (crux.status === "found") {
+    return {
+      ok: true,
+      source: "field",
+      lcp_ms: crux.field.p75_ms,
+      fcp_ms: null,
+      performance_score: null,
+      field: crux.field,
+      lab: null,
+      runs: 0,
+      lab_error: null,
+      crux: "found",
+    };
+  }
+  const left = deps.timeoutMs - (now() - started);
+  const psi = await measureSpeed(url, { ...deps, timeoutMs: left });
+  return { ...psi, crux: crux.status };
 }

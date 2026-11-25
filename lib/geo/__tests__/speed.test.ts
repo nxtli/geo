@@ -254,8 +254,12 @@ describe("measureSpeed: one more lab run when the first is slow", () => {
     expect(await measure(answering(json(slow), json(slower)))).toMatchObject({ ok: true, lcp_ms: 9_816, runs: 2 });
   });
 
-  it("keeps the first run when the second fails", async () => {
-    expect(await measure(answering(json(slow), json({}, 429)))).toMatchObject({ ok: true, lcp_ms: 9_816, runs: 2 });
+  it("keeps the first run as a single run when the second fails", async () => {
+    expect(await measure(answering(json(slow), json({}, 429)))).toMatchObject({ ok: true, lcp_ms: 9_816, runs: 1 });
+  });
+
+  it("retries at the check's fail threshold", () => {
+    expect(LAB_RETRY_ABOVE_MS).toBe(4_000);
   });
 
   it(`does not retry at ${LAB_RETRY_ABOVE_MS} ms`, async () => {
@@ -314,6 +318,26 @@ describe("measureSpeed: failures", () => {
     expect(logged).toContain("top-level keys [captchaResult, kind, lighthouseResult]");
     expect(logged).toContain("lighthouseResult keys [audits, secretish]");
     expect(logged).not.toContain("value-xyz");
+  });
+
+  it("is timeout, not http_error, when reading a non-2xx body times out", async () => {
+    const stalled = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      const res = new Response("", { status: 500 });
+      vi.spyOn(res, "text").mockRejectedValue(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
+      return res;
+    });
+    expect(await measure(stalled)).toEqual({ ok: false, reason: "timeout" });
+  });
+
+  it("never treats a field percentile of 0 as real-user data", () => {
+    expect(readPsiBody({ loadingExperience: experience(0) })?.field).toBeNull();
+  });
+
+  it("hides the key in its URL-encoded form too", async () => {
+    const key = "key/with+chars";
+    const body = { id: PAGE, lighthouseResult: { runtimeError: { code: "PAGE_HUNG", message: `at ${encodeURIComponent(key)}` } } };
+    const result = await measure(answering(json(body)), { apiKey: key });
+    expect(result.ok === false && result.lighthouse_error?.message).toBe("at [key]");
   });
 
   it("is network when fetch rejects", async () => {

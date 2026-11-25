@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LCP_ATTENTION_MAX_MS } from "./checks/speed";
 import { logInfo } from "./logger";
 
 /**
@@ -30,8 +31,8 @@ export const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPa
  */
 export const SPEED_TIMEOUT_MS = 40_000;
 
-/** A lab-only LCP above this is measured once more, and the lower run is kept. */
-export const LAB_RETRY_ABOVE_MS = 4_000;
+/** A lab-only LCP that would fail the check is measured once more, and the lower run is kept. */
+export const LAB_RETRY_ABOVE_MS = LCP_ATTENTION_MAX_MS;
 /** A lab retry starts only when at least this much of SPEED_TIMEOUT_MS is left. */
 export const LAB_RETRY_MIN_LEFT_MS = 10_000;
 /** A Lighthouse error message is cut to this many characters. */
@@ -104,7 +105,7 @@ export function psiRequestUrl(url: string, apiKey?: string): string {
 // part is optional: a page Lighthouse could not run comes back with audits
 // that have no numericValue, and a page with little traffic has no field data.
 // Kept in these schemas and readPsiBody so a correction stays in one place.
-const fieldMetricSchema = z.object({ percentile: z.number().nonnegative(), category: z.string().optional() }).passthrough();
+const fieldMetricSchema = z.object({ percentile: z.number().positive(), category: z.string().optional() }).passthrough();
 const experienceSchema = z
   .object({
     origin_fallback: z.boolean().optional(),
@@ -157,7 +158,9 @@ function auditValue(audits: Record<string, unknown> | null | undefined, id: stri
 
 function cleanMessage(message: string, apiKey?: string): string {
   const flat = message.replace(/\s+/g, " ").trim();
-  const safe = apiKey ? flat.split(apiKey).join("[key]") : flat;
+  const safe = apiKey
+    ? [apiKey, encodeURIComponent(apiKey)].reduce((text, form) => text.split(form).join("[key]"), flat)
+    : flat;
   return safe.length > LIGHTHOUSE_MESSAGE_MAX ? `${safe.slice(0, LIGHTHOUSE_MESSAGE_MAX - 1)}…` : safe;
 }
 
@@ -272,7 +275,12 @@ async function callPsi(url: string, deps: MeasureSpeedDeps, signal: AbortSignal)
       return { ok: false, reason: "quota" };
     }
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      let text = "";
+      try {
+        text = await res.text();
+      } catch (error) {
+        if (isAbort(error)) return { ok: false, reason: "timeout" };
+      }
       const lighthouseError = lighthouseErrorFromErrorBody(text, deps.apiKey);
       return lighthouseError
         ? { ok: false, reason: "page_not_measurable", lighthouse_error: lighthouseError }
@@ -318,7 +326,8 @@ export async function measureSpeed(url: string, deps: MeasureSpeedDeps): Promise
   const left = deps.timeoutMs - (now() - started);
   if (left < LAB_RETRY_MIN_LEFT_MS) return first;
   const second = await callPsi(url, deps, AbortSignal.timeout(left));
-  if (second.ok && second.source === "field") return { ...second, runs: 2 };
-  if (!second.ok || second.source !== "lab" || second.lcp_ms >= first.lcp_ms) return { ...first, runs: 2 };
-  return { ...second, runs: 2 };
+  // A failed retry is not a run: the first result stands as one measurement.
+  if (!second.ok) return first;
+  if (second.source === "field") return { ...second, runs: 2 };
+  return second.lcp_ms < first.lcp_ms ? { ...second, runs: 2 } : { ...first, runs: 2 };
 }

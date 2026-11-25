@@ -94,7 +94,10 @@ export type SpeedMeasurement =
 
 export interface MeasureSpeedDeps {
   fetch: typeof fetch;
+  /** PageSpeed Insights key; also the CrUX key when `cruxApiKey` is unset. */
   apiKey?: string;
+  /** Chrome UX Report API key; measurePageSpeed falls back to `apiKey`. */
+  cruxApiKey?: string;
   timeoutMs: number;
   /** Clock for the retry decision; defaults to Date.now. */
   now?: () => number;
@@ -348,10 +351,12 @@ export async function measureSpeed(url: string, deps: MeasureSpeedDeps): Promise
 export async function measurePageSpeed(url: string, deps: MeasureSpeedDeps): Promise<SpeedMeasurement> {
   const now = deps.now ?? Date.now;
   const started = now();
+  // Its own key when set, else the PSI key; neither means no CrUX call (no_key).
+  const cruxKey = deps.cruxApiKey || deps.apiKey;
   const crux = await queryCruxLcp(url, {
     fetch: deps.fetch,
     timeoutMs: Math.min(CRUX_TIMEOUT_MS, deps.timeoutMs),
-    ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+    ...(cruxKey ? { apiKey: cruxKey } : {}),
   });
   if (crux.status === "found") {
     return {

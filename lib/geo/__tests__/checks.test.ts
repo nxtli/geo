@@ -418,8 +418,36 @@ describe("clarity", () => {
 });
 
 describe("speed", () => {
-  function measured(lcp_ms: number, overrides: Partial<{ fcp_ms: number; performance_score: number }> = {}): SpeedMeasurement {
-    return { ok: true, lcp_ms, fcp_ms: 1_100, performance_score: 92, source: "lab", ...overrides };
+  type Measured = Extract<SpeedMeasurement, { ok: true }>;
+
+  function lab(lcp_ms: number, overrides: Partial<Measured> = {}): SpeedMeasurement {
+    return {
+      ok: true,
+      source: "lab",
+      lcp_ms,
+      fcp_ms: 1_100,
+      performance_score: 92,
+      field: null,
+      lab: { lcp_ms, fcp_ms: 1_100, performance_score: 92 },
+      runs: 1,
+      lab_error: null,
+      ...overrides,
+    };
+  }
+
+  function field(p75_ms: number, overrides: Partial<Measured> = {}): SpeedMeasurement {
+    return {
+      ok: true,
+      source: "field",
+      lcp_ms: p75_ms,
+      fcp_ms: 1_100,
+      performance_score: 41,
+      field: { p75_ms, category: "FAST", scope: "page" },
+      lab: { lcp_ms: 9_816, fcp_ms: 1_100, performance_score: 41 },
+      runs: 1,
+      lab_error: null,
+      ...overrides,
+    };
   }
 
   function speedCheck(speed: SpeedMeasurement | null | undefined, scrape = scrapeOf(GOOD_HTML)) {
@@ -436,14 +464,115 @@ describe("speed", () => {
     [2_001, "attention"],
     [4_000, "attention"],
     [4_001, "fail"],
-  ])("at LCP %i ms is %s", (lcp, status) => {
-    expect(speedCheck(measured(lcp)).status).toBe(status);
+  ])("at lab LCP %i ms is %s", (lcp, status) => {
+    expect(speedCheck(lab(lcp)).status).toBe(status);
   });
 
-  it("reports the facts and quotes the measurement as evidence", () => {
-    const result = speedCheck(measured(1_800));
-    expect(result.facts).toEqual({ lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, strategy: "mobile" });
-    expect(result.evidence).toBe("LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)");
+  it.each([
+    [2_000, "pass"],
+    [2_001, "attention"],
+    [4_001, "fail"],
+  ])("at real-user LCP %i ms is %s, whatever the lab run says", (p75, status) => {
+    expect(speedCheck(field(p75)).status).toBe(status);
+  });
+
+  it("grades a fast site with a slow lab run as pass on its real-user LCP", () => {
+    const result = speedCheck(field(937));
+    expect({ status: result.status, summary: result.summary, evidence: result.evidence }).toEqual({
+      status: "pass",
+      summary:
+        "Real-user LCP (75th percentile, last 28 days, mobile, this page): 937 ms, rated FAST. " +
+        "One lab run: LCP 9.8 s, FCP 1.1 s, score 41.",
+      evidence: "LCP p75 0.9 s (real users, this page, FAST); lab LCP 9.8 s, FCP 1.1 s, score 41",
+    });
+  });
+
+  it("reports the field and lab facts side by side", () => {
+    expect(speedCheck(field(937)).facts).toEqual({
+      lcp_ms: 937,
+      fcp_ms: 1_100,
+      performance_score: 41,
+      strategy: "mobile",
+      source: "field",
+      field_lcp_p75_ms: 937,
+      field_category: "FAST",
+      field_scope: "page",
+      lab_lcp_ms: 9_816,
+      runs: 1,
+    });
+  });
+
+  it("says when the real-user figure is the whole site's", () => {
+    const result = speedCheck(field(2_400, { field: { p75_ms: 2_400, category: "AVERAGE", scope: "origin" } }));
+    expect(result.summary).toMatch(/^Real-user LCP \(75th percentile, last 28 days, mobile, the whole site\): 2400 ms, rated AVERAGE\./);
+  });
+
+  it("grades the real-user LCP and names the lab failure when Lighthouse could not load the page", () => {
+    const result = speedCheck(
+      field(1_500, {
+        fcp_ms: null,
+        performance_score: null,
+        lab: null,
+        lab_error: { code: "FAILED_DOCUMENT_REQUEST", message: "Lighthouse was unable to reliably load the page." },
+      }),
+    );
+    expect({ status: result.status, summary: result.summary, labError: result.facts.lab_error }).toEqual({
+      status: "pass",
+      summary:
+        "Real-user LCP (75th percentile, last 28 days, mobile, this page): 1500 ms, rated FAST. " +
+        "The lab run failed: Lighthouse could not load the page (FAILED_DOCUMENT_REQUEST).",
+      labError: "FAILED_DOCUMENT_REQUEST",
+    });
+  });
+
+  it("quotes a lab-only measurement, says it can vary, and keeps the evidence", () => {
+    const result = speedCheck(lab(1_800));
+    expect({ summary: result.summary, evidence: result.evidence, source: result.facts.source }).toEqual({
+      summary:
+        "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92. " +
+        "No real-user data for this page or site; a lab measurement can vary per run.",
+      evidence: "LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)",
+      source: "lab",
+    });
+  });
+
+  it("says when a lab figure is the lower of two runs", () => {
+    const result = speedCheck(lab(3_100, { runs: 2 }));
+    expect({ summary: result.summary, evidence: result.evidence, runs: result.facts.runs }).toEqual({
+      summary:
+        "Mobile lab measurement (lower of two runs): LCP 3100 ms, FCP 1100 ms, performance score 92. " +
+        "No real-user data for this page or site; a lab measurement can vary per run.",
+      evidence: "LCP 3.1 s, FCP 1.1 s, score 92 (mobile, lab, lower of 2 runs)",
+      runs: 2,
+    });
+  });
+
+  it("leaves out FCP and the score when PSI did not report them", () => {
+    const result = speedCheck(lab(1_800, { fcp_ms: null, performance_score: null, lab: { lcp_ms: 1_800, fcp_ms: null, performance_score: null } }));
+    expect(result.evidence).toBe("LCP 1.8 s (mobile, lab)");
+  });
+
+  it("is unknown with Lighthouse's code and message when it could not load the page", () => {
+    const result = speedCheck({
+      ok: false,
+      reason: "page_not_measurable",
+      lighthouse_error: { code: "FAILED_DOCUMENT_REQUEST", message: "Lighthouse was unable to reliably load the page you requested." },
+    });
+    expect({ status: result.status, summary: result.summary, facts: result.facts, evidence: result.evidence }).toEqual({
+      status: "unknown",
+      summary:
+        "Page speed could not be measured: Lighthouse could not load the page (FAILED_DOCUMENT_REQUEST): " +
+        "Lighthouse was unable to reliably load the page you requested.",
+      facts: {
+        lcp_ms: null,
+        fcp_ms: null,
+        performance_score: null,
+        strategy: "mobile",
+        failure_reason: "page_not_measurable",
+        lighthouse_error: "FAILED_DOCUMENT_REQUEST",
+      },
+      evidence: null,
+    });
   });
 
   it.each([

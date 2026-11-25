@@ -189,7 +189,7 @@ describe("runPageCheck speed measurement", () => {
       status: "pass",
       summary:
         "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92. " +
-        "No real-user data for this page or site; a lab measurement can vary per run.",
+        "No real-user data for this page or site. A lab measurement can vary per run.",
       facts: {
         lcp_ms: 1_800,
         fcp_ms: 1_100,

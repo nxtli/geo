@@ -1,3 +1,4 @@
+import type { CruxStatus } from "../crux";
 import type { SpeedFailureReason, SpeedMeasurement } from "../speed";
 import type { CheckDefinition, CheckResult } from "./types";
 
@@ -22,6 +23,13 @@ const NOT_MEASURED_TEXT: Record<"quota" | "timeout", string> = {
 
 const EMPTY_FACTS = { lcp_ms: null, fcp_ms: null, performance_score: null, strategy: "mobile" } as const;
 
+/** One sentence on why there is no real-user data, from what CrUX answered. */
+function noFieldText(crux: CruxStatus | undefined): string {
+  return crux === "not_enabled"
+    ? "Field data not available (CrUX API not enabled)."
+    : "No real-user data for this page or site.";
+}
+
 type Measured = Extract<SpeedMeasurement, { ok: true }>;
 type Failed = Extract<SpeedMeasurement, { ok: false }>;
 
@@ -45,14 +53,16 @@ function failureSummary(speed: Failed): string {
 
 function failed(speed: Failed): CheckResult {
   const notMeasured = speed.reason === "quota" || speed.reason === "timeout";
+  const summary = notMeasured ? NOT_MEASURED_TEXT[speed.reason as "quota" | "timeout"] : failureSummary(speed);
   return {
     id: "speed",
     status: notMeasured ? "n/a" : "unknown",
-    summary: notMeasured ? NOT_MEASURED_TEXT[speed.reason as "quota" | "timeout"] : failureSummary(speed),
+    summary: speed.crux === "not_enabled" ? `${summary} ${noFieldText(speed.crux)}` : summary,
     facts: {
       ...EMPTY_FACTS,
       failure_reason: speed.reason,
       ...(speed.lighthouse_error ? { lighthouse_error: speed.lighthouse_error.code } : {}),
+      ...(speed.crux ? { crux: speed.crux } : {}),
     },
     evidence: null,
   };
@@ -79,6 +89,7 @@ function facts(speed: Measured): CheckResult["facts"] {
     lab_lcp_ms: speed.lab?.lcp_ms ?? null,
     runs: speed.runs,
     ...(speed.lab_error ? { lab_error: speed.lab_error.code } : {}),
+    ...(speed.crux ? { crux: speed.crux } : {}),
   };
 }
 
@@ -116,7 +127,7 @@ function labResult(speed: Measured, lab: NonNullable<Measured["lab"]>): CheckRes
     status: statusOf(speed.lcp_ms),
     summary:
       `Mobile lab measurement${lower}: ${labSummaryText(lab)}. ` +
-      "No real-user data for this page or site; a lab measurement can vary per run.",
+      `${noFieldText(speed.crux)} A lab measurement can vary per run.`,
     facts: facts(speed),
     evidence: `${labText(lab)} (mobile, lab${speed.runs === 2 ? ", lower of 2 runs" : ""})`,
   };

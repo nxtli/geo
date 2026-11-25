@@ -148,7 +148,17 @@ describe("runPageCheck", () => {
 });
 
 describe("runPageCheck speed measurement", () => {
-  const FAST: SpeedMeasurement = { ok: true, lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, source: "lab" };
+  const FAST: SpeedMeasurement = {
+    ok: true,
+    source: "lab",
+    lcp_ms: 1_800,
+    fcp_ms: 1_100,
+    performance_score: 92,
+    field: null,
+    lab: { lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92 },
+    runs: 1,
+    lab_error: null,
+  };
 
   function speedOf(result: PageCheckResult) {
     return (result as PageCheckFetched).checks.find((c) => c.id === "speed");
@@ -177,8 +187,21 @@ describe("runPageCheck speed measurement", () => {
     expect(speedOf(results[0]!)).toEqual({
       id: "speed",
       status: "pass",
-      summary: "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92.",
-      facts: { lcp_ms: 1_800, fcp_ms: 1_100, performance_score: 92, strategy: "mobile" },
+      summary:
+        "Mobile lab measurement: LCP 1800 ms, FCP 1100 ms, performance score 92. " +
+        "No real-user data for this page or site; a lab measurement can vary per run.",
+      facts: {
+        lcp_ms: 1_800,
+        fcp_ms: 1_100,
+        performance_score: 92,
+        strategy: "mobile",
+        source: "lab",
+        field_lcp_p75_ms: null,
+        field_category: null,
+        field_scope: null,
+        lab_lcp_ms: 1_800,
+        runs: 1,
+      },
       evidence: "LCP 1.8 s, FCP 1.1 s, score 92 (mobile, lab)",
     });
   });

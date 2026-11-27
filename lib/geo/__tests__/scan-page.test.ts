@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { RunAnalysisOutcome } from "../analysis";
+import { finalizeAnalysis, type RunAnalysisOutcome } from "../analysis";
 import { MockAnalysisProvider } from "../analysis/providers/mock";
 import { BRANDS } from "../brand";
 import { extractPageFacts } from "../facts/page";
+import { EVIDENCE } from "../knowledge";
 import { analyzeRobots } from "../facts/robots";
 import { handleMcpMessage, SCAN_PAGE_TOOL, CHECK_PAGES_TOOL, type JsonRpcResponse, type McpDeps } from "../mcp";
 import { buildPreview, buildReportHtml } from "../report/service";
@@ -167,6 +168,50 @@ describe("scanPage — the site scan's own report", () => {
     const source = readFileSync(join(__dirname, "..", "scan-page.ts"), "utf8");
 
     expect(source).not.toMatch(/from "\.\/(email|notify|supabase)\//);
+  });
+});
+
+/**
+ * A page that trips the snippet rules of the attribution-guideline update
+ * (#6): nearly all text inside data-nosnippet, a site name, an About link.
+ */
+const GUIDELINE_HTML = `<html><head><title>Diensten</title><meta property="og:site_name" content="Voorbeeld"></head><body>
+<h1>Onze diensten</h1><div data-nosnippet><p>Wij maken websites voor het mkb. Snel, betaalbaar en goed vindbaar in zoekmachines en AI-assistenten.
+Elk project begint met een gesprek over je doelen, je klanten en je aanbod.</p></div><a href="/over-ons">Over ons</a></body></html>`;
+
+function guidelineScrape(url: string): ScrapeResult {
+  return { ...fakeScrape(url), facts: extractPageFacts(GUIDELINE_HTML, url) };
+}
+
+/** The mock engine plus the site's real fact layer, which is where #6's rules live. */
+async function factLayerAnalyze(input: GeoAnalysisInput): Promise<RunAnalysisOutcome> {
+  const { result } = await new MockAnalysisProvider().analyze(input);
+  return { result: finalizeAnalysis(result, input), providerId: "mock", degraded: false };
+}
+
+describe("scanPage — the attribution-guideline parts (#6)", () => {
+  it("should carry the snippet finding, the site-name line and the new scope notes exactly as the site report", async () => {
+    const page = guidelineScrape(URL_);
+    const lead = { name: "Bezoeker", company_name: ARGS.company, homepage_url: ARGS.url, offer_description: ARGS.offer, target_audience: ARGS.audience, desired_queries: ARGS.questions, competitors: null };
+    const { result: analysis } = await factLayerAnalyze({
+      homepage_url: lead.homepage_url, company_name: lead.company_name, offer_description: lead.offer_description,
+      target_audience: lead.target_audience, desired_queries: lead.desired_queries, competitors: null,
+      page_content: page.text, metadata: page.metadata, robots_txt: page.robotsTxt, llms_txt_present: page.llmsTxtPresent,
+      facts: page.facts, robots: page.robots,
+    });
+    const siteHtml = buildReportHtml({ lead, analysis, brand: BRAND, now: NOW });
+
+    const result = await scanPage(ARGS, deps({ analyze: vi.fn(factLayerAnalyze), fetchPage: async () => page }));
+
+    expect({
+      same: result.report_html === siteHtml,
+      nosnippet: result.report_html.includes("staat binnen data-nosnippet"),
+      siteName: result.report_html.includes("Sitenaam en favicon"),
+      noAnswer: result.report_html.includes("Google toont niet altijd een AI-antwoord."),
+      measure: result.report_html.includes("Meet zelf het resultaat."),
+      knowledge: result.report_html.includes(`Kennisbank ${EVIDENCE.version}`),
+      grounding: EVIDENCE.items.some((item) => item.id === "E-GROUNDING"),
+    }).toEqual({ same: true, nosnippet: true, siteName: true, noAnswer: true, measure: true, knowledge: true, grounding: true });
   });
 });
 

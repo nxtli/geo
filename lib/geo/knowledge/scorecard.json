@@ -20,10 +20,11 @@
       "id": "P2",
       "name": "Pagina is indexeerbaar en mag in snippets",
       "evidence": [
-        "E-INDEX"
+        "E-INDEX",
+        "E-GROUNDING"
       ],
       "owner": "developer",
-      "done_when": "Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header."
+      "done_when": "Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header, en geen data-nosnippet rond de kerntekst."
     },
     {
       "id": "P3",
@@ -98,21 +99,23 @@
           "name": "De pagina toont een datum van laatste wijziging met jaartal",
           "max": 3,
           "evidence": [
-            "E-RECENCY"
+            "E-RECENCY",
+            "E-GROUNDING"
           ],
           "owner": "developer",
-          "fix": "Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar.",
-          "done_when": "De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging."
+          "fix": "Toon op de pagina de datum van de laatste inhoudelijke wijziging, met dag, maand en jaar. Pas de datum alleen aan als de inhoud wezenlijk verandert.",
+          "done_when": "De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging. De datum in de code toont dezelfde dag."
         },
         {
           "id": "E2",
           "name": "De gegevens zijn actueel",
           "max": 2,
           "evidence": [
-            "E-RECENCY"
+            "E-RECENCY",
+            "E-GROUNDING"
           ],
           "owner": "mens",
-          "fix": "Werk prijzen, jaartallen en regelingen bij.",
+          "fix": "Werk prijzen, jaartallen en regelingen bij. Controleer de pagina op feitelijke fouten. Verander daarna pas de datum.",
           "done_when": "Geen verlopen data, prijzen of regelingen."
         }
       ]
@@ -139,11 +142,12 @@
           "name": "Er is een auteur of expert met naam en functie",
           "max": 3,
           "evidence": [
-            "E-ENTITY"
+            "E-ENTITY",
+            "E-GROUNDING"
           ],
           "owner": "mens",
-          "fix": "Toon wie verantwoordelijk is voor de inhoud, met naam en functie.",
-          "done_when": "Naam en functie van een verantwoordelijke staan op de pagina."
+          "fix": "Toon wie verantwoordelijk is voor de inhoud, met naam en functie. Link naar een auteurspagina of een Over ons-pagina met achtergrond over die persoon of de organisatie.",
+          "done_when": "Naam en functie van een verantwoordelijke staan op de pagina, met een link naar een auteurs- of Over ons-pagina."
         },
         {
           "id": "F3",
@@ -325,7 +329,8 @@
           "max": 6,
           "evidence": [
             "E-RELEVANCE",
-            "E-TARGETED"
+            "E-TARGETED",
+            "E-GROUNDING"
           ],
           "owner": "schrijver",
           "fix": "Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen.",
@@ -365,7 +370,8 @@
           "name": "Cijfers hebben een bron",
           "max": 4,
           "evidence": [
-            "E-EVIDENCE"
+            "E-EVIDENCE",
+            "E-GROUNDING"
           ],
           "owner": "schrijver",
           "fix": "Zet bij elk cijfer de bron en het jaar.",

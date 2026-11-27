@@ -2,7 +2,7 @@
 
 # Bewijsbasis GEO
 
-Versie 2026.11. Herzien op 2026-11-18. Volgende herziening voor 2027-02-09.
+Versie 2026.11. Herzien op 2026-11-27. Volgende herziening voor 2027-02-09.
 
 Elke aanname in de scan staat hier, met bewijskracht, voorbehoud en bron. Een advies mag niet stelliger zijn dan zijn bewijskracht. Noem in adviezen geen percentages of beloofde stijgingen.
 
@@ -38,6 +38,17 @@ Voorbehoud: Geldt voor Google. Andere engines publiceren geen vergelijkbare eis.
 Herzien als: Google wijzigt de eisen voor opname in AI-functies.
 
 - [Google, Optimizing your website for generative AI features on Google Search](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide), 2026
+- [Google, Attribution and factuality in Search generative AI features](https://developers.google.com/search/docs/fundamentals/gen-ai-attribution-factuality), 2026
+
+### E-GROUNDING (richtlijn)
+
+Google geeft bij AI Overviews snippets van de gerangschikte zoekresultaten aan het model als basis voor het antwoord. Het model zoekt daarnaast door op delen van de vraag (query fan-out) en linkt naar pagina's die het antwoord ondersteunen. Welke links verschijnen, hangt af van relevantie en kwaliteit uit de gewone ranking, de opmaak en de spreiding over bronnen. Google raadt aan: belangrijke informatie in tekst, duidelijke bronvermelding, achtergrond over de auteur of de site (auteurspagina of Over ons-pagina), feiten actueel houden en de datum alleen aanpassen bij een wezenlijke inhoudelijke wijziging. Tekst binnen nosnippet, data-nosnippet of een lage max-snippet verschijnt niet in Search en de AI-functies.
+
+Voorbehoud: Geldt alleen voor Google (AI Overviews, AI Mode, Discover). Het document beschrijft waar de systemen voor ontworpen zijn en belooft geen link. Het geeft geen gewichten. Bij gevoelige onderwerpen (geld, gezondheid) en nieuws met weinig berichtgeving toont Google soms geen AI-antwoord. Een site kan in Search Console buiten de AI-functies staan. Dat ziet de scan niet.
+
+Herzien als: Google wijzigt het document, of een onafhankelijke meting toont dat de beschreven werkwijze afwijkt van de praktijk.
+
+- [Google, Attribution and factuality in Search generative AI features](https://developers.google.com/search/docs/fundamentals/gen-ai-attribution-factuality), 2026
 
 ### E-RENDER (middel)
 

@@ -47,6 +47,8 @@ Oordeel per criterium
 - D2: een genoemde klant met een concreet resultaat telt net zo goed als een quote. Een quote zonder naam of zonder inhoud telt niet.
 - D3: staat een keurmerk, prijs of certificaat alleen als afbeelding en niet als tekst, dan is het oordeel hooguit "deels". Dat geldt ook voor een claim waarvan het bewijs ver van de claim staat.
 - U2: een case telt pas volledig als het resultaat in de tekst op deze pagina staat, niet alleen achter een link.
+- E1 en E2: een recente datum bewijst niet dat de inhoud actueel is. Noemt de tekst verlopen jaartallen, prijzen of regelingen, dan is E2 "niet" of "deels", ook bij een recente datum. Adviseer nooit om alleen de datum te verversen. De datum verandert pas bij een inhoudelijke wijziging.
+- F2: een naam met functie op de pagina voldoet. Een link naar een auteurs-, team- of Over ons-pagina (zie de feiten) zonder naam op de pagina zelf is "deels". Ontbreken beide, dan is het "niet".
 - "nvt": niet te beoordelen met de aangeleverde tekst of kennis. Gebruik dit liever dan te gokken. Bijvoorbeeld A4 zonder bekende keuzecriteria, F3 en G4 altijd.
 - "finding": één korte zin over wat je op de pagina zag.
 - "quote": een letterlijk citaat van de pagina (maximaal 12 woorden) dat je oordeel onderbouwt. Leeg als er niets te citeren valt. Verzin geen citaat.
@@ -147,6 +149,9 @@ export function buildAnalysisPrompt(input: GeoAnalysisInput): string {
     lines.push(`Koppen: ${f.h1Count}× h1, ${f.headings.length} totaal${f.skippedHeadingLevel ? ", kopniveau overgeslagen" : ""}`);
     lines.push(`Eurobedrag in de tekst: ${f.hasPrice ? `ja (${f.priceSamples.join("; ")})` : "nee"}`);
     lines.push(`Zichtbare datum met jaartal: ${f.visibleDate ?? "niet gevonden"}`);
+    lines.push(`Datum in de code (dateModified of article:modified_time): ${f.jsonLd.dateModified ?? f.metaModified ?? "niet gevonden"}`);
+    lines.push(`Auteur in de code: ${f.jsonLd.authorName ?? f.metaAuthor ?? "niet gevonden"}`);
+    lines.push(`Links naar een auteurs-, team- of Over ons-pagina: ${f.links.about.join(", ") || "geen"}`);
     lines.push(`Interne links: ${f.links.internal}; vage ankerteksten: ${f.links.vagueAnchors.join(", ") || "geen"}`);
     lines.push(`JSON-LD-typen: ${f.jsonLd.types.join(", ") || "geen"} (telt niet mee)`);
   }

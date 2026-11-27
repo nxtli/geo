@@ -1,6 +1,6 @@
 {
   "version": "2026.11",
-  "reviewed": "2026-11-18",
+  "reviewed": "2026-11-27",
   "review_before": "2027-02-09",
   "grades": {
     "feit": "Vastgelegd in documentatie van de aanbieder. Door code te controleren.",
@@ -45,9 +45,28 @@
           "title": "Google, Optimizing your website for generative AI features on Google Search",
           "url": "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
           "year": 2026
+        },
+        {
+          "title": "Google, Attribution and factuality in Search generative AI features",
+          "url": "https://developers.google.com/search/docs/fundamentals/gen-ai-attribution-factuality",
+          "year": 2026
         }
       ],
       "revise_if": "Google wijzigt de eisen voor opname in AI-functies."
+    },
+    {
+      "id": "E-GROUNDING",
+      "grade": "richtlijn",
+      "claim": "Google geeft bij AI Overviews snippets van de gerangschikte zoekresultaten aan het model als basis voor het antwoord. Het model zoekt daarnaast door op delen van de vraag (query fan-out) en linkt naar pagina's die het antwoord ondersteunen. Welke links verschijnen, hangt af van relevantie en kwaliteit uit de gewone ranking, de opmaak en de spreiding over bronnen. Google raadt aan: belangrijke informatie in tekst, duidelijke bronvermelding, achtergrond over de auteur of de site (auteurspagina of Over ons-pagina), feiten actueel houden en de datum alleen aanpassen bij een wezenlijke inhoudelijke wijziging. Tekst binnen nosnippet, data-nosnippet of een lage max-snippet verschijnt niet in Search en de AI-functies.",
+      "caveat": "Geldt alleen voor Google (AI Overviews, AI Mode, Discover). Het document beschrijft waar de systemen voor ontworpen zijn en belooft geen link. Het geeft geen gewichten. Bij gevoelige onderwerpen (geld, gezondheid) en nieuws met weinig berichtgeving toont Google soms geen AI-antwoord. Een site kan in Search Console buiten de AI-functies staan. Dat ziet de scan niet.",
+      "revise_if": "Google wijzigt het document, of een onafhankelijke meting toont dat de beschreven werkwijze afwijkt van de praktijk.",
+      "sources": [
+        {
+          "title": "Google, Attribution and factuality in Search generative AI features",
+          "url": "https://developers.google.com/search/docs/fundamentals/gen-ai-attribution-factuality",
+          "year": 2026
+        }
+      ]
     },
     {
       "id": "E-RENDER",

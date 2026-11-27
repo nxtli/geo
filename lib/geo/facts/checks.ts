@@ -1,6 +1,16 @@
 import type { CriterionResult, GeoAction, GeoAnalysisInput, TechnicalCheck } from "../types";
 import { getEvidence, OWNER_LABEL, SCORECARD } from "../knowledge";
 import { robotsFixSnippet } from "./robots";
+import { parsePageDate } from "../checks/recency";
+
+/** Vanaf dit aandeel tekst binnen data-nosnippet telt de pagina als afgeschermd voor snippets. */
+export const NOSNIPPET_BLOCK_SHARE = 0.8;
+/** Vanaf dit aandeel meldt de scan data-nosnippet als aandachtspunt. */
+export const NOSNIPPET_ATTENTION_SHARE = 0.1;
+/** Een max-snippet onder dit aantal tekens is te kort voor een bruikbaar fragment. */
+export const MAX_SNIPPET_ATTENTION = 50;
+/** Verschil in dagen tussen de zichtbare datum en de datum in de code waarboven de datum als onbetrouwbaar telt. */
+export const DATE_MISMATCH_DAYS = 30;
 
 /**
  * De feitenlaag: alles wat de scan zonder taalmodel vaststelt. Levert de
@@ -86,8 +96,39 @@ export function buildFactLayer(input: GeoAnalysisInput): FactLayer {
           effort: "laag",
         }),
       );
+    } else if (f.dataNosnippet.share >= NOSNIPPET_BLOCK_SHARE) {
+      // Vrijwel alle tekst is afgeschermd: voor Google staat dit gelijk aan nosnippet.
+      const pct = Math.round(f.dataNosnippet.share * 100);
+      checks.push({
+        label: "Indexeerbaar en snippets toegestaan",
+        status: "blokker",
+        detail: `${pct}% van de tekst staat binnen data-nosnippet (${f.dataNosnippet.words} woorden). Google mag die tekst niet in een snippet tonen.`,
+      });
+      gateActions.push(
+        gateAction("P2", {
+          title: "Haal data-nosnippet weg rond de kerntekst",
+          why: "Google geeft snippets van je pagina aan het AI-model als basis voor het antwoord. Tekst binnen data-nosnippet hoort daar niet bij.",
+          where: "De elementen met het attribuut data-nosnippet in de HTML",
+          before: `${f.dataNosnippet.words} woorden binnen data-nosnippet`,
+          after: "Alleen tekst die je bewust wilt afschermen staat binnen data-nosnippet.",
+          effort: "laag",
+        }),
+      );
     } else {
-      checks.push({ label: "Indexeerbaar en snippets toegestaan", status: "goed", detail: "Geen noindex of nosnippet in de meta-tag of de HTTP-header." });
+      const limited: string[] = [];
+      if (f.maxSnippet !== null && f.maxSnippet > 0 && f.maxSnippet < MAX_SNIPPET_ATTENTION) {
+        limited.push(`max-snippet staat op ${f.maxSnippet} tekens. Google toont dan hooguit een heel kort fragment.`);
+      }
+      if (f.dataNosnippet.share >= NOSNIPPET_ATTENTION_SHARE) {
+        limited.push(`${Math.round(f.dataNosnippet.share * 100)}% van de tekst staat binnen data-nosnippet (${f.dataNosnippet.words} woorden). Controleer of daar geen kerntekst tussen zit.`);
+      }
+      checks.push({
+        label: "Indexeerbaar en snippets toegestaan",
+        status: limited.length ? "aandacht" : "goed",
+        detail: limited.length
+          ? `Geen noindex of nosnippet. ${limited.join(" ")}`
+          : "Geen noindex, nosnippet, lage max-snippet of data-nosnippet rond de tekst.",
+      });
     }
     // P3 — rendering
     if (f.jsShell) {
@@ -139,7 +180,23 @@ export function buildFactLayer(input: GeoAnalysisInput): FactLayer {
     }
     // E1 — zichtbare datum (alleen een gevonden datum is een feit)
     if (f.visibleDate) {
-      forced.push({ id: "E1", verdict: "voldoet", finding: `Zichtbare datum gevonden: ${f.visibleDate}.`, quote: f.visibleDate });
+      // Google raadt af een datum te verversen zonder inhoudelijke wijziging.
+      // Spreken de zichtbare datum en de datum in de code elkaar tegen, dan
+      // is de datum niet betrouwbaar en telt hij maar half.
+      const visible = parsePageDate(f.visibleDate);
+      const codeRaw = f.jsonLd.dateModified ?? f.metaModified;
+      const code = parsePageDate(codeRaw);
+      const gap = visible && code ? Math.abs(visible.getTime() - code.getTime()) / 86_400_000 : 0;
+      if (gap > DATE_MISMATCH_DAYS) {
+        forced.push({
+          id: "E1",
+          verdict: "deels",
+          finding: `De zichtbare datum (${f.visibleDate}) wijkt ${Math.round(gap)} dagen af van de datum in de code (${codeRaw}). Laat beide de laatste inhoudelijke wijziging tonen.`,
+          quote: f.visibleDate,
+        });
+      } else {
+        forced.push({ id: "E1", verdict: "voldoet", finding: `Zichtbare datum gevonden: ${f.visibleDate}.`, quote: f.visibleDate });
+      }
     }
     // Hygiëne — gemeld, geen punten
     hygiene.push({
@@ -148,6 +205,14 @@ export function buildFactLayer(input: GeoAnalysisInput): FactLayer {
       detail: f.jsonLd.blocks
         ? `${f.jsonLd.blocks} blok(ken), typen: ${f.jsonLd.types.join(", ") || "geen @type"}.${f.jsonLd.invalid ? ` ${f.jsonLd.invalid} blok(ken) met ongeldige JSON: die worden genegeerd.` : ""} Telt niet mee: geen aangetoond effect op AI-citaties.`
         : "Niet aanwezig. Telt niet mee: geen aangetoond effect op AI-citaties. Wel nuttig voor gewone zoekresultaten.",
+    });
+    hygiene.push({
+      label: "Sitenaam en favicon",
+      status: f.siteName && f.faviconLink ? "goed" : "aandacht",
+      detail:
+        `${f.siteName ? `Sitenaam: "${f.siteName}".` : "Geen sitenaam gevonden (og:site_name of schema)."} ` +
+        `${f.faviconLink ? "Favicon-link aanwezig." : "Geen favicon-link in de HTML. Controleer of /favicon.ico bestaat."} ` +
+        "Google toont beide bij een bronlink in een AI-antwoord. Telt niet mee in de score.",
     });
     hygiene.push({ label: "Canonical", status: f.canonical ? "goed" : "aandacht", detail: f.canonical ? f.canonical : "Geen canonical-link gevonden." });
   }

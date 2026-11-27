@@ -103,3 +103,51 @@ describe("buildFactLayer", () => {
     expect(v).toMatchObject({ G1: "deels", G3: "deels", E1: "voldoet", G4: "nvt", F3: "nvt" });
   });
 });
+
+describe("snippets, datum en afzender volgens de Google-richtlijn voor bronvermelding", () => {
+  const words = (n: number) => Array.from({ length: n }, (_, i) => `woord${i}`).join(" ");
+  const layerFor = (html: string) =>
+    buildFactLayer({ homepage_url: URL_, company_name: "Voorbeeld", facts: extractPageFacts(html, URL_), robots: analyzeRobots("", URL_) } as never);
+  const snippetCheck = (html: string) => layerFor(html).technical_checks.find((c) => c.label === "Indexeerbaar en snippets toegestaan");
+
+  it("telt de woorden binnen data-nosnippet, ook bij geneste elementen", () => {
+    const html = `<body><div data-nosnippet><p>${words(10)}</p><div>${words(5)}</div></div><p>${words(85)}</p></body>`;
+    const f = extractPageFacts(html, URL_);
+    expect(f.dataNosnippet.words).toBe(15);
+    expect(f.dataNosnippet.share).toBeCloseTo(0.15, 2);
+  });
+
+  it("kerntekst binnen data-nosnippet is een blokker, een klein deel een aandachtspunt", () => {
+    expect(snippetCheck(`<body><section data-nosnippet>${words(90)}</section><p>${words(10)}</p></body>`)?.status).toBe("blokker");
+    expect(snippetCheck(`<body><span data-nosnippet>${words(20)}</span><p>${words(80)}</p></body>`)?.status).toBe("aandacht");
+    expect(snippetCheck(`<body><p>${words(100)}</p></body>`)?.status).toBe("goed");
+    expect(layerFor(`<body><section data-nosnippet>${words(90)}</section></body>`).blocked).toBe(true);
+  });
+
+  it("een lage max-snippet is een aandachtspunt, geen limiet en een ruime limiet niet", () => {
+    const page = (robots: string) => `<head><meta name="robots" content="${robots}"></head><body><p>${words(100)}</p></body>`;
+    expect(extractPageFacts(page("max-snippet:20"), URL_).maxSnippet).toBe(20);
+    expect(snippetCheck(page("max-snippet:20"))?.status).toBe("aandacht");
+    expect(snippetCheck(page("max-snippet:-1"))?.status).toBe("goed");
+    expect(snippetCheck(page("max-snippet:160"))?.status).toBe("goed");
+    expect(snippetCheck(page("max-snippet:0"))?.status).toBe("blokker");
+  });
+
+  it("een zichtbare datum die ver afwijkt van de datum in de code telt maar half", () => {
+    const page = (modified: string) =>
+      `<head><script type="application/ld+json">{"@type":"Article","dateModified":"${modified}"}</script></head><body><p>Bijgewerkt op 20 november 2026. ${words(100)}</p></body>`;
+    const e1 = (html: string) => layerFor(html).forced.find((c) => c.id === "E1");
+    expect(e1(page("2026-11-18"))?.verdict).toBe("voldoet");
+    expect(e1(page("2025-03-01"))?.verdict).toBe("deels");
+  });
+
+  it("vindt links naar een auteurs- of Over ons-pagina en meldt sitenaam en favicon zonder punten", () => {
+    const html = `<head><link rel="icon" href="/favicon.ico"><meta property="og:site_name" content="Voorbeeld"></head><body><a href="/over-ons">Wie we zijn</a><a href="/blog/x">Over ons</a><a href="/diensten">Diensten</a><p>${words(100)}</p></body>`;
+    const f = extractPageFacts(html, URL_);
+    expect(f.links.about).toEqual(["/over-ons", "/blog/x"]);
+    expect(f.faviconLink).toBe(true);
+    const hygiene = layerFor(html).hygiene.find((h) => h.label === "Sitenaam en favicon");
+    expect(hygiene?.status).toBe("goed");
+    expect(layerFor(`<body><p>${words(100)}</p></body>`).hygiene.find((h) => h.label === "Sitenaam en favicon")?.status).toBe("aandacht");
+  });
+});

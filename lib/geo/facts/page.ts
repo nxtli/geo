@@ -20,6 +20,12 @@ export interface PageFacts {
   xRobotsTag: string | null;
   noindex: boolean;
   nosnippet: boolean;
+  /** Waarde van `max-snippet:N` in de robots-instructies; null als die ontbreekt. -1 betekent geen limiet. */
+  maxSnippet: number | null;
+  /** Tekst binnen elementen met `data-nosnippet`: aantal woorden en het aandeel van alle woorden (0 tot 1). */
+  dataNosnippet: { words: number; share: number };
+  /** De HTML bevat een `<link rel="icon">` (of shortcut icon / apple-touch-icon). */
+  faviconLink: boolean;
   wordCount: number;
   /** Lege JavaScript-shell: vrijwel geen tekst en een app-container in de HTML. */
   jsShell: boolean;
@@ -65,7 +71,12 @@ export interface PageFacts {
   hasPrice: boolean;
   priceSamples: string[];
   images: { total: number; missingAlt: number };
-  links: { internal: number; vagueAnchors: string[] };
+  links: {
+    internal: number;
+    vagueAnchors: string[];
+    /** Interne links naar een auteurs-, team- of Over ons-pagina, in paginavolgorde, hooguit 5. */
+    about: string[];
+  };
   /** Distinct absolute http(s) links to other hosts, in page order, capped at MAX_EXTERNAL_LINKS. */
   externalLinks: string[];
   /** The external links that point to a review site (`reviewSiteOf`), in page order, at most MAX_CLASSIFIED_LINKS; kept even past the externalLinks cap. */
@@ -301,6 +312,46 @@ function collectExternal(href: string, pageHost: string, into: ExternalCollector
   addCapped(into.all, url.href, MAX_EXTERNAL_LINKS);
 }
 
+/** Elementen waarop Google `data-nosnippet` erkent. */
+const NOSNIPPET_TAGS = "span|div|section";
+
+/**
+ * Telt de woorden binnen elementen met het attribuut `data-nosnippet`.
+ * Geneste elementen van hetzelfde type tellen mee tot de bijbehorende
+ * sluit-tag; een niet-afgesloten element loopt tot het einde van de tekst.
+ */
+export function wordsInDataNosnippet(body: string): number {
+  const open = new RegExp(`<(${NOSNIPPET_TAGS})\\b[^>]*\\sdata-nosnippet(?:\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]*))?[^>]*>`, "gi");
+  let total = 0;
+  let from = 0;
+  let m: RegExpExecArray | null;
+  while ((m = open.exec(body))) {
+    if (m.index < from) continue; // ligt binnen een al getelde regio
+    const tag = m[1].toLowerCase();
+    const walker = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+    walker.lastIndex = open.lastIndex;
+    let depth = 1;
+    let end = body.length;
+    let w: RegExpExecArray | null;
+    while ((w = walker.exec(body))) {
+      depth += w[1] ? -1 : 1;
+      if (depth === 0) {
+        end = w.index;
+        break;
+      }
+    }
+    const inner = strip(body.slice(open.lastIndex, end));
+    if (inner) total += inner.split(/\s+/).length;
+    from = end;
+    open.lastIndex = Math.max(open.lastIndex, end);
+  }
+  return total;
+}
+
+/** Herkent een interne link naar een auteurs-, team- of Over ons-pagina aan het adres of de ankertekst. */
+const ABOUT_HREF = /(?:^|\/)(?:over(?:-ons|-mij|-ons-team)?|about(?:-us|-me)?|wie-zijn-wij|wie-we-zijn|ons-team|team|auteurs?|authors?|redactie|colofon)(?:\/|$|[?#.])/i;
+const ABOUT_ANCHOR = /^(?:over ons|over mij|over [a-z0-9 .&-]{2,30}|about(?: us| me)?|wie zijn wij|ons team|het team|team|de auteur|auteurs?|redactie|colofon)$/i;
+
 export function extractPageFacts(
   html: string,
   pageUrl: string,
@@ -352,6 +403,7 @@ export function extractPageFacts(
   }
   let internal = 0;
   const vague = new Set<string>();
+  const about = new Set<string>();
   const external: ExternalCollector = { all: new Set(), reviews: new Set(), profiles: new Set() };
   const are = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
   let am: RegExpExecArray | null;
@@ -371,6 +423,13 @@ export function extractPageFacts(
     internal++;
     const anchor = strip(am[2]);
     if (VAGUE.test(anchor)) vague.add(anchor.toLowerCase());
+    let path = href;
+    try {
+      path = new URL(href, pageUrl).pathname;
+    } catch {
+      /* ignore */
+    }
+    if (about.size < 5 && (ABOUT_HREF.test(path) || ABOUT_ANCHOR.test(anchor.trim()))) about.add(href);
   }
 
   const imgs = body.match(/<img\b[^>]*>/gi) ?? [];
@@ -378,6 +437,10 @@ export function extractPageFacts(
     const alt = attr(t, "alt");
     return alt === null;
   }).length;
+
+  const nosnippetWords = wordsInDataNosnippet(body);
+  const maxSnippetMatch = robotsAll.match(/max-snippet\s*:\s*(-?\d+)/);
+  const faviconLink = /<link\b[^>]*\brel\s*=\s*["'][^"']*\b(?:icon|apple-touch-icon)\b[^"']*["'][^>]*>/i.test(html);
 
   const appContainer = /<div\b[^>]*id\s*=\s*["'](root|app|__next|__nuxt)["']/i.test(html);
   const jsonLd = collectJsonLd(html);
@@ -394,7 +457,10 @@ export function extractPageFacts(
     metaRobots,
     xRobotsTag,
     noindex: /\bnoindex\b|\bnone\b/.test(robotsAll),
-    nosnippet: /\bnosnippet\b|max-snippet\s*:\s*0\b/.test(robotsAll),
+    nosnippet: /(?<![\w-])nosnippet\b|max-snippet\s*:\s*0\b/.test(robotsAll),
+    maxSnippet: maxSnippetMatch ? Number(maxSnippetMatch[1]) : null,
+    dataNosnippet: { words: nosnippetWords, share: words ? Math.min(1, nosnippetWords / words) : 0 },
+    faviconLink,
     wordCount: words,
     jsShell: words < 60 && (appContainer || /enable javascript|javascript (is )?(required|nodig)/i.test(html)),
     h1Count: headings.filter((h) => h.level === 1).length,
@@ -409,7 +475,7 @@ export function extractPageFacts(
     hasPrice: priceSamples.length > 0,
     priceSamples,
     images: { total: imgs.length, missingAlt },
-    links: { internal, vagueAnchors: [...vague].slice(0, 8) },
+    links: { internal, vagueAnchors: [...vague].slice(0, 8), about: [...about] },
     externalLinks: [...external.all],
     reviewLinks: [...external.reviews],
     profileLinks: [...external.profiles],

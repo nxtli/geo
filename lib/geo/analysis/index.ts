@@ -176,6 +176,8 @@ export function finalizeAnalysis(result: GeoAnalysisResult, input: GeoAnalysisIn
     (input.buyer?.origin ?? "bezoeker") === "marketingbrein"
       ? "De klantvragen komen uit goedgekeurde kennis in het Marketingbrein."
       : "De klantvragen zijn door de aanvrager ingevuld en niet getoetst bij kopers.",
+    "Google toont niet altijd een AI-antwoord. Bij gevoelige onderwerpen, zoals geld en gezondheid, en bij nieuws met weinig berichtgeving blijft het soms weg. Google verdeelt de links bovendien over verschillende sites. Eén pagina krijgt dus niet alle links.",
+    "Meet zelf het resultaat. Het rapport over generatieve AI in Google Search Console laat zien hoe mensen je pagina's vinden via de AI-functies van Google. Controleer daar ook of je site is opgenomen in die AI-functies. Dat ziet deze scan niet.",
     "Ook niet gemeten: laadsnelheid en blokkades door firewall of CDN.",
     `Kennisbank ${EVIDENCE.version}, herzien op ${EVIDENCE.reviewed}.${evidenceIsStale() ? " Let op: de kennisbank is toe aan herziening." : ""}`,
   ];

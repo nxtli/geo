@@ -9,7 +9,7 @@ Beoordeel elk criterium met **voldoet**, **deels**, **niet** of **niet te beoord
 Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
 - **P1. AI-zoekbots mogen de pagina ophalen.** Klaar als: robots.txt bevat geen Disallow voor deze pagina bij OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot en Bingbot. (E-BOTS)
-- **P2. Pagina is indexeerbaar en mag in snippets.** Klaar als: Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header. (E-INDEX)
+- **P2. Pagina is indexeerbaar en mag in snippets.** Klaar als: Geen noindex, nosnippet of max-snippet:0 in de meta-robots-tag of de X-Robots-Tag-header, en geen data-nosnippet rond de kerntekst. (E-INDEX, E-GROUNDING)
 - **P3. Kerntekst staat in de HTML.** Klaar als: De koppen en de kerntekst staan in de HTML die de server teruggeeft, zonder JavaScript. (E-RENDER)
 
 ## Paginabasis (8 punten)
@@ -25,15 +25,15 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
-| E1 | De pagina toont een datum van laatste wijziging met jaartal | 3 | E-RECENCY (sterk) | Webbouwer | Toon op de pagina de datum van de laatste wijziging, met dag, maand en jaar. | De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging. |
-| E2 | De gegevens zijn actueel | 2 | E-RECENCY (sterk) | Marketeer | Werk prijzen, jaartallen en regelingen bij. | Geen verlopen data, prijzen of regelingen. |
+| E1 | De pagina toont een datum van laatste wijziging met jaartal | 3 | E-RECENCY (sterk), E-GROUNDING (richtlijn) | Webbouwer | Toon op de pagina de datum van de laatste inhoudelijke wijziging, met dag, maand en jaar. Pas de datum alleen aan als de inhoud wezenlijk verandert. | De datum staat zichtbaar op de pagina en klopt met de laatste inhoudelijke wijziging. De datum in de code toont dezelfde dag. |
+| E2 | De gegevens zijn actueel | 2 | E-RECENCY (sterk), E-GROUNDING (richtlijn) | Marketeer | Werk prijzen, jaartallen en regelingen bij. Controleer de pagina op feitelijke fouten. Verander daarna pas de datum. | Geen verlopen data, prijzen of regelingen. |
 
 ## Afzender en vertrouwen (10 punten)
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
 | F1 | Duidelijk wie het aanbiedt, wat en waar | 4 | E-ENTITY (zwak), E-RELEVANCE (sterk) | Martine (tekst) | Noem de organisatie, het aanbod en de vestigingsplaats of het werkgebied in één zin. | Eén zin op de pagina zegt wie wat aanbiedt en waar. |
-| F2 | Er is een auteur of expert met naam en functie | 3 | E-ENTITY (zwak) | Marketeer | Toon wie verantwoordelijk is voor de inhoud, met naam en functie. | Naam en functie van een verantwoordelijke staan op de pagina. |
+| F2 | Er is een auteur of expert met naam en functie | 3 | E-ENTITY (zwak), E-GROUNDING (richtlijn) | Marketeer | Toon wie verantwoordelijk is voor de inhoud, met naam en functie. Link naar een auteurspagina of een Over ons-pagina met achtergrond over die persoon of de organisatie. | Naam en functie van een verantwoordelijke staan op de pagina, met een link naar een auteurs- of Over ons-pagina. |
 | F3 | Het merk wordt buiten de eigen site genoemd | 3 | E-ENTITY (zwak) | Marketeer | Lever feiten, prijzen en voorbeelden aan bij vakmedia en vergelijkingssites in jouw markt. | Minstens drie onafhankelijke sites noemen het merk met juiste feiten. |
 
 ## Aansluiting op de vraag (26 punten)
@@ -62,7 +62,7 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
-| C1 | Het antwoord staat eerst en is los leesbaar | 6 | E-RELEVANCE (sterk), E-TARGETED (middel) | Martine (tekst) | Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen. | De eerste zin onder elke kop klopt zonder de rest van de pagina. |
+| C1 | Het antwoord staat eerst en is los leesbaar | 6 | E-RELEVANCE (sterk), E-TARGETED (middel), E-GROUNDING (richtlijn) | Martine (tekst) | Herschrijf openingszinnen die terugverwijzen (Dat, Daarom, Hier) tot zinnen die zonder de vorige alinea kloppen. | De eerste zin onder elke kop klopt zonder de rest van de pagina. |
 | C2 | De taal is stellig en onderbouwd | 4 | E-CONFIDENT (middel) | Martine (tekst) | Vervang voorbehouden (kan, mogelijk, vaak) door een feit met een getal of een bron. | Kernclaims bevatten geen voorbehoud zonder onderbouwing. |
 | C3 | De pagina spreekt zichzelf niet tegen | 3 | E-CONFIDENT (middel) | Marketeer | Maak prijzen, namen en cijfers op de hele pagina gelijk. | Elk feit komt op de pagina maar in één versie voor. |
 
@@ -70,7 +70,7 @@ Faalt er één, dan is de score hooguit 20 en begint het advies hier.
 
 | Id | Criterium | Punten | Bewijs | Wie | Advies | Klaar als |
 |---|---|---|---|---|---|---|
-| D1 | Cijfers hebben een bron | 4 | E-EVIDENCE (middel) | Martine (tekst) | Zet bij elk cijfer de bron en het jaar. | Elk cijfer heeft een bron of een toelichting hoe het gemeten is. |
+| D1 | Cijfers hebben een bron | 4 | E-EVIDENCE (middel), E-GROUNDING (richtlijn) | Martine (tekst) | Zet bij elk cijfer de bron en het jaar. | Elk cijfer heeft een bron of een toelichting hoe het gemeten is. |
 | D2 | Een klant of expert met naam onderbouwt het resultaat | 3 | E-EVIDENCE (middel), E-FACTS (zwak) | Marketeer | Noem een klant bij naam met het resultaat van het werk. Een quote met naam, functie en organisatie telt ook. Zet er dan een concreet resultaat in. | Minstens één genoemde klant met een concreet resultaat, of één quote met naam, functie en organisatie. |
 | D3 | Claims zijn controleerbaar | 3 | E-EVIDENCE (middel), E-CONFIDENT (middel), E-FACTS (zwak) | Martine (tekst) | Onderbouw superlatieven met een bron of schrap ze. Zet het bewijs direct bij de claim. Schrijf keurmerken, prijzen en certificaten ook als tekst uit, niet alleen als logo. | Geen claim als beste of meest gekozen zonder bron. Keurmerken, prijzen en certificaten staan ook als tekst op de pagina. |
 

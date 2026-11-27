@@ -12,7 +12,7 @@
  * Pas je een feit aan (duur, aantal vragen, AI-tools), pas dan ook
  * LANDING_UPDATED aan. Verzin geen klantcitaten of aantallen.
  */
-export const LANDING_UPDATED = { iso: "2026-11-12", label: "12 november 2026" };
+export const LANDING_UPDATED = { iso: "2026-11-27", label: "27 november 2026" };
 
 export const CRITERIA_COUNT = 27;
 export const DIMENSION_COUNT = 7;
@@ -64,6 +64,10 @@ export const SOURCES = {
     url: "https://arxiv.org/abs/2603.09296",
   },
   ahrefs: { label: "Ahrefs, We Tracked 1,885 Pages Adding Schema, mei 2026", url: "https://ahrefs.com/blog/schema-ai-citations/" },
+  googleAttribution: {
+    label: "Google Search Central, Attribution and factuality in Search generative AI features, november 2026",
+    url: "https://developers.google.com/search/docs/fundamentals/gen-ai-attribution-factuality",
+  },
   seranking: { label: "SE Ranking, onderzoek naar llms.txt onder 300.000 domeinen", url: "https://seranking.com/blog/llms-txt/" },
   survey: { label: "Martinez, A Critical Survey of Generative Engine Optimization, voorpublicatie juli 2026", url: "https://arxiv.org/abs/2607.14035" },
   chen: {
@@ -110,7 +114,7 @@ export const FEATURES = {
       items: [
         feature("Afzender en vertrouwen", "Is duidelijk welk bedrijf het aanbiedt? Staat er een deskundige met naam en functie?"),
         feature("Paginabasis", "Heeft de pagina één hoofdkop, logische tussenkoppen, een duidelijke titel en links met een heldere tekst?"),
-        feature("Actualiteit", "Toont de pagina een datum met jaartal? Zijn de gegevens actueel?"),
+        feature("Actualiteit", "Toont de pagina de datum van de laatste inhoudelijke wijziging? Zijn de gegevens actueel?"),
       ],
     },
     {
@@ -160,6 +164,16 @@ export const LIMITS = {
       title: "Extra code voor zoekmachines geeft geen punten",
       body: "Ahrefs volgde 1.885 pagina's die schema-code kregen. Dat is code die een zoekmachine vertelt wat er op een pagina staat. De pagina's werden daarna niet meetbaar vaker als bron gekozen. Voor een llms.txt-bestand, een wegwijzer voor AI-tools, vond SE Ranking onder bijna 300.000 websites ook geen verband.",
       sources: [SOURCES.ahrefs, SOURCES.seranking],
+    },
+    {
+      title: "Google toont niet altijd een AI-antwoord",
+      body: "Bij gevoelige onderwerpen, zoals geld en gezondheid, en bij nieuws met weinig berichtgeving laat Google het AI-antwoord soms weg. Een hoge score verandert daar niets aan. Google verdeelt de links ook over verschillende sites. Eén pagina krijgt dus niet alle links.",
+      sources: [SOURCES.googleAttribution],
+    },
+    {
+      title: "Het resultaat meet je zelf",
+      body: "De scan beoordeelt je pagina, niet wat Google ermee doet. Het rapport over generatieve AI in Google Search Console laat zien hoe mensen je pagina's vinden via de AI-functies van Google. Controleer daar ook of je site is opgenomen in die AI-functies.",
+      sources: [SOURCES.googleAttribution],
     },
   ],
   closing:

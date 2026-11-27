@@ -3,7 +3,8 @@ import { getServerBrand } from "@/lib/geo/brand-server";
 import { handleMcpNotAllowed, handleMcpPost } from "@/lib/geo/mcp";
 import { pageCheckGuard } from "@/lib/geo/page-check";
 import { generatePdf } from "@/lib/geo/report/pdf";
-import { createScanRateLimit, scanMaxPerHour, scanPage } from "@/lib/geo/scan-page";
+import { createScanRateLimit, dailyScanCapReached, scanMaxPerHour, scanPage } from "@/lib/geo/scan-page";
+import { countCompletedScansSince } from "@/lib/geo/supabase/service";
 import { fetchPage } from "@/lib/geo/scrape";
 
 export const runtime = "nodejs";
@@ -20,12 +21,16 @@ const rateLimit = createScanRateLimit(scanMaxPerHour(process.env.GEO_MCP_SCAN_MA
  *
  * Auth is the page check's: `Authorization: Bearer <GEO_MACHINE_TOKEN>`, 404
  * when GEO_MACHINE_TOKEN is unset, 401 on a wrong token. At most
- * GEO_MCP_SCAN_MAX_PER_HOUR scans (default 30) per instance per hour.
+ * GEO_MCP_SCAN_MAX_PER_HOUR scans (default 30) per instance per hour, and
+ * none once the site's GEO_MAX_SCANS_PER_DAY cap is reached (when it is set).
  */
 export async function POST(request: Request): Promise<Response> {
   const brand = await getServerBrand();
   return handleMcpPost(request, process.env.GEO_MACHINE_TOKEN, {
     scanPage: async (args) => {
+      if (await dailyScanCapReached(process.env.GEO_MAX_SCANS_PER_DAY, countCompletedScansSince)) {
+        return { ok: false, dailyCap: true };
+      }
       const slot = rateLimit.take();
       if (!slot.ok) return { ok: false, retryAfterSeconds: slot.retryAfterSeconds };
       const result = await scanPage(args, {

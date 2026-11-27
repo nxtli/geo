@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { finalizeAnalysis, type RunAnalysisOutcome } from "../analysis";
+import { analysisInputFor } from "../analysis-input";
 import { MockAnalysisProvider } from "../analysis/providers/mock";
 import { BRANDS } from "../brand";
 import { extractPageFacts } from "../facts/page";
@@ -9,7 +10,7 @@ import { EVIDENCE } from "../knowledge";
 import { analyzeRobots } from "../facts/robots";
 import { handleMcpMessage, SCAN_PAGE_TOOL, CHECK_PAGES_TOOL, type JsonRpcResponse, type McpDeps } from "../mcp";
 import { buildPreview, buildReportHtml } from "../report/service";
-import { createScanRateLimit, scanMaxPerHour, scanPage, DEFAULT_SCAN_MAX_PER_HOUR, type ScanPageDeps } from "../scan-page";
+import { createScanRateLimit, dailyScanCapReached, scanMaxPerHour, scanPage, DEFAULT_SCAN_MAX_PER_HOUR, type ScanPageDeps } from "../scan-page";
 import type { ScrapeResult } from "../scrape";
 import type { GeoAnalysisInput } from "../types";
 
@@ -59,7 +60,7 @@ const ARGS = {
 
 /**
  * What POST /api/geo/scan does with a lead, steps 2 to 4 (fetch, analyse,
- * report), written out as the route writes it. The tool must give the same.
+ * report), through the same helpers the route calls. The tool must give the same.
  */
 async function siteScanReport(page: ScrapeResult) {
   const lead = {
@@ -71,20 +72,7 @@ async function siteScanReport(page: ScrapeResult) {
     desired_queries: ARGS.questions,
     competitors: null,
   };
-  const { result: analysis } = await mockAnalyze({
-    homepage_url: lead.homepage_url,
-    company_name: lead.company_name,
-    offer_description: lead.offer_description,
-    target_audience: lead.target_audience,
-    desired_queries: lead.desired_queries,
-    competitors: lead.competitors,
-    page_content: page.text,
-    metadata: page.metadata,
-    robots_txt: page.robotsTxt,
-    llms_txt_present: page.llmsTxtPresent,
-    facts: page.facts,
-    robots: page.robots,
-  });
+  const { result: analysis } = await mockAnalyze(analysisInputFor(lead, page));
   return { analysis, html: buildReportHtml({ lead, analysis, brand: BRAND, now: NOW }) };
 }
 
@@ -193,12 +181,7 @@ describe("scanPage — the attribution-guideline parts (#6)", () => {
   it("should carry the snippet finding, the site-name line and the new scope notes exactly as the site report", async () => {
     const page = guidelineScrape(URL_);
     const lead = { name: "Bezoeker", company_name: ARGS.company, homepage_url: ARGS.url, offer_description: ARGS.offer, target_audience: ARGS.audience, desired_queries: ARGS.questions, competitors: null };
-    const { result: analysis } = await factLayerAnalyze({
-      homepage_url: lead.homepage_url, company_name: lead.company_name, offer_description: lead.offer_description,
-      target_audience: lead.target_audience, desired_queries: lead.desired_queries, competitors: null,
-      page_content: page.text, metadata: page.metadata, robots_txt: page.robotsTxt, llms_txt_present: page.llmsTxtPresent,
-      facts: page.facts, robots: page.robots,
-    });
+    const { result: analysis } = await factLayerAnalyze(analysisInputFor(lead, page));
     const siteHtml = buildReportHtml({ lead, analysis, brand: BRAND, now: NOW });
 
     const result = await scanPage(ARGS, deps({ analyze: vi.fn(factLayerAnalyze), fetchPage: async () => page }));
@@ -212,6 +195,34 @@ describe("scanPage — the attribution-guideline parts (#6)", () => {
       knowledge: result.report_html.includes(`Kennisbank ${EVIDENCE.version}`),
       grounding: EVIDENCE.items.some((item) => item.id === "E-GROUNDING"),
     }).toEqual({ same: true, nosnippet: true, siteName: true, noAnswer: true, measure: true, knowledge: true, grounding: true });
+  });
+});
+
+describe("dailyScanCapReached", () => {
+  const NOW_MS = Date.parse("2026-11-27T12:00:00.000Z");
+
+  it.each([[undefined], [""], ["0"], ["-5"], ["veel"]])("should not cap when GEO_MAX_SCANS_PER_DAY is %j, without counting", async (cap) => {
+    const count = vi.fn(async () => 1_000);
+
+    const reached = await dailyScanCapReached(cap, count, () => NOW_MS);
+
+    expect({ reached, counted: count.mock.calls.length }).toEqual({ reached: false, counted: 0 });
+  });
+
+  it.each([
+    [99, false],
+    [100, true],
+    [140, true],
+  ])("should compare %i completed scans with a cap of 100", async (completed, reached) => {
+    expect(await dailyScanCapReached("100", async () => completed, () => NOW_MS)).toBe(reached);
+  });
+
+  it("should count the site's completed scans over the last 24 hours", async () => {
+    const count = vi.fn(async (_sinceIso: string) => 0);
+
+    await dailyScanCapReached("100", count, () => NOW_MS);
+
+    expect(count).toHaveBeenCalledWith("2026-11-26T12:00:00.000Z");
   });
 });
 
@@ -284,6 +295,14 @@ describe("MCP — geo_scan_page", () => {
     );
 
     expect(result).toMatchObject({ isError: true, content: [{ text: "Too many scans right now. Try again in 120 seconds." }] });
+  });
+
+  it("should answer the site's daily cap with an error that says to come back tomorrow", async () => {
+    const result = resultOf(
+      await handleMcpMessage(request("tools/call", { name: SCAN_PAGE_TOOL, arguments: { url: URL_ } }), scanDeps({ ok: false, dailyCap: true })),
+    );
+
+    expect(result).toMatchObject({ isError: true, content: [{ text: "Too many scans today. Try again tomorrow." }] });
   });
 
   it("should refuse a URL that is not http or https without scanning", async () => {

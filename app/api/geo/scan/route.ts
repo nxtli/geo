@@ -2,6 +2,7 @@ import { geoLeadSchema } from "@/lib/geo/validation";
 import type { GeoLeadInput } from "@/lib/geo/types";
 import { fetchHomepage } from "@/lib/geo/scrape";
 import { runGeoAnalysis } from "@/lib/geo/analysis";
+import { analysisInputFor } from "@/lib/geo/analysis-input";
 import { parseAnalysisResult } from "@/lib/geo/analysis/provider";
 import { buildPreview, buildReportHtml } from "@/lib/geo/report/service";
 import { generatePdf } from "@/lib/geo/report/pdf";
@@ -199,20 +200,7 @@ export async function POST(request: Request): Promise<Response> {
 
         // 3. AI analysis — live progress from the streamed tokens (35% → 90%).
         const { result: analysis, degraded, providerId, usage } = await runGeoAnalysis(
-          {
-            homepage_url: lead.homepage_url,
-            company_name: lead.company_name,
-            offer_description: lead.offer_description,
-            target_audience: lead.target_audience,
-            desired_queries: lead.desired_queries,
-            competitors: lead.competitors,
-            page_content: page.text,
-            metadata: page.metadata,
-            robots_txt: page.robotsTxt,
-            llms_txt_present: page.llmsTxtPresent,
-            facts: page.facts,
-            robots: page.robots,
-          },
+          analysisInputFor(lead, page),
           {
             onProgress: (frac) =>
               progress(35 + frac * 55, frac < 0.55 ? 2 : 3),

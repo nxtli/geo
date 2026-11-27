@@ -58,8 +58,11 @@ export interface JsonRpcFailure {
 
 export type JsonRpcResponse = JsonRpcSuccess | JsonRpcFailure;
 
-/** A full scan, or the scan route's rate limit saying when to come back. */
-export type ScanPageOutcome = { ok: true; result: ScanPageResult } | { ok: false; retryAfterSeconds: number };
+/** A full scan, the scan route's hourly limit saying when to come back, or the site's daily cap. */
+export type ScanPageOutcome =
+  | { ok: true; result: ScanPageResult }
+  | { ok: false; retryAfterSeconds: number }
+  | { ok: false; dailyCap: true };
 
 export interface McpDeps {
   /** Runs the page check; the route passes `runPageCheck` with the env-built deps. */
@@ -233,6 +236,7 @@ async function callScanPage(
   try {
     const outcome = await scan(parsed.data);
     if (!outcome.ok) {
+      if ("dailyCap" in outcome) return toolError("Too many scans today. Try again tomorrow.");
       return toolError(`Too many scans right now. Try again in ${outcome.retryAfterSeconds} seconds.`);
     }
     // The text leaves the report HTML out: it is long, and only a renderer needs it.

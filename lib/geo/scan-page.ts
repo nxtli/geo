@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RunAnalysisOutcome } from "./analysis";
+import { analysisInputFor } from "./analysis-input";
 import type { Brand } from "./brand";
 import type { PdfResult } from "./report/pdf";
 import { buildPreview, buildReportHtml } from "./report/service";
@@ -81,20 +82,7 @@ export async function scanPage(args: ScanPageArgs, deps: ScanPageDeps): Promise<
     competitors: null,
   };
   const page = await deps.fetchPage(lead.homepage_url, { guard: deps.guard });
-  const { result: analysis, degraded } = await deps.analyze({
-    homepage_url: lead.homepage_url,
-    company_name: lead.company_name,
-    offer_description: lead.offer_description,
-    target_audience: lead.target_audience,
-    desired_queries: lead.desired_queries,
-    competitors: lead.competitors,
-    page_content: page.text,
-    metadata: page.metadata,
-    robots_txt: page.robotsTxt,
-    llms_txt_present: page.llmsTxtPresent,
-    facts: page.facts,
-    robots: page.robots,
-  });
+  const { result: analysis, degraded } = await deps.analyze(analysisInputFor(lead, page));
   const reportHtml = buildReportHtml({ lead, analysis, brand: deps.brand, now: deps.now() });
   const { pdfUrl } = await deps.makePdf({ html: reportHtml, scanRequestId: null });
   return {
@@ -137,6 +125,24 @@ export function createScanRateLimit(max: number, windowMs: number, now: () => nu
 }
 
 export const DEFAULT_SCAN_MAX_PER_HOUR = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The site's daily cap (GEO_MAX_SCANS_PER_DAY), read the way the site scan
+ * reads it: no cap unless it is a positive number, and the count is the
+ * site's completed scans over the last 24 hours. Tool scans store no scan
+ * request, so they are held to the cap but do not add to the count.
+ */
+export async function dailyScanCapReached(
+  capValue: string | undefined,
+  countSince: (sinceIso: string) => Promise<number>,
+  now: () => number = Date.now,
+): Promise<boolean> {
+  const cap = Number(capValue);
+  if (!Number.isFinite(cap) || cap <= 0) return false;
+  return (await countSince(new Date(now() - DAY_MS).toISOString())) >= cap;
+}
 
 /** GEO_MCP_SCAN_MAX_PER_HOUR when it is a positive whole number, else the default. */
 export function scanMaxPerHour(value: string | undefined): number {

@@ -16,14 +16,18 @@ import {
   type PageCheckBody,
   type PageCheckResponse,
 } from "./page-check";
+import { scanPageArgsSchema, type ScanPageArgs, type ScanPageResult } from "./scan-page";
 
 /**
  * A minimal, stateless MCP server over Streamable HTTP for the page check.
  *
  * Every POST carries one JSON-RPC 2.0 message and a request is answered with
  * one `application/json` response: no SSE stream, no sessions, no
- * `Mcp-Session-Id`. The tools return exactly what POST /api/geo/page-check
- * returns. The route (app/api/geo/mcp/route.ts) only wires the environment.
+ * `Mcp-Session-Id`. The page-check tools return exactly what POST
+ * /api/geo/page-check returns. A route lists only the tools it has deps for:
+ * app/api/geo/mcp/route.ts serves the page check, and
+ * app/api/geo/mcp/scan/route.ts serves the full scan (`geo_scan_page`), with
+ * the longer time budget the site scan has.
  */
 
 export const MCP_SERVER_NAME = "geo";
@@ -54,9 +58,14 @@ export interface JsonRpcFailure {
 
 export type JsonRpcResponse = JsonRpcSuccess | JsonRpcFailure;
 
+/** A full scan, or the scan route's rate limit saying when to come back. */
+export type ScanPageOutcome = { ok: true; result: ScanPageResult } | { ok: false; retryAfterSeconds: number };
+
 export interface McpDeps {
   /** Runs the page check; the route passes `runPageCheck` with the env-built deps. */
-  checkPages: (body: PageCheckBody) => Promise<PageCheckResponse>;
+  checkPages?: (body: PageCheckBody) => Promise<PageCheckResponse>;
+  /** Runs one full site scan (lib/geo/scan-page.ts), behind the scan route's rate limit. */
+  scanPage?: (args: ScanPageArgs) => Promise<ScanPageOutcome>;
 }
 
 export interface ToolResult {
@@ -83,8 +92,9 @@ export const CHECK_DESCRIPTIONS: Record<CheckId, string> = {
 
 export const CHECK_PAGES_TOOL = "geo_check_pages";
 export const LIST_CHECKS_TOOL = "geo_list_checks";
+export const SCAN_PAGE_TOOL = "geo_scan_page";
 
-/** The tool list; the input schema mirrors `pageCheckBodySchema`. */
+/** The page-check tools; the input schema mirrors `pageCheckBodySchema`. */
 export const MCP_TOOLS = [
   {
     name: CHECK_PAGES_TOOL,
@@ -124,6 +134,41 @@ export const MCP_TOOLS = [
   },
 ];
 
+/** The full-scan tool; the input schema mirrors `scanPageArgsSchema`. */
+export const SCAN_TOOLS = [
+  {
+    name: SCAN_PAGE_TOOL,
+    description:
+      "Runs the GEO site's full scan on one page, the same scan visitors get on the site: it reads the page, " +
+      "scores it against the GEO scorecard with a language model and renders the site's own report. Returns the " +
+      "scorecard (scores, criteria, actions), a short preview, the report as self-contained HTML in " +
+      "`structuredContent.report_html`, and a PDF URL when the site stores PDFs (else null). No lead, e-mail or " +
+      "notification is created. A call can take up to five minutes. Pass the company name and the questions buyers " +
+      "ask for a sharper report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "The page to scan (http or https).", minLength: 1, maxLength: MAX_URL_LENGTH },
+        company: { type: "string", description: "The company or brand name; defaults to the page's host.", maxLength: 200 },
+        questions: {
+          type: "string",
+          description: "Questions buyers ask an AI assistant that this page should answer, one per line.",
+          maxLength: 2000,
+        },
+        offer: { type: "string", description: "What the company offers, in a sentence or two.", maxLength: 2000 },
+        audience: { type: "string", description: "Who the page is for.", maxLength: 2000 },
+      },
+      required: ["url"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+];
+
+/** The tools a route serves: the page check, the full scan, or both. */
+export function toolsFor(deps: McpDeps): ((typeof MCP_TOOLS)[number] | (typeof SCAN_TOOLS)[number])[] {
+  return [...(deps.checkPages ? MCP_TOOLS : []), ...(deps.scanPage ? SCAN_TOOLS : [])];
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -157,19 +202,45 @@ export function listChecks(): { id: CheckId; label: string; description: string 
   return CHECK_REGISTRY.map((check) => ({ id: check.id, label: check.label, description: CHECK_DESCRIPTIONS[check.id] }));
 }
 
-async function callCheckPages(args: Record<string, unknown>, deps: McpDeps): Promise<ToolResult> {
+async function callCheckPages(
+  args: Record<string, unknown>,
+  checkPages: NonNullable<McpDeps["checkPages"]>,
+): Promise<ToolResult> {
   const parsed = pageCheckBodySchema.safeParse(args);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => `${issue.path.join(".") || "arguments"}: ${issue.message}`);
     return toolError(`Invalid arguments. ${issues.join("; ")}`);
   }
   try {
-    const response = await deps.checkPages(parsed.data);
+    const response = await checkPages(parsed.data);
     return textResult(JSON.stringify(response), response as unknown as Record<string, unknown>);
   } catch (error) {
     // runPageCheck catches per URL; this only guards against the unexpected.
     logError("mcp.geo_check_pages", error);
     return toolError("The page check failed unexpectedly. Try again later.");
+  }
+}
+
+async function callScanPage(
+  args: Record<string, unknown>,
+  scan: NonNullable<McpDeps["scanPage"]>,
+): Promise<ToolResult> {
+  const parsed = scanPageArgsSchema.safeParse(args);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => `${issue.path.join(".") || "arguments"}: ${issue.message}`);
+    return toolError(`Invalid arguments. ${issues.join("; ")}`);
+  }
+  try {
+    const outcome = await scan(parsed.data);
+    if (!outcome.ok) {
+      return toolError(`Too many scans right now. Try again in ${outcome.retryAfterSeconds} seconds.`);
+    }
+    // The text leaves the report HTML out: it is long, and only a renderer needs it.
+    const { report_html: _html, ...summary } = outcome.result;
+    return textResult(JSON.stringify(summary), outcome.result as unknown as Record<string, unknown>);
+  } catch (error) {
+    logError("mcp.geo_scan_page", error);
+    return toolError("The scan failed unexpectedly. Try again later.");
   }
 }
 
@@ -180,10 +251,13 @@ async function callTool(id: JsonRpcId, params: unknown, deps: McpDeps): Promise<
   const args = params.arguments === undefined ? {} : params.arguments;
   if (!isObject(args)) return rpcError(id, INVALID_PARAMS, "`arguments` must be an object");
 
-  if (params.name === CHECK_PAGES_TOOL) {
-    return rpcResult(id, { ...(await callCheckPages(args, deps)) });
+  if (params.name === CHECK_PAGES_TOOL && deps.checkPages) {
+    return rpcResult(id, { ...(await callCheckPages(args, deps.checkPages)) });
   }
-  if (params.name === LIST_CHECKS_TOOL) {
+  if (params.name === SCAN_PAGE_TOOL && deps.scanPage) {
+    return rpcResult(id, { ...(await callScanPage(args, deps.scanPage)) });
+  }
+  if (params.name === LIST_CHECKS_TOOL && deps.checkPages) {
     const checks = listChecks();
     return rpcResult(id, { ...textResult(JSON.stringify({ checks }), { checks }) });
   }
@@ -224,7 +298,7 @@ export async function handleMcpMessage(message: unknown, deps: McpDeps): Promise
     case "ping":
       return rpcResult(id, {});
     case "tools/list":
-      return rpcResult(id, { tools: MCP_TOOLS });
+      return rpcResult(id, { tools: toolsFor(deps) });
     case "tools/call":
       return callTool(id, params, deps);
     default:

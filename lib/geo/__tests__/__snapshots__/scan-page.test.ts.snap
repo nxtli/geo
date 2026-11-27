@@ -1,0 +1,343 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`scanPage — the site scan's own report > should keep the site's report unchanged (snapshot of the site template) 1`] = `
+"<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NXTLI GEO Scan: Voorbeeld</title>
+<style>
+  :root { --brand:#0c90a1; --accent:#03b2b8; --ink:#0f172a; --muted:#475569; --subtle:#94a3b8; --border:#e6e8ee; --soft:#e0f6f7; --bg:#f7f8fb; --good:#16a34a; --warn:#d97706; --bad:#dc2626; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--bg); line-height:1.6; }
+  .page { max-width: 800px; margin: 0 auto; padding: 40px 22px 64px; }
+  .eyebrow { text-transform: uppercase; letter-spacing:.14em; font-size:11px; font-weight:800; color: var(--brand); }
+  h1 { font-size:28px; margin:.4em 0 .15em; letter-spacing:-.02em; }
+  h2 { font-size:18px; margin:0 0 2px; letter-spacing:-.01em; }
+  p { margin:.5em 0; }
+  a { color: var(--brand); }
+  .meta { color: var(--muted); font-size:13.5px; }
+  .meta a { color: var(--muted); text-decoration: underline; }
+  .card { border:1px solid var(--border); border-radius:18px; background:#fff; padding:26px; }
+  .section { margin-top:26px; }
+  .section-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .section-sub { color:var(--subtle); font-size:13px; }
+
+  /* Cover + score */
+  .cover { background:linear-gradient(160deg,#fff,var(--soft)); }
+  .coverTop { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+  .logo { height:34px; width:auto; }
+  .printbtn { border:1px solid var(--border); background:#fff; color:var(--ink); font:inherit; font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+  .printbtn:hover { border-color:var(--brand); color:var(--brand); }
+  .scoreWrap { display:flex; align-items:center; gap:26px; margin-top:22px; flex-wrap:wrap; }
+  .score { font-size:56px; font-weight:800; line-height:1; }
+  .badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; color:#fff; }
+  .scoreside { flex:1; min-width:220px; }
+  .scoreExplain { color:var(--muted); font-size:13px; margin:2px 0 10px; }
+  .bar { height:9px; border-radius:999px; background:#eaecf3; overflow:hidden; }
+  .bar > i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,var(--brand),var(--accent)); }
+  .bands { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+  .band-seg { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; background:#eef1f5; color:var(--subtle); }
+
+  /* Bullet lists with coded markers */
+  .ilist { list-style:none; margin:6px 0 0; padding:0; }
+  .ilist li { display:flex; gap:11px; margin:9px 0; align-items:flex-start; font-size:14.5px; }
+  .mk { flex:0 0 auto; width:21px; height:21px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; line-height:1; margin-top:1px; }
+  .mk-good{ background:#dcfce7; color:#15803d; }
+  .mk-opp{ background:#ffedd5; color:#c2410c; }
+  .mk-gap{ background:var(--soft); color:var(--brand); }
+  .mk-num{ background:var(--soft); color:var(--brand); font-size:11px; }
+  .ilist li .t { flex:1; }
+  .ilist li .t small { color:var(--muted); display:block; font-size:13px; margin-top:1px; }
+
+  .twocol { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .subcard { border:1px solid var(--border); border-radius:14px; padding:16px 18px; background:#fff; }
+  .subcard .h { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+  .quote { border-left:3px solid var(--soft); padding:2px 0 2px 14px; margin:10px 0; color:var(--ink); font-size:14.5px; }
+
+  /* Highlighted (payoff) card */
+  .card.highlight { border-color:var(--brand); background:linear-gradient(180deg,#fff,var(--soft)); }
+
+  /* What AI says — multi-LLM comparison table + ideal answer */
+  .llmwrap { overflow-x:auto; }
+  table.llm { width:100%; border-collapse:collapse; font-size:14px; }
+  table.llm th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--subtle); font-weight:800; padding:0 10px 8px; border-bottom:2px solid var(--border); }
+  table.llm td { padding:12px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  table.llm tr:last-child td { border-bottom:0; }
+  table.llm .eng { font-weight:700; white-space:nowrap; }
+  table.llm .ans { color:var(--muted); line-height:1.5; }
+  table.llm .fnd { white-space:nowrap; text-align:right; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:800; }
+  .pill.yes { background:#dcfce7; color:#15803d; }
+  .pill.no { background:#fee2e2; color:#b91c1c; }
+  .ideal { margin-top:20px; border:1px solid #bbf7d0; background:#f0fdf7; border-radius:16px; padding:20px; }
+  .ideal .h { text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:800; color:#16a34a; }
+  .ideal blockquote { margin:12px 0 0; padding:2px 0 2px 14px; border-left:3px solid #86efac; font-style:italic; font-size:14.5px; color:var(--ink); }
+  .ideal .tags { margin-top:14px; font-size:13px; font-weight:700; color:#16a34a; }
+  .ideal .idealnote { margin:12px 0 0; color:var(--muted); font-size:13px; }
+  @media (max-width:620px){ table.llm .eng { white-space:normal; } }
+
+  /* Score breakdown */
+  .rowscore { display:grid; grid-template-columns: 1fr 120px 56px; gap:14px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
+  .rowscore:last-child{ border-bottom:0; }
+  .rowscore .lbl { font-weight:600; }
+  .rowscore .lbl small { display:block; color:var(--muted); font-weight:400; font-size:12.5px; }
+  .rowscore .num { text-align:right; font-weight:700; white-space:nowrap; }
+  .rowtotal { display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:12px; border-top:2px solid var(--ink); font-weight:800; font-size:16px; }
+
+  /* Technical check */
+  .callout { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:12px; padding:12px 14px; font-size:13.5px; margin-bottom:14px; }
+  .tcheck { display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--border); }
+  .tcheck:last-child{ border-bottom:0; }
+  .tcheck.blk { background:#fef2f2; border-bottom-color:#fecaca; border-radius:10px; padding:11px 12px; margin:2px 0; }
+  .tcheck .lbl { flex:0 0 38%; font-weight:600; font-size:14px; }
+  .tcheck .det { flex:1; color:var(--muted); font-size:13.5px; }
+  .tbadge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:800; color:#fff; }
+
+  .cta { margin-top:30px; border-radius:18px; padding:26px; background:var(--ink); color:#fff; }
+  .cta a { color:#5fd6dd; }
+  .cta-url { display:none; margin-top:12px; font-size:13px; color:#fff; }
+  .foot { margin-top:34px; color:var(--subtle); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
+  .muted { color:var(--muted); }
+  /* Adviezen: één kaart per advies, met Nu en Voorstel naast elkaar. */
+  .acts { display:grid; gap:16px; margin-top:6px; }
+  .act { border:1px solid var(--border); border-radius:16px; padding:20px 22px; background:#fff; }
+  .act-head { display:flex; align-items:flex-start; gap:12px; }
+  .act-num { flex:none; width:30px; height:30px; border-radius:50%; background:var(--brand); color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .act-title { margin:0; font-size:17px; line-height:1.35; font-weight:700; letter-spacing:-0.01em; color:var(--ink); }
+  .act-chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 0 42px; }
+  .chip { font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; background:#f1f4f8; color:var(--muted); white-space:nowrap; }
+  .chip-pts { background:var(--soft); color:var(--brand); }
+  .chip-where { white-space:normal; background:#fff; border:1px solid var(--border); font-weight:500; }
+  .act-why { margin:14px 0 0 42px; color:var(--ink); font-size:15px; line-height:1.6; }
+  .act-compare { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 0 42px; }
+  .act-compare.single { grid-template-columns:1fr; }
+  .act-box { border-radius:12px; padding:14px 16px; font-size:14.5px; line-height:1.6; }
+  .act-now { background:#f6f7f9; border:1px solid var(--border); color:var(--muted); }
+  .act-new { background:var(--soft); border:1px solid transparent; border-left:3px solid var(--brand); color:var(--ink); }
+  .act-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; color:var(--subtle); }
+  .act-new .act-label { color:var(--brand); }
+  .act-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .act-empty { color:#8a94a6; font-style:italic; }
+  /* De twee stappen: eerst gevonden worden, dan als bron gekozen worden. */
+  .step-head { margin:18px 0 6px; font-weight:800; color:var(--ink); font-size:15px; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+  .step-head:first-child { margin-top:0; }
+  .step-head small { flex-basis:100%; font-weight:400; color:var(--muted); font-size:13px; line-height:1.5; }
+  .step-num { background:var(--soft); color:var(--brand); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+  .step-head-acts { margin:26px 0 12px; }
+  .fill { background:#fff4d6; border-radius:4px; padding:0 4px; color:#7a4b00; font-weight:600; }
+  .act-done { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0 42px; font-size:14px; color:var(--muted); }
+  .act-check { flex:none; width:20px; height:20px; border-radius:50%; background:#e7f6ec; color:var(--good); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  @media (max-width:620px){ .act { padding:16px; } .act-chips, .act-why, .act-compare, .act-done { margin-left:0; } .act-compare { grid-template-columns:1fr; } }
+  @media (max-width:620px){ .twocol{grid-template-columns:1fr;} .rowscore{grid-template-columns:1fr 80px 48px;} }
+
+  /* Print / save-as-PDF: keep colours, avoid splitting cards, hide the button. */
+  @page { margin: 14mm; }
+  @media print {
+    body { background:#fff; }
+    .page { max-width:none; padding:0; }
+    .printbtn { display:none !important; }
+    .card, .subcard, .rowscore, .tcheck, .cta, .act { break-inside: avoid; }
+    /* Niet elke PDF-weergave bewaart klikbare links. Het adres staat er daarom ook als tekst. */
+    .cta-url { display:block; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <section class="card cover">
+    <div class="coverTop">
+      <img class="logo" src="/nxtli-logo.png" alt="NXTLI" />
+      <button class="printbtn" type="button" onclick="window.print()">⬇ Download als PDF</button>
+    </div>
+    <div class="eyebrow">NXTLI GEO Scan</div>
+    <h1>AI-vindbaarheidsrapport</h1>
+    <div class="meta">Voor <strong>Voorbeeld</strong> · <a href="https://www.example.nl/diensten" target="_blank" rel="noopener">https://www.example.nl/diensten</a> · 27 november 2026</div>
+    <div class="scoreWrap">
+      <div>
+        <div class="score" style="color:#d97706">57<span style="font-size:20px;color:var(--subtle)">/100</span></div>
+        <span class="badge" style="background:#d97706">Gemiddeld</span>
+      </div>
+      <div class="scoreside">
+        <div class="muted" style="font-size:13px;font-weight:700">Paginascore</div>
+        <div class="scoreExplain">Hoe geschikt deze pagina is om door AI-tools gelezen, begrepen en aangehaald te worden. De score meet de pagina, niet hoe vaak AI je noemt.</div>
+        <div class="bar"><i style="width:57%"></i></div>
+        <div class="bands"><span class="band-seg">0–44 Te verbeteren</span><span class="band-seg" style="background:#d97706;color:#fff">45–69 Gemiddeld</span><span class="band-seg">70–100 Sterk</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KEY INSIGHTS — top of the report -->
+  <section class="section">
+    <div class="card">
+      <div class="eyebrow">Belangrijkste inzichten</div>
+      <p class="lead" style="font-size:16px;margin-top:8px">Voorbeeld is herkenbaar online aanwezig, maar de homepage maakt voor AI-systemen nog niet scherp genoeg duidelijk wat je precies aanbiedt en voor wie. Met een paar gerichte aanpassingen word je makkelijker samengevat en aanbevolen.</p>
+            <div class="twocol" style="margin-top:16px">
+        <div class="subcard">
+          <div class="h" style="color:#15803d">Sterk</div>
+          <ul class="ilist"><li><span class="mk mk-good">✓</span><span class="t">Er is een helder kernaanbod om op voort te bouwen.</span></li><li><span class="mk mk-good">✓</span><span class="t">De homepage is technisch bereikbaar voor AI-crawlers.</span></li><li><span class="mk mk-good">✓</span><span class="t">De gewenste zoekthema's zijn concreet genoeg om content omheen te bouwen.</span></li></ul>
+        </div>
+        <div class="subcard">
+          <div class="h" style="color:#c2410c">Grootste kansen</div>
+          <ul class="ilist"><li><span class="mk mk-opp">→</span><span class="t">Expertise en autoriteit worden nog niet met bewijs onderbouwd (cases, cijfers, referenties).</span></li><li><span class="mk mk-opp">→</span><span class="t">De homepage beantwoordt de concrete vragen van de doelgroep nog niet expliciet.</span></li><li><span class="mk mk-opp">→</span><span class="t">Content is nog niet gestructureerd in citeerbare, op zichzelf staande antwoorden.</span></li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Wat AI over je zegt</h2><span class="section-sub">Voorbeeld, steekproef bij meerdere AI-systemen</span></div>
+          <p class="muted" style="font-size:12.5px;margin:0 0 12px">Eén vraag per systeem, één keer gesteld, zonder je webadres. AI-antwoorden wisselen per keer. Lees dit als steekproef, niet als meting.</p>
+          <p class="muted">Er zijn voor deze scan geen live AI-antwoorden opgehaald.</p>
+          <div class="ideal">
+                  <div class="h">Zo zou het idealiter moeten klinken</div>
+                  <blockquote>Met concrete feiten kan datzelfde AI-antwoord luiden: &quot;Voorbeeld biedt Websites voor het mkb voor Mkb-ondernemers, met [prijs, locatie en capaciteit].&quot;</blockquote>
+                  <div class="tags">✓ feitelijk · citeerbaar · onderscheidend</div>
+                  <p class="idealnote">Zo kan een AI-tool je aanbod samenvatten als de adviezen hieronder zijn uitgevoerd. Tekst tussen [invullen: ...] vraagt om een feit van jou.</p>
+                </div>
+        </div></section>
+
+  <!-- QUICK WINS — also near the top -->
+  <section class="section">
+    <div class="card">
+      <div class="section-head"><h2>Snelle winst, nu te doen</h2><span class="section-sub">kleine acties, grote impact</span></div>
+      <ul class="ilist"><li><span class="mk mk-num">1</span><span class="t">Zet bovenaan je homepage één heldere zin: wat je doet, voor wie, en wat het oplevert.</span></li><li><span class="mk mk-num">2</span><span class="t">Voeg een korte FAQ toe met 3–5 echte klantvragen en bondige antwoorden.</span></li><li><span class="mk mk-num">3</span><span class="t">Maak je expertise concreet met minimaal één cijfer of klantresultaat.</span></li></ul>
+    </div>
+  </section>
+
+  
+
+  <!-- SCORE BREAKDOWN -->
+    <section class="section">
+    <div class="card">
+      <div class="section-head"><h2>Hoe de score is opgebouwd</h2><span class="section-sub">per onderdeel, kleur toont de prestatie</span></div>
+      <div class="step-head"><span class="step-num">Stap 1</span>Zorg dat een AI-tool je pagina vindt</div><div class="rowscore">
+                  <div class="lbl">Paginabasis<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:50%;background:var(--warn)"></i></div>
+                  <div class="num">4<span class="muted">/8</span></div>
+                </div><div class="rowscore">
+                  <div class="lbl">Actualiteit<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:60%;background:var(--warn)"></i></div>
+                  <div class="num">3<span class="muted">/5</span></div>
+                </div><div class="rowscore">
+                  <div class="lbl">Afzender en vertrouwen<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:60%;background:var(--warn)"></i></div>
+                  <div class="num">6<span class="muted">/10</span></div>
+                </div><div class="step-head"><span class="step-num">Stap 2</span>Zorg dat je pagina als bron wordt gekozen en gebruikt</div><div class="rowscore">
+                  <div class="lbl">Aansluiting op de vraag<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:58%;background:var(--warn)"></i></div>
+                  <div class="num">15<span class="muted">/26</span></div>
+                </div><div class="rowscore">
+                  <div class="lbl">Eigen, concrete informatie<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:57%;background:var(--warn)"></i></div>
+                  <div class="num">16<span class="muted">/28</span></div>
+                </div><div class="rowscore">
+                  <div class="lbl">Citeerbare antwoorden<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:54%;background:var(--warn)"></i></div>
+                  <div class="num">7<span class="muted">/13</span></div>
+                </div><div class="rowscore">
+                  <div class="lbl">Bewijs en bronnen<small>Voorlopige inschatting op basis van je antwoorden (mock).</small></div>
+                  <div class="bar"><i style="width:60%;background:var(--warn)"></i></div>
+                  <div class="num">6<span class="muted">/10</span></div>
+                </div><div class="rowtotal"><span>Totaalscore</span><span style="color:#d97706">57/100</span></div>
+    </div>
+  </section>
+
+  <!-- TECHNICAL CHECK -->
+  <section class="section">
+    <div class="card">
+      <div class="section-head"><h2>Technische check</h2><span class="section-sub">kan AI je pagina lezen & vertrouwen?</span></div>
+      <div class="tcheck">
+                  <div class="lbl">AI-crawler-toegang (robots.txt)</div>
+                  <div class="det"><span class="tbadge" style="background:#16a34a">Goed</span> Geen blokkade voor AI-search-bots aangetroffen.</div>
+                </div><div class="tcheck">
+                  <div class="lbl">Indexeerbaarheid (noindex/nofollow)</div>
+                  <div class="det"><span class="tbadge" style="background:#16a34a">Goed</span> Geen noindex op pagina-niveau aangetroffen — de pagina is indexeerbaar.</div>
+                </div><div class="tcheck">
+                  <div class="lbl">Content-rendering (zonder JavaScript leesbaar)</div>
+                  <div class="det"><span class="tbadge" style="background:#16a34a">Goed</span> Tekst staat in de HTML.</div>
+                </div><div class="tcheck">
+                  <div class="lbl">Structured data (schema / JSON-LD)</div>
+                  <div class="det"><span class="tbadge" style="background:#94a3b8">Onbekend</span> Pagina niet opgehaald — niet gecontroleerd.</div>
+                </div><div class="tcheck">
+                  <div class="lbl">Semantische HTML (koppenstructuur)</div>
+                  <div class="det"><span class="tbadge" style="background:#94a3b8">Onbekend</span> Pagina niet opgehaald — koppen niet beoordeeld.</div>
+                </div><div class="tcheck">
+                  <div class="lbl">llms.txt</div>
+                  <div class="det"><span class="tbadge" style="background:#d97706">Aandacht</span> Niet gevonden.</div>
+                </div><p class="muted" style="font-size:12.5px;margin-top:12px">Deze checks zijn door code gemeten, niet door een taalmodel ingeschat. Snelheid (Core Web Vitals) is niet gemeten.</p>
+    </div>
+  </section>
+
+  <!-- DETAIL -->
+    <section class="section">
+    <div class="card">
+      <div class="section-head"><h2>Wat AI van je site begrijpt</h2></div>
+      <p>AI-systemen kunnen waarschijnlijk afleiden dat Voorbeeld actief is rond &quot;Websites voor het mkb&quot;, maar de koppeling met je doelgroep en de concrete vragen die zij stellen is nog niet expliciet genoeg.</p>
+      <p class="quote">Op dit moment word je waarschijnlijk gezien als een algemene speler in je categorie, niet als hét antwoord op specifieke vragen van Mkb-ondernemers.</p>
+    </div>
+  </section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Ontbrekende signalen</h2><span class="section-sub">vertrouwen & bewijs</span></div>
+          <ul class="ilist"><li><span class="mk mk-opp">→</span><span class="t">Duidelijke 'wat wij doen / voor wie'-statement bovenaan</span></li><li><span class="mk mk-opp">→</span><span class="t">Bewijs van autoriteit (klantcases, resultaten, beoordelingen)</span></li><li><span class="mk mk-opp">→</span><span class="t">Gestructureerde FAQ die echte zoekvragen beantwoordt</span></li></ul>
+        </div></section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Content gaps</h2><span class="section-sub">wat nog mist</span></div>
+          <ul class="ilist"><li><span class="mk mk-gap">+</span><span class="t">Een pagina of sectie die de vraag &quot;Welk bureau maakt websites voor het mkb?&quot; concreet beantwoordt.</span></li></ul>
+        </div></section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Aanbevolen pagina's om te maken</h2><span class="section-sub">vergroot je AI-vindbaarheid</span></div>
+          <ul class="ilist"><li><span class="mk mk-gap">+</span><span class="t">Een heldere 'Wat we doen'-pagina per dienst</span></li><li><span class="mk mk-gap">+</span><span class="t">Een cases-/resultatenpagina met concrete cijfers</span></li><li><span class="mk mk-gap">+</span><span class="t">Een FAQ-pagina die de belangrijkste klantvragen beantwoordt</span></li></ul>
+        </div></section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Verbetervoorstellen voor je homepage-copy</h2></div>
+          <p class="quote">Vervang vage taglines door een concrete belofte voor Mkb-ondernemers.</p><p class="quote">Gebruik koppen die echte vragen beantwoorden in plaats van merkslogans.</p><p class="quote">Voeg een korte, scanbare opsomming toe van je belangrijkste diensten.</p>
+        </div></section>
+
+  <section class="section"><div class="card">
+          <div class="section-head"><h2>Klantvragen die je pagina nog niet beantwoordt</h2><span class="section-sub">beantwoord ze op de pagina</span></div>
+          <ul class="ilist"><li><span class="mk mk-gap">+</span><span class="t">Welk bureau maakt websites voor het mkb?<small>Deze vraag sluit aan op wat je doelgroep aan AI vraagt en is goed citeerbaar.</small></span></li></ul>
+        </div></section>
+
+  <section class="section"><div class="card highlight">
+          <div class="section-head"><h2>30-dagen actieplan</h2><span class="section-sub">jouw stappenplan voor de komende maand</span></div>
+          <ul class="ilist">
+            <li>
+                  <span class="mk mk-num">1</span>
+                  <span class="t"><strong>Herschrijf de homepage-introductie naar een concreet aanbod-statement</strong>
+                    <small>AI-systemen citeren content die in één oogopslag duidelijk maakt wat je doet en voor wie. · <em>inspanning: laag</em></small></span>
+                </li><li>
+                  <span class="mk mk-num">2</span>
+                  <span class="t"><strong>Bouw een FAQ rond de belangrijkste zoekvragen van je doelgroep</strong>
+                    <small>Gestructureerde vraag-antwoordcontent wordt vaker letterlijk overgenomen in AI-antwoorden. · <em>inspanning: midden</em></small></span>
+                </li><li>
+                  <span class="mk mk-num">3</span>
+                  <span class="t"><strong>Voeg autoriteitssignalen toe (cases, cijfers, referenties)</strong>
+                    <small>Betrouwbaarheidssignalen vergroten de kans dat AI jou aanbeveelt boven concurrenten. · <em>inspanning: midden</em></small></span>
+                </li>
+          </ul>
+        </div></section>
+
+  <div class="cta">
+    <strong>Wil je dat NXTLI dit voor je uitwerkt?</strong>
+    <p style="margin:.5em 0 14px">Plan een korte GEO-strategiesessie. We bouwen websites en systemen die niet alleen mooi zijn, maar ook begrijpelijk voor mensen én AI.</p>
+    <a href="https://example.nl/afspraak/" style="display:inline-block;background:var(--brand);color:#fff;font-weight:700;padding:11px 20px;border-radius:999px;text-decoration:none">Plan een sessie →</a>
+    <div class="cta-url">Of ga naar <a href="https://example.nl/afspraak/">example.nl/afspraak/</a></div>
+  </div>
+
+  
+
+  <div class="foot">
+    Dit rapport is automatisch gegenereerd door Charlie, de AI-analist van NXTLI, op basis van je homepage en aangeleverde gegevens. © NXTLI.
+  </div>
+</div>
+</body>
+</html>"
+`;
